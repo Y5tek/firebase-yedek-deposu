@@ -91,15 +91,15 @@ const prompt = ai.definePrompt({
   },
   prompt: `You are an AI assistant that helps decide whether to override existing data with new OCR data. For each field, consider the following:
 
-*   If the current data is empty, you should override it with the OCR data.
-*   If the OCR data is more complete or accurate than the current data, you should override it.
-*   If the OCR data is less complete or accurate than the current data, you should not override it.
-*   If the OCR data and the current data are the same, you should not override it.
+*   If the current data is empty or obviously less complete/correct, you should override it with the OCR data.
+*   If the OCR data is more complete or accurate (e.g., longer, fewer typos) than the current data, you should override it.
+*   If the OCR data is less complete, less accurate, or clearly wrong compared to the current data, you should not override it.
+*   If the OCR data and the current data are effectively the same (ignoring minor case/whitespace differences), you should not override it.
 
 Given the following OCR data and current data, decide whether to override each field. Return a JSON object indicating whether to override each field:
 
-OCR Data: {{{ocrData}}}
-Current Data: {{{currentData}}}
+OCR Data: {{{json ocrData}}}
+Current Data: {{{json currentData}}}
 `,
 });
 
@@ -111,6 +111,22 @@ const decideOcrOverrideFlow = ai.defineFlow<
   inputSchema: DecideOcrOverrideInputSchema,
   outputSchema: DecideOcrOverrideOutputSchema,
 }, async input => {
-  const {output} = await prompt(input);
-  return output!;
+   let llmResponse;
+    try {
+        llmResponse = await prompt(input);
+    } catch (error) {
+        console.error("Error calling decideOcrOverridePrompt:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+         if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable')) {
+             // Re-throw a specific error for service unavailability
+             throw new Error("AI Service Unavailable: The model is overloaded. Please try again later.");
+         }
+         // Re-throw other errors
+         throw new Error(`AI prompt error: ${errorMessage}`);
+    }
+    const output = llmResponse.output();
+    if (!output) {
+        throw new Error("AI failed to generate an override decision.");
+    }
+  return output;
 });

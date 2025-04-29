@@ -1,3 +1,4 @@
+
 // noinspection JSUnusedLocalSymbols
 'use client';
 
@@ -62,7 +63,8 @@ export default function NewRecordStep1() {
     console.error(`AI/OCR error in Step ${step}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen bir yapay zeka hatası oluştu.';
 
-    if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable')) {
+    // Check for specific AI Service Unavailable error
+    if (errorMessage.includes('AI Service Unavailable')) {
       setOcrError('Yapay zeka servisi şu anda yoğun veya kullanılamıyor. Lütfen birkaç dakika sonra tekrar deneyin veya bilgileri manuel girin.');
       toast({
         title: 'Servis Kullanılamıyor',
@@ -71,6 +73,7 @@ export default function NewRecordStep1() {
         duration: 7000, // Longer duration for service errors
       });
     } else {
+      // Handle other generic errors
       setOcrError(`Belge okunurken bir hata oluştu (Adım ${step}). Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin. Hata: ${errorMessage}`);
       toast({
         title: `OCR Hatası (Adım ${step})`,
@@ -158,7 +161,8 @@ export default function NewRecordStep1() {
 
       // Function to decide if a field should be updated
       const shouldUpdate = (fieldName: keyof typeof override): boolean => {
-        return !!(override[fieldName] && ocrData[fieldName]);
+        // Ensure the field exists in ocrData before checking the override decision
+        return !!(override[fieldName] && ocrData[fieldName as keyof typeof ocrData]);
       };
 
       // Update fields based on decision
@@ -206,10 +210,14 @@ export default function NewRecordStep1() {
       if (shouldUpdate('typeApprovalNumber')) {
            console.log("Preparing update for typeApprovalNumber in global state:", ocrData.typeApprovalNumber);
           updates.typeApprovalNumber = ocrData.typeApprovalNumber;
+      } else {
+          console.log("Not overriding typeApprovalNumber. Override:", override.typeApprovalNumber, "OCR Data:", ocrData.typeApprovalNumber);
       }
       if (shouldUpdate('typeAndVariant')) {
           console.log("Preparing update for typeAndVariant in global state:", ocrData.typeAndVariant);
           updates.typeAndVariant = ocrData.typeAndVariant;
+      } else {
+          console.log("Not overriding typeAndVariant. Override:", override.typeAndVariant, "OCR Data:", ocrData.typeAndVariant);
       }
 
 
@@ -256,10 +264,12 @@ export default function NewRecordStep1() {
         setImagePreviewUrl(url);
         form.setValue('document', file);
       } else if (typeof recordData.registrationDocument === 'object' && recordData.registrationDocument?.name) {
-        setCurrentFile(null);
+        // If it's serializable info (from persisted state), no preview
+        setCurrentFile(null); // No actual File object here
         setImagePreviewUrl(null);
-        form.setValue('document', recordData.registrationDocument);
+        form.setValue('document', recordData.registrationDocument); // Keep the info for the field
       } else {
+        // Reset if neither File nor info object exists
         setCurrentFile(null);
         setImagePreviewUrl(null);
         form.setValue('document', null);
@@ -273,31 +283,37 @@ export default function NewRecordStep1() {
         URL.revokeObjectURL(imagePreviewUrl);
       }
     };
+    // Only re-run if the registrationDocument itself changes identity or type
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordData.registrationDocument]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    setOcrError(null);
+    setOcrError(null); // Clear previous errors on new file selection
 
     if (file) {
       if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
+        URL.revokeObjectURL(imagePreviewUrl); // Clean up old preview URL
       }
       const newPreviewUrl = URL.createObjectURL(file);
       setImagePreviewUrl(newPreviewUrl);
-      setCurrentFile(file);
+      setCurrentFile(file); // Store the actual File object
 
-      form.setValue('document', file);
-      updateRecordData({ registrationDocument: file });
+      form.setValue('document', file); // Set the File object in the form state
+      updateRecordData({ registrationDocument: file }); // Update global state with File object
+      console.log("File selected:", file.name);
 
       // Deactivated auto-scan, user clicks button now
+      // initiateOcrScan(file); // Optional: Trigger scan immediately after selection
     } else {
+      // Handle case where file selection is cancelled or no file is chosen
       if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
       setImagePreviewUrl(null);
       setCurrentFile(null);
       form.setValue('document', null);
-      updateRecordData({ registrationDocument: undefined }, false); // Use flag instead of modifying args
+      // Use undefined to explicitly clear the document in global state
+      updateRecordData({ registrationDocument: undefined });
+       console.log("File selection cancelled or no file chosen.");
     }
   };
 
@@ -315,8 +331,11 @@ export default function NewRecordStep1() {
    };
 
   const onSubmit = (data: FormData) => {
+    // Check if there is a current file or if there's file info from persisted state
     const documentValue = form.getValues('document');
-    if (!currentFile && !(typeof documentValue === 'object' && documentValue?.name)) {
+    const hasDocument = currentFile || (typeof documentValue === 'object' && documentValue?.name);
+
+    if (!hasDocument) {
         toast({
             title: 'Eksik Bilgi',
             description: 'Lütfen devam etmeden önce bir ruhsat belgesi yükleyin.',
@@ -325,18 +344,20 @@ export default function NewRecordStep1() {
         return;
     }
 
+    // Prioritize the current File object if it exists, otherwise use persisted info
     const documentToSave = currentFile || recordData.registrationDocument;
 
     console.log("Submitting Step 1 Data:", data);
-    console.log("Document to save:", documentToSave);
+    console.log("Document to save (or info):", documentToSave);
 
+    // Update global state, ensuring the file (or its info) is correctly passed
     updateRecordData({
         chassisNumber: data.chassisNumber,
         brand: data.brand,
         type: data.type,
         tradeName: data.tradeName,
         owner: data.owner,
-        registrationDocument: documentToSave
+        registrationDocument: documentToSave // This will be the File or the info object
     });
     router.push('/new-record/step-2');
   };
@@ -386,7 +407,7 @@ export default function NewRecordStep1() {
                               fill
                               style={{ objectFit: 'contain' }}
                               className="rounded-md"
-                              unoptimized
+                              unoptimized // Use unoptimized for local object URLs
                             />
                           </div>
                         ) : (
@@ -416,7 +437,7 @@ export default function NewRecordStep1() {
                         />
                         <div className="flex flex-wrap justify-center gap-2">
                           <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
-                            <Upload className="mr-2 h-4 w-4" /> {imagePreviewUrl ? 'Değiştir' : 'Dosya Seç'}
+                            <Upload className="mr-2 h-4 w-4" /> {currentFile || (typeof field.value === 'object' && field.value?.name) ? 'Değiştir' : 'Dosya Seç'}
                           </Button>
                            <Button
                                 type="button"
@@ -440,7 +461,8 @@ export default function NewRecordStep1() {
                         )}
                       </div>
                     </FormControl>
-                     {/* <FormMessage /> */}
+                     {/* Display form message if there's an error related to the document field itself (e.g., required but missing) */}
+                     <FormMessage />
                   </FormItem>
                 )}
               />
@@ -514,7 +536,7 @@ export default function NewRecordStep1() {
                   />
               </div>
 
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading || (!currentFile && !(typeof form.getValues('document') === 'object' && form.getValues('document')?.name))}>
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading || !(currentFile || (typeof form.getValues('document') === 'object' && form.getValues('document')?.name))}>
                 Devam Et
               </Button>
             </form>
@@ -524,3 +546,4 @@ export default function NewRecordStep1() {
     </div>
   );
 }
+

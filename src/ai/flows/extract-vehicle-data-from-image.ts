@@ -85,9 +85,22 @@ const extractVehicleDataFlow = ai.defineFlow<
   },
   async (input) => {
     console.log("Calling AI prompt for OCR extraction...");
-    // Call the AI prompt with the image data URI
-    const llmResponse = await extractDataPrompt(input);
-    const extractedData = llmResponse.output();
+    let llmResponse;
+    try {
+        // Call the AI prompt with the image data URI
+        llmResponse = await extractDataPrompt(input);
+    } catch (error) {
+        console.error("Error calling extractDataPrompt:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+         if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable')) {
+             // Re-throw a specific error for service unavailability
+             throw new Error("AI Service Unavailable: The model is overloaded. Please try again later.");
+         }
+         // Re-throw other errors
+         throw new Error(`AI prompt error: ${errorMessage}`);
+    }
+
+    const extractedData = llmResponse.output(); // Use .output() to get the structured output
 
     if (!extractedData) {
         throw new Error("AI failed to extract data from the image.");
@@ -101,3 +114,4 @@ const extractVehicleDataFlow = ai.defineFlow<
     };
   }
 );
+

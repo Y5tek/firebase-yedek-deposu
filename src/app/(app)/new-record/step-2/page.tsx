@@ -1,3 +1,4 @@
+
 // noinspection JSUnusedLocalSymbols
 'use client';
 
@@ -59,22 +60,24 @@ export default function NewRecordStep2() {
         console.error(`AI/OCR error in Step ${step}:`, error);
         const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen bir yapay zeka hatası oluştu.';
 
-        if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable')) {
-        setOcrError('Yapay zeka servisi şu anda yoğun veya kullanılamıyor. Lütfen birkaç dakika sonra tekrar deneyin veya bilgileri manuel girin.');
-        toast({
-            title: 'Servis Kullanılamıyor',
-            description: 'Yapay zeka servisi şu anda yoğun veya geçici olarak devre dışı. Lütfen tekrar deneyin.',
-            variant: 'destructive',
-            duration: 7000, // Longer duration for service errors
-        });
+        // Check for specific AI Service Unavailable error
+        if (errorMessage.includes('AI Service Unavailable')) {
+            setOcrError('Yapay zeka servisi şu anda yoğun veya kullanılamıyor. Lütfen birkaç dakika sonra tekrar deneyin veya bilgileri manuel girin.');
+            toast({
+                title: 'Servis Kullanılamıyor',
+                description: 'Yapay zeka servisi şu anda yoğun veya geçici olarak devre dışı. Lütfen tekrar deneyin.',
+                variant: 'destructive',
+                duration: 7000, // Longer duration for service errors
+            });
         } else {
-        setOcrError(`Etiket okunurken bir hata oluştu (Adım ${step}). Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin. Hata: ${errorMessage}`);
-        toast({
-            title: `OCR Hatası (Adım ${step})`,
-            description: `Etiket taranırken bir hata oluştu. Bilgileri kontrol edin. ${errorMessage}`,
-            variant: 'destructive',
-            duration: 5000,
-        });
+            // Handle other generic errors
+            setOcrError(`Etiket okunurken bir hata oluştu (Adım ${step}). Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin. Hata: ${errorMessage}`);
+            toast({
+                title: `OCR Hatası (Adım ${step})`,
+                description: `Etiket taranırken bir hata oluştu. Bilgileri kontrol edin. ${errorMessage}`,
+                variant: 'destructive',
+                duration: 5000,
+            });
         }
     };
 
@@ -152,15 +155,31 @@ export default function NewRecordStep2() {
          const override = overrideDecision.override;
 
          // Function to decide if a field should be updated
-         const shouldUpdate = (fieldName: keyof typeof override): boolean => {
-            return !!(override[fieldName] && ocrData[fieldName]);
-         };
+        const shouldUpdate = (fieldName: keyof typeof override): boolean => {
+            // Ensure the field exists in ocrData before checking the override decision
+            return !!(override[fieldName] && ocrData[fieldName as keyof typeof ocrData]);
+        };
+
 
          // IMPORTANT: Chassis number update check (primarily for logging difference)
          if (override.chassisNumber && ocrData.chassisNumber && ocrData.chassisNumber !== recordData.chassisNumber) {
              console.warn("Chassis number on label OCR differs from license OCR:", ocrData.chassisNumber);
-             // Do NOT update chassisNumber based on label scan
+             // Optionally notify user about discrepancy, but generally trust the registration doc (Step 1) more for chassis no.
+             // Do NOT update chassisNumber based on label scan automatically unless specifically required.
+             if (overrideDecision.override.chassisNumber) { // If AI explicitly said to override...
+                 console.log("AI decided to override chassis number based on label. Applying change.");
+                 updates.chassisNumber = ocrData.chassisNumber; // Update global state
+                 form.setValue('chassisNumber', ocrData.chassisNumber!); // Update display field
+             } else {
+                  console.log("AI decided NOT to override chassis number based on label.");
+             }
+         } else if (shouldUpdate('chassisNumber')) {
+             // This case handles if step 1 chassis was empty and label has it.
+             console.log("Updating chassisNumber field with label OCR data (was potentially empty):", ocrData.chassisNumber);
+             form.setValue('chassisNumber', ocrData.chassisNumber!);
+             updates.chassisNumber = ocrData.chassisNumber;
          }
+
 
          // Type Approval Number
          if (shouldUpdate('typeApprovalNumber')) {
@@ -216,6 +235,13 @@ export default function NewRecordStep2() {
                 // Update global state for potential future use even without decision
                 updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
                 updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
+                // Also fallback for other fields if empty
+                 if (!recordData.chassisNumber && ocrDataFallback.chassisNumber) updates.chassisNumber = ocrDataFallback.chassisNumber;
+                 if (!recordData.brand && ocrDataFallback.brand) updates.brand = ocrDataFallback.brand;
+                 if (!recordData.type && ocrDataFallback.type) updates.type = ocrDataFallback.type;
+                 if (!recordData.tradeName && ocrDataFallback.tradeName) updates.tradeName = ocrDataFallback.tradeName;
+                 if (!recordData.owner && ocrDataFallback.owner) updates.owner = ocrDataFallback.owner;
+
              }
        } finally {
             // Update app state regardless of override success, including the file itself
@@ -237,10 +263,12 @@ export default function NewRecordStep2() {
              setImagePreviewUrl(url);
              form.setValue('labelDocument', file);
          } else if (typeof recordData.labelDocument === 'object' && recordData.labelDocument?.name) {
-             setCurrentFile(null);
+            // If it's serializable info (from persisted state), no preview
+            setCurrentFile(null); // No actual File object here
              setImagePreviewUrl(null);
-             form.setValue('labelDocument', recordData.labelDocument);
+             form.setValue('labelDocument', recordData.labelDocument); // Keep the info
          } else {
+             // Reset if neither File nor info object exists
              setCurrentFile(null);
              setImagePreviewUrl(null);
              form.setValue('labelDocument', null);
@@ -254,32 +282,38 @@ export default function NewRecordStep2() {
         URL.revokeObjectURL(imagePreviewUrl);
       }
     };
+    // Only re-run if the labelDocument itself changes identity or type
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordData.labelDocument]);
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    setOcrError(null);
+    setOcrError(null); // Clear previous errors
 
     if (file) {
       if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
+        URL.revokeObjectURL(imagePreviewUrl); // Clean up old preview
       }
        const newPreviewUrl = URL.createObjectURL(file);
        setImagePreviewUrl(newPreviewUrl);
-       setCurrentFile(file);
+       setCurrentFile(file); // Store the actual File object
 
-      form.setValue('labelDocument', file);
-      updateRecordData({ labelDocument: file });
+      form.setValue('labelDocument', file); // Set File object in form
+      updateRecordData({ labelDocument: file }); // Update global state with File object
+       console.log("Label file selected:", file.name);
 
       // Deactivated auto-scan
+      // initiateOcrScan(file); // Optional: Trigger scan immediately
     } else {
+        // Handle cancellation or no file selection
         if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
         setImagePreviewUrl(null);
         setCurrentFile(null);
         form.setValue('labelDocument', null);
-        updateRecordData({ labelDocument: undefined }, false); // Use flag
+        // Use undefined to explicitly clear the document in global state
+        updateRecordData({ labelDocument: undefined });
+        console.log("Label file selection cancelled or no file chosen.");
     }
   };
 
@@ -297,8 +331,11 @@ export default function NewRecordStep2() {
   };
 
   const onSubmit = (data: FormData) => {
-      const documentValue = form.getValues('labelDocument');
-      if (!currentFile && !(typeof documentValue === 'object' && documentValue?.name)) {
+      // Check if there is a current file or if there's file info from persisted state
+       const documentValue = form.getValues('labelDocument');
+       const hasDocument = currentFile || (typeof documentValue === 'object' && documentValue?.name);
+
+      if (!hasDocument) {
           toast({
               title: 'Eksik Bilgi',
               description: 'Lütfen devam etmeden önce bir etiket belgesi yükleyin.',
@@ -307,27 +344,36 @@ export default function NewRecordStep2() {
           return;
       }
 
+     // Prioritize the current File object if it exists, otherwise use persisted info
      const documentToSave = currentFile || recordData.labelDocument;
 
      console.log("Submitting Step 2 Data:", data);
-     console.log("Label Document to save:", documentToSave);
+     console.log("Label Document to save (or info):", documentToSave);
 
 
+    // Update global state, ensuring the file (or its info) is correctly passed
     updateRecordData({
-        chassisNumber: recordData.chassisNumber, // Preserve from step 1
+        // Preserve potentially updated fields from global state (e.g., if label OCR updated them)
+        chassisNumber: recordData.chassisNumber,
+        brand: recordData.brand,
+        type: recordData.type,
+        tradeName: recordData.tradeName,
+        owner: recordData.owner,
+        // Update with current form values for step 2 specific fields
         typeApprovalNumber: data.typeApprovalNumber,
         typeAndVariant: data.typeAndVariant,
-        labelDocument: documentToSave
+        labelDocument: documentToSave // This will be the File or the info object
     });
     router.push('/new-record/step-3');
   };
 
   const goBack = () => {
+     // Save current data before going back
      updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
-        labelDocument: currentFile || recordData.labelDocument
+        labelDocument: currentFile || recordData.labelDocument // Save current file/info
     });
     router.push('/new-record/step-1');
   };
@@ -336,20 +382,37 @@ export default function NewRecordStep2() {
     if (!branch) {
       router.push('/select-branch');
     }
-     // Pre-fill chassis number display field and others from global state
-     if (recordData.chassisNumber && form.getValues('chassisNumber') !== recordData.chassisNumber) {
-       form.setValue('chassisNumber', recordData.chassisNumber);
-     }
-     if (recordData.typeApprovalNumber && form.getValues('typeApprovalNumber') !== recordData.typeApprovalNumber) {
-        form.setValue('typeApprovalNumber', recordData.typeApprovalNumber);
-     }
-     if (recordData.typeAndVariant && form.getValues('typeAndVariant') !== recordData.typeAndVariant) {
-         form.setValue('typeAndVariant', recordData.typeAndVariant);
-     }
-     // Re-sync display chassis number on potential global state update from step 1
-     form.setValue('chassisNumber', recordData.chassisNumber || '');
+     // Sync form fields with global state when the component loads or recordData changes
+     // This ensures data potentially updated by step 1 OCR/override is reflected here
+     form.reset({
+        chassisNumber: recordData.chassisNumber || '',
+        typeApprovalNumber: recordData.typeApprovalNumber || '',
+        typeAndVariant: recordData.typeAndVariant || '',
+        labelDocument: recordData.labelDocument || null
+     });
+     // Re-setup preview based on potentially updated recordData
+     const setupPreview = () => {
+         if (recordData.labelDocument instanceof File) {
+             const file = recordData.labelDocument;
+             setCurrentFile(file);
+             // Avoid creating new object URLs unnecessarily if preview already exists
+             if (!imagePreviewUrl || currentFile?.name !== file.name) {
+                 if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+                 const url = URL.createObjectURL(file);
+                 setImagePreviewUrl(url);
+             }
+         } else if (typeof recordData.labelDocument === 'object' && recordData.labelDocument?.name) {
+             setCurrentFile(null);
+             setImagePreviewUrl(null);
+         } else {
+             setCurrentFile(null);
+             setImagePreviewUrl(null);
+         }
+     };
+     setupPreview();
 
-  }, [branch, recordData, form, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branch, recordData, router]); // form is excluded as form.reset handles it
 
 
   if (!branch) {
@@ -389,7 +452,7 @@ export default function NewRecordStep2() {
                                         fill
                                         style={{ objectFit: 'contain' }}
                                         className="rounded-md"
-                                        unoptimized
+                                        unoptimized // Use unoptimized for local object URLs
                                     />
                                 </div>
                              ) : (
@@ -419,7 +482,7 @@ export default function NewRecordStep2() {
                             />
                              <div className="flex flex-wrap justify-center gap-2">
                                 <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
-                                    <Upload className="mr-2 h-4 w-4" /> {imagePreviewUrl ? 'Değiştir' : 'Dosya Seç'}
+                                    <Upload className="mr-2 h-4 w-4" /> {currentFile || (typeof field.value === 'object' && field.value?.name) ? 'Değiştir' : 'Dosya Seç'}
                                 </Button>
                                  <Button
                                     type="button"
@@ -443,7 +506,8 @@ export default function NewRecordStep2() {
                              )}
                         </div>
                         </FormControl>
-                         {/* <FormMessage /> */}
+                         {/* Display form message if there's an error related to the document field itself */}
+                         <FormMessage />
                     </FormItem>
                     )}
                 />
@@ -455,10 +519,10 @@ export default function NewRecordStep2() {
                 name="chassisNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Şase Numarası (Ruhsattan)</FormLabel>
+                    <FormLabel>Şase Numarası (Ruhsat/Etiket)</FormLabel>
                     <FormControl>
-                      {/* Use the value directly from recordData for display */}
-                      <Input placeholder="Ruhsattan alınacak..." value={recordData.chassisNumber || ''} disabled />
+                      {/* Use the field value directly, as it's managed by useForm and synced */}
+                      <Input placeholder="Ruhsattan/Etiketten alınacak..." {...field} disabled />
                     </FormControl>
                     {/* No FormMessage needed for disabled display field */}
                   </FormItem>
@@ -495,7 +559,7 @@ export default function NewRecordStep2() {
                  <Button type="button" variant="outline" onClick={goBack} disabled={isLoading}>
                      Geri
                 </Button>
-                 <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading || (!currentFile && !(typeof form.getValues('labelDocument') === 'object' && form.getValues('labelDocument')?.name))}>
+                 <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading || !(currentFile || (typeof form.getValues('labelDocument') === 'object' && form.getValues('labelDocument')?.name))}>
                   Devam Et
                 </Button>
               </div>
@@ -506,4 +570,5 @@ export default function NewRecordStep2() {
     </div>
   );
 }
+
 
