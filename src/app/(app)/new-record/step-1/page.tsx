@@ -24,7 +24,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 const FormSchema = z.object({
   chassisNumber: z.string().optional(),
   brand: z.string().optional(),
-  type: z.string().optional(),
+  type: z.string().optional(), // Corresponds to "tipi" from the document
   tradeName: z.string().optional(),
   owner: z.string().optional(),
   // Add other fields relevant to step 1 if any, e.g., file upload
@@ -48,7 +48,7 @@ export default function NewRecordStep1() {
     defaultValues: {
       chassisNumber: recordData.chassisNumber || '',
       brand: recordData.brand || '',
-      type: recordData.type || '',
+      type: recordData.type || '', // Map to "tipi"
       tradeName: recordData.tradeName || '',
       owner: recordData.owner || '',
       document: recordData.registrationDocument || null, // Use saved document if exists
@@ -79,51 +79,40 @@ export default function NewRecordStep1() {
 
         const updates: Partial<RecordData> = {}; // Use RecordData type
 
-        // --- START: Ensure Chassis Number Update ---
-        // Always update chassis number form field and prepare state update from Step 1 OCR if available
-        if (ocrResult.ocrData.chassisNumber) {
-          form.setValue('chassisNumber', ocrResult.ocrData.chassisNumber);
-          updates.chassisNumber = ocrResult.ocrData.chassisNumber;
-        }
-        // --- END: Ensure Chassis Number Update ---
+        // --- START: Handle Override Decision ---
 
-
-        // Get current form data for *other* fields to pass to decision flow
+        // Get current form data AND data from subsequent steps (if available in global state)
         const currentDataForDecision = {
+          chassisNumber: form.getValues('chassisNumber'),
           brand: form.getValues('brand'),
-          type: form.getValues('type'),
+          type: form.getValues('type'), // Current form value for "tip"
           tradeName: form.getValues('tradeName'),
           owner: form.getValues('owner'),
-          // Add other relevant fields if they exist in the form and are needed for the decision
-          typeApprovalNumber: recordData.typeApprovalNumber,
-          typeAndVariant: recordData.typeAndVariant,
+          typeApprovalNumber: recordData.typeApprovalNumber, // From step 2 state
+          typeAndVariant: recordData.typeAndVariant,     // From step 2 state
         };
 
-        // Prepare OCR data for decision flow (excluding chassis number as we already handled it)
-        const ocrDataForDecision = {
-          chassisNumber: undefined, // Explicitly exclude chassis from override decision here
-          brand: ocrResult.ocrData.brand,
-          type: ocrResult.ocrData.type,
-          tradeName: ocrResult.ocrData.tradeName,
-          owner: ocrResult.ocrData.owner,
-          typeApprovalNumber: ocrResult.ocrData.typeApprovalNumber,
-          typeAndVariant: ocrResult.ocrData.typeAndVariant,
-        };
+        // Prepare OCR data for decision flow
+        const ocrDataForDecision = ocrResult.ocrData; // Use the full OCR data
 
-        // Call Genkit flow to decide which *other* fields to override
+        // Call Genkit flow to decide which fields to override
         const overrideDecision = await decideOcrOverride({
           ocrData: ocrDataForDecision,
           currentData: currentDataForDecision
         });
 
-        // Update *other* form fields based on the decision
+        // Update form fields and state based on the decision
+        if (overrideDecision.override.chassisNumber && ocrResult.ocrData.chassisNumber) {
+          form.setValue('chassisNumber', ocrResult.ocrData.chassisNumber);
+          updates.chassisNumber = ocrResult.ocrData.chassisNumber;
+        }
         if (overrideDecision.override.brand && ocrResult.ocrData.brand) {
           form.setValue('brand', ocrResult.ocrData.brand);
           updates.brand = ocrResult.ocrData.brand;
         }
-        if (overrideDecision.override.type && ocrResult.ocrData.type) {
-          form.setValue('type', ocrResult.ocrData.type);
-          updates.type = ocrResult.ocrData.type;
+        if (overrideDecision.override.type && ocrResult.ocrData.type) { // Check override for 'type' ("tipi")
+          form.setValue('type', ocrResult.ocrData.type); // Update form field
+          updates.type = ocrResult.ocrData.type;         // Prepare state update
         }
         if (overrideDecision.override.tradeName && ocrResult.ocrData.tradeName) {
           form.setValue('tradeName', ocrResult.ocrData.tradeName);
@@ -133,8 +122,7 @@ export default function NewRecordStep1() {
           form.setValue('owner', ocrResult.ocrData.owner);
           updates.owner = ocrResult.ocrData.owner;
         }
-        // Although Type Approval Number and Type/Variant are primarily from Step 2,
-        // update the global state if the decision flow (based on Step 1 doc) suggests it.
+        // Update global state for step 2 fields if decision suggests it
         if (overrideDecision.override.typeApprovalNumber && ocrResult.ocrData.typeApprovalNumber) {
           updates.typeApprovalNumber = ocrResult.ocrData.typeApprovalNumber;
         }
@@ -142,7 +130,10 @@ export default function NewRecordStep1() {
           updates.typeAndVariant = ocrResult.ocrData.typeAndVariant;
         }
 
-        // Update app state with all potentially overridden values (including chassis)
+        // --- END: Handle Override Decision ---
+
+
+        // Update app state with all potentially overridden values
         updateRecordData({ ...updates, registrationDocument: file }); // Ensure file object is in state
 
         toast({
@@ -279,7 +270,7 @@ export default function NewRecordStep1() {
     updateRecordData({
         chassisNumber: data.chassisNumber,
         brand: data.brand,
-        type: data.type,
+        type: data.type, // Save "tipi" value
         tradeName: data.tradeName,
         owner: data.owner,
         registrationDocument: documentToSave // Save the file object or its info
@@ -430,10 +421,10 @@ export default function NewRecordStep1() {
                 />
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="type" // Name matches schema and state
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tip</FormLabel>
+                      <FormLabel>Tip</FormLabel> {/* Label for UI */}
                       <FormControl>
                         <Input placeholder="Otomatik doldurulacak..." {...field} disabled={isLoading} />
                       </FormControl>

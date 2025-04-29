@@ -77,7 +77,7 @@ export default function NewRecordStep2() {
           const currentDataForDecision = {
               chassisNumber: recordData.chassisNumber, // Use value from global state (set in Step 1)
               brand: recordData.brand,
-              type: recordData.type,
+              type: recordData.type, // Include "tipi" from global state
               tradeName: recordData.tradeName,
               owner: recordData.owner,
               typeApprovalNumber: form.getValues('typeApprovalNumber'), // Current Step 2 form value
@@ -114,7 +114,7 @@ export default function NewRecordStep2() {
 
          // Update potentially other fields in the global state based on label OCR decision
           if (overrideDecision.override.brand && ocrResult.ocrData.brand) updates.brand = ocrResult.ocrData.brand;
-          if (overrideDecision.override.type && ocrResult.ocrData.type) updates.type = ocrResult.ocrData.type;
+          if (overrideDecision.override.type && ocrResult.ocrData.type) updates.type = ocrResult.ocrData.type; // Update "tipi" if suggested
           if (overrideDecision.override.tradeName && ocrResult.ocrData.tradeName) updates.tradeName = ocrResult.ocrData.tradeName;
           if (overrideDecision.override.owner && ocrResult.ocrData.owner) updates.owner = ocrResult.ocrData.owner;
 
@@ -454,4 +454,3 @@ export default function NewRecordStep2() {
     </div>
   );
 }
-
