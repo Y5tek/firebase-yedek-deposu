@@ -30,7 +30,7 @@ const FormSchema = z.object({
   typeAndVariant: z.string().optional(),
   labelDocument: z.any().optional(),
   brand: z.string().optional(), // Add brand field
-  // plateNumber: z.string().optional(), // Removed plate number field
+  plateNumber: z.string().optional(), // Add plate number field for display/update
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -54,7 +54,7 @@ export default function NewRecordStep2() {
       typeAndVariant: recordData.typeAndVariant || '',
       labelDocument: recordData.labelDocument || null,
       brand: recordData.brand || '', // Pre-fill brand
-      // plateNumber: recordData.plateNumber || '', // Removed pre-fill plate number
+      plateNumber: recordData.plateNumber || '', // Pre-fill plate number
     },
   });
 
@@ -137,7 +137,7 @@ export default function NewRecordStep2() {
              type: recordData.type,
              tradeName: recordData.tradeName,
              owner: recordData.owner,
-             // plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Removed plateNumber
+             plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Use form value first
              typeApprovalNumber: form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber, // Use form value first
              typeAndVariant: form.getValues('typeAndVariant') || recordData.typeAndVariant, // Use form value first
          };
@@ -282,11 +282,10 @@ export default function NewRecordStep2() {
                     form.setValue('brand', ocrDataFallback.brand);
                     updates.brand = ocrDataFallback.brand;
                 }
-                // Removed fallback for plate number
-                // if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) {
-                //      form.setValue('plateNumber', ocrDataFallback.plateNumber);
-                //      updates.plateNumber = ocrDataFallback.plateNumber;
-                //  }
+                 if (!form.getValues('plateNumber') && (ocrDataFallback as any).plateNumber) { // Fallback for plate number
+                     form.setValue('plateNumber', (ocrDataFallback as any).plateNumber);
+                     updates.plateNumber = (ocrDataFallback as any).plateNumber;
+                 }
                 // Update global state for potential future use even without decision
                 updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
                 updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
@@ -296,7 +295,7 @@ export default function NewRecordStep2() {
                  if (!recordData.type && ocrDataFallback.type) updates.type = ocrDataFallback.type;
                  if (!recordData.tradeName && ocrDataFallback.tradeName) updates.tradeName = ocrDataFallback.tradeName;
                  if (!recordData.owner && ocrDataFallback.owner) updates.owner = ocrDataFallback.owner;
-                 // if (!recordData.plateNumber && ocrDataFallback.plateNumber) updates.plateNumber = ocrDataFallback.plateNumber; // Removed plateNumber fallback
+                 if (!recordData.plateNumber && (ocrDataFallback as any).plateNumber) updates.plateNumber = (ocrDataFallback as any).plateNumber; // Fallback for plateNumber
 
              }
        } finally {
@@ -416,7 +415,7 @@ export default function NewRecordStep2() {
         type: recordData.type, // Preserve potentially updated type
         tradeName: recordData.tradeName, // Preserve potentially updated tradeName
         owner: recordData.owner, // Preserve potentially updated owner
-        // plateNumber: data.plateNumber, // Removed updating plateNumber
+        plateNumber: data.plateNumber, // Update plateNumber from form
         typeApprovalNumber: data.typeApprovalNumber,
         typeAndVariant: data.typeAndVariant,
         labelDocument: documentToSave // This will be the File or the info object
@@ -429,7 +428,7 @@ export default function NewRecordStep2() {
      updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve
         brand: form.getValues('brand'), // Save brand
-        // plateNumber: form.getValues('plateNumber'), // Removed saving plate number
+        plateNumber: form.getValues('plateNumber'), // Save plate number
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
         labelDocument: currentFile || recordData.labelDocument // Save current file/info
@@ -446,7 +445,7 @@ export default function NewRecordStep2() {
      form.reset({
         chassisNumber: recordData.chassisNumber || '',
         brand: recordData.brand || '', // Sync brand
-        // plateNumber: recordData.plateNumber || '', // Removed syncing plate number
+        plateNumber: recordData.plateNumber || '', // Sync plate number
         typeApprovalNumber: recordData.typeApprovalNumber || '',
         typeAndVariant: recordData.typeAndVariant || '',
         labelDocument: recordData.labelDocument || null
@@ -590,8 +589,7 @@ export default function NewRecordStep2() {
                         </FormItem>
                         )}
                     />
-                     {/* Removed Plate Number Field */}
-                    {/* <FormField
+                     <FormField
                         control={form.control}
                         name="plateNumber"
                         render={({ field }) => (
@@ -603,7 +601,7 @@ export default function NewRecordStep2() {
                             <FormMessage />
                         </FormItem>
                         )}
-                    /> */}
+                    />
                     <FormField
                         control={form.control}
                         name="brand"

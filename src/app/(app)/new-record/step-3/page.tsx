@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import OcrService from '@/services/ocr';
+// import OcrService from '@/services/ocr'; // Removed unused import
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -16,7 +16,7 @@ import { Upload, Camera, Video, Image as ImageIcon, Trash2, AlertCircle, Film, F
 import { useAppState } from '@/hooks/use-app-state'; // RecordData type is implicitly used via useAppState
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
-  
+
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -52,7 +52,7 @@ export default function NewRecordStep3() {
   const router = useRouter();
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
-  const [progress] = React.useState(75); // Step 3 of 4
+  const [progress] = React.useState(60); // Step 3 of 5
   const [mediaFiles, setMediaFiles] = React.useState<MediaFile[]>([]);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [previewImage, setPreviewImage] = React.useState<MediaFile | null>(null); // State for image preview modal
@@ -108,7 +108,7 @@ export default function NewRecordStep3() {
   }, []); // Empty dependency array to run only on mount
 
 
-   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
      const files = event.target.files;
      setUploadError(null); // Clear previous errors
 
@@ -146,20 +146,20 @@ export default function NewRecordStep3() {
          currentKeys.add(fileKey); // Add new key to prevent duplicates within the same batch
        });
 
-
-       for (const image of newMediaFiles.filter(mf => mf.type === 'image')) {
-            const { data } = await OcrService.execute(image.file);
-            if(data.marka){
-                form.setValue("marka", data.marka)
-            }
-       }
+       // Removed OCR call on image upload
+       // for (const image of newMediaFiles.filter(mf => mf.type === 'image')) {
+       //      const { data } = await OcrService.execute(image.file);
+       //      if(data.marka){
+       //          form.setValue("marka", data.marka)
+       //      }
+       // }
 
 
        if (errorFound) {
            // Optionally show a toast error as well
            toast({
                title: 'Yükleme Hatası',
-               description: uploadError,
+               description: uploadError || "Desteklenmeyen dosya türü.", // Added fallback description
                variant: 'destructive',
            });
            // Reset file input
@@ -410,7 +410,7 @@ export default function NewRecordStep3() {
                  <Button type="button" variant="outline" onClick={goBack}>
                      Geri
                 </Button>
-                <Button type="submit" className="w-full bg-green-500">
+                <Button type="submit" className="bg-primary hover:bg-primary/90">
                   Devam Et
                 </Button>
               </div>
@@ -418,29 +418,6 @@ export default function NewRecordStep3() {
           </Form>
         </CardContent>
       </Card>
-
-       {/* Image Preview Dialog (Re-using AlertDialog structure for simplicity) */}
-       {/* {previewImage && (
-           <AlertDialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
-               <AlertDialogContent className="max-w-3xl">
-                   <AlertDialogHeader>
-                       <AlertDialogTitle className="truncate">{previewImage.file.name}</AlertDialogTitle>
-                   </AlertDialogHeader>
-                   <div className="relative aspect-video w-full h-auto mt-4">
-                       <Image
-                           src={previewImage.previewUrl}
-                           alt={`Tam Boyutlu Önizleme - ${previewImage.file.name}`}
-                           fill
-                           style={{ objectFit: 'contain' }}
-                           unoptimized
-                       />
-                   </div>
-                   <AlertDialogFooter>
-                       <AlertDialogCancel onClick={() => setPreviewImage(null)}>Kapat</AlertDialogCancel>
-                   </AlertDialogFooter>
-               </AlertDialogContent>
-           </AlertDialog>
-       )} */}
     </div>
   );
 }
