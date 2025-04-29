@@ -60,6 +60,10 @@ const initialRecordData: RecordData = {
     additionalVideos: [], // Initialize videos array
     // Initialize other fields if needed, e.g., sequenceNo default
     sequenceNo: '3',
+    q1_suitable: 'olumlu', // Default checklist items to 'olumlu'
+    q2_typeApprovalMatch: 'olumlu',
+    q3_scopeExpansion: 'olumlu',
+    q4_unaffectedPartsDefect: 'olumlu',
 };
 
 
@@ -77,9 +81,9 @@ export const useAppState = create<AppState>()(
            // Keep archive, reset the rest, including file arrays and new form fields
            set({ recordData: {
                 archive: get().recordData.archive,
-                additionalPhotos: [],
-                additionalVideos: [],
-                // Explicitly reset other fields to ensure clean slate
+                // Reset to initial defaults
+                ...initialRecordData,
+                 // Explicitly reset fields not in initialRecordData to undefined if needed
                  chassisNumber: undefined,
                  brand: undefined,
                  type: undefined,
@@ -91,16 +95,10 @@ export const useAppState = create<AppState>()(
                  registrationDocument: undefined,
                  labelDocument: undefined,
                  customerName: undefined,
-                 formDate: undefined,
-                 sequenceNo: '3', // Reset to default if needed
-                 q1_suitable: undefined,
-                 q2_typeApprovalMatch: undefined,
-                 q3_scopeExpansion: undefined,
-                 q4_unaffectedPartsDefect: undefined,
+                 formDate: undefined, // Maybe default to new Date().toISOString()?
                  notes: undefined,
                  controllerName: undefined,
                  authorityName: undefined,
-                // Reset legacy fields if needed
                  additionalNotes: undefined,
                  inspectionDate: undefined,
                  inspectorName: undefined,
@@ -156,36 +154,29 @@ export const useAppState = create<AppState>()(
         }
        },
         resetRecordData: () => {
-             // Keep archive, reset everything else
+             // Keep archive, reset everything else to initial defaults
              set({ recordData: {
-                archive: get().recordData.archive,
-                additionalPhotos: [],
-                additionalVideos: [],
-                // Explicitly reset other fields
-                chassisNumber: undefined,
-                brand: undefined,
-                type: undefined,
-                tradeName: undefined,
-                owner: undefined,
-                typeApprovalNumber: undefined,
-                typeAndVariant: undefined,
-                plateNumber: undefined,
-                registrationDocument: undefined,
-                labelDocument: undefined,
-                customerName: undefined,
-                formDate: undefined,
-                sequenceNo: '3', // Reset to default if needed
-                q1_suitable: undefined,
-                q2_typeApprovalMatch: undefined,
-                q3_scopeExpansion: undefined,
-                q4_unaffectedPartsDefect: undefined,
-                notes: undefined,
-                controllerName: undefined,
-                authorityName: undefined,
-                // Reset legacy fields if needed
-                additionalNotes: undefined,
-                inspectionDate: undefined,
-                inspectorName: undefined,
+                 archive: get().recordData.archive,
+                 ...initialRecordData,
+                 // Explicitly reset fields not in initialRecordData to undefined if needed
+                 chassisNumber: undefined,
+                 brand: undefined,
+                 type: undefined,
+                 tradeName: undefined,
+                 owner: undefined,
+                 typeApprovalNumber: undefined,
+                 typeAndVariant: undefined,
+                 plateNumber: undefined,
+                 registrationDocument: undefined,
+                 labelDocument: undefined,
+                 customerName: undefined,
+                 formDate: undefined, // Maybe default to new Date().toISOString()?
+                 notes: undefined,
+                 controllerName: undefined,
+                 authorityName: undefined,
+                 additionalNotes: undefined,
+                 inspectionDate: undefined,
+                 inspectorName: undefined,
              } });
         },
     }),
@@ -232,8 +223,9 @@ export const useAppState = create<AppState>()(
             const typedPersistedState = persistedState as Partial<AppState>; // Type assertion
 
              const mergedRecordData = {
-                 ...currentState.recordData, // Start with current runtime recordData
-                 ...(typedPersistedState.recordData || {}), // Overwrite with persisted recordData (non-file fields)
+                 ...initialRecordData, // Start with initial defaults
+                 ...currentState.recordData, // Then apply current runtime recordData
+                 ...(typedPersistedState.recordData || {}), // Finally, overwrite with persisted recordData (non-file fields)
 
                  // Restore File objects if they exist in current state but only info in persisted
                   registrationDocument: currentState.recordData.registrationDocument instanceof File

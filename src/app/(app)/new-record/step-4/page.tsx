@@ -21,7 +21,7 @@ import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useAppState, RecordData } from '@/hooks/use-app-state'; // Ensure RecordData is imported
+import { useAppState, RecordData } from '@/hooks/use-app-state'; // Removed getAppState
 import { cn, getSerializableFileInfo } from '@/lib/utils'; // Import cn and getSerializableFileInfo
 
 // Schema for the detailed form based on the image
@@ -53,12 +53,12 @@ export default function NewRecordStep4() {
     resolver: zodResolver(FormSchema),
     defaultValues: {
       customerName: recordData.customerName || '',
-      formDate: recordData.formDate ? new Date(recordData.formDate) : undefined,
+      formDate: recordData.formDate ? new Date(recordData.formDate) : new Date(), // Default to today if no date
       sequenceNo: recordData.sequenceNo || '3', // Default SIRA to 3 based on image
-      q1_suitable: recordData.q1_suitable,
-      q2_typeApprovalMatch: recordData.q2_typeApprovalMatch,
-      q3_scopeExpansion: recordData.q3_scopeExpansion,
-      q4_unaffectedPartsDefect: recordData.q4_unaffectedPartsDefect,
+      q1_suitable: recordData.q1_suitable ?? 'olumlu', // Default to olumlu using ??
+      q2_typeApprovalMatch: recordData.q2_typeApprovalMatch ?? 'olumlu', // Default to olumlu using ??
+      q3_scopeExpansion: recordData.q3_scopeExpansion ?? 'olumlu', // Default to olumlu using ??
+      q4_unaffectedPartsDefect: recordData.q4_unaffectedPartsDefect ?? 'olumlu', // Default to olumlu using ??
       notes: recordData.notes || '',
       controllerName: recordData.controllerName || '',
       authorityName: recordData.authorityName || '',
@@ -83,7 +83,8 @@ export default function NewRecordStep4() {
         authorityName: data.authorityName,
     });
 
-    const finalRecordData = getAppState().recordData; // Refresh state
+    // Use getState() to access the latest state after update
+    const finalRecordData = useAppState.getState().recordData;
 
     // Create the final archive entry
     const archiveEntry = {
@@ -96,6 +97,7 @@ export default function NewRecordStep4() {
         owner: finalRecordData.owner,
         typeApprovalNumber: finalRecordData.typeApprovalNumber,
         typeAndVariant: finalRecordData.typeAndVariant,
+        plateNumber: finalRecordData.plateNumber, // Add plate number if captured
         // --- Data from this step (Step 4 Form) ---
         customerName: data.customerName,
         formDate: data.formDate?.toISOString(),
@@ -152,23 +154,22 @@ export default function NewRecordStep4() {
       toast({ title: "Eksik Bilgi", description: "Şube veya Şase numarası bulunamadı. Başlangıca yönlendiriliyor...", variant: "destructive" });
       router.push('/select-branch');
     }
-    // Sync form with persisted data
+    // Sync form with persisted data and apply defaults
     form.reset({
         customerName: recordData.customerName || '',
-        formDate: recordData.formDate ? new Date(recordData.formDate) : undefined,
+        formDate: recordData.formDate ? new Date(recordData.formDate) : new Date(), // Default to today
         sequenceNo: recordData.sequenceNo || '3',
-        q1_suitable: recordData.q1_suitable,
-        q2_typeApprovalMatch: recordData.q2_typeApprovalMatch,
-        q3_scopeExpansion: recordData.q3_scopeExpansion,
-        q4_unaffectedPartsDefect: recordData.q4_unaffectedPartsDefect,
+        q1_suitable: recordData.q1_suitable ?? 'olumlu',
+        q2_typeApprovalMatch: recordData.q2_typeApprovalMatch ?? 'olumlu',
+        q3_scopeExpansion: recordData.q3_scopeExpansion ?? 'olumlu',
+        q4_unaffectedPartsDefect: recordData.q4_unaffectedPartsDefect ?? 'olumlu',
         notes: recordData.notes || '',
         controllerName: recordData.controllerName || '',
         authorityName: recordData.authorityName || '',
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branch, recordData, router]); // Dependency array includes all relevant recordData fields
+  }, [branch, recordData]); // removed router from deps as it shouldn't trigger reset
 
-  const getAppState = useAppState.getState; // Helper
 
   if (!branch || !recordData.chassisNumber) {
       return <div className="flex min-h-screen items-center justify-center p-4">Gerekli bilgiler eksik, yönlendiriliyorsunuz...</div>;
@@ -237,17 +238,18 @@ export default function NewRecordStep4() {
                                 <Button
                                     variant={"outline"}
                                     className={cn(
-                                    "pl-3 text-left font-normal",
+                                    "pl-3 text-left font-normal justify-start", // Added justify-start
                                     !field.value && "text-muted-foreground"
                                     )}
                                     disabled={isLoading}
                                 >
+                                    <CalendarIcon className="mr-2 h-4 w-4 opacity-50" /> {/* Moved icon left */}
                                     {field.value ? (
                                     format(field.value, "PPP", { locale: tr })
                                     ) : (
                                     <span>Tarih seçin</span>
                                     )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+
                                 </Button>
                                 </FormControl>
                             </PopoverTrigger>
@@ -297,11 +299,11 @@ export default function NewRecordStep4() {
                 </div>
 
                 {/* Checklist Section */}
-                <div className="border p-4 rounded-md space-y-4">
-                    <div className="grid grid-cols-[1fr_auto_auto] items-center font-medium mb-2">
+                 <div className="border p-4 rounded-md space-y-4">
+                    <div className="grid grid-cols-[1fr_80px_80px] items-center font-medium mb-2"> {/* Fixed width for radio columns */}
                         <span className="col-start-1"></span> {/* Empty cell for alignment */}
-                        <span className="text-center px-4">OLUMLU</span>
-                        <span className="text-center px-4">OLUMSUZ</span>
+                        <span className="text-center px-2">OLUMLU</span>
+                        <span className="text-center px-2">OLUMSUZ</span>
                     </div>
                     {checklistItems.map((item) => (
                         <FormField
@@ -309,9 +311,10 @@ export default function NewRecordStep4() {
                             control={form.control}
                             name={item.id as keyof FormData}
                             render={({ field }) => (
-                                <FormItem className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 border-t pt-2">
-                                    <FormLabel className="col-start-1">{item.label}</FormLabel>
-                                    <FormControl className="col-start-2 justify-self-center">
+                                <FormItem className="grid grid-cols-[1fr_80px_80px] items-center gap-x-2 border-t py-3"> {/* Adjusted gap and padding */}
+                                     {/* Use block and self-center to align label with checkboxes */}
+                                     <FormLabel className="col-start-1 block self-center">{item.label}</FormLabel>
+                                     <FormControl className="col-start-2 justify-self-center">
                                         <RadioGroup
                                             onValueChange={field.onChange}
                                             value={field.value}
@@ -321,7 +324,7 @@ export default function NewRecordStep4() {
                                             <RadioGroupItem value="olumlu" id={`${item.id}-olumlu`} />
                                         </RadioGroup>
                                     </FormControl>
-                                    <FormControl className="col-start-3 justify-self-center">
+                                     <FormControl className="col-start-3 justify-self-center">
                                          <RadioGroup
                                             onValueChange={field.onChange}
                                             value={field.value}
@@ -331,12 +334,14 @@ export default function NewRecordStep4() {
                                             <RadioGroupItem value="olumsuz" id={`${item.id}-olumsuz`} />
                                         </RadioGroup>
                                     </FormControl>
-                                    <FormMessage className="col-span-3 col-start-1" />
+                                    {/* Message can span if needed, but might not be necessary per item */}
+                                     <FormMessage className="col-span-3 col-start-1 mt-1" />
                                 </FormItem>
                             )}
                         />
                     ))}
                  </div>
+
 
                 {/* Notes Section */}
                 <FormField
