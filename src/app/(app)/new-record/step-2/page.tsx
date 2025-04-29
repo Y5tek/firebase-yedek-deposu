@@ -150,7 +150,7 @@ export default function NewRecordStep2() {
            type: ocrData.type,
            tradeName: ocrData.tradeName,
            owner: ocrData.owner,
-           // plateNumber: ocrData.plateNumber, // Removed plateNumber
+           plateNumber: ocrData.plateNumber,
            typeApprovalNumber: ocrData.typeApprovalNumber,
            typeAndVariant: ocrData.typeAndVariant,
          };
@@ -226,14 +226,14 @@ export default function NewRecordStep2() {
              console.log("Not overriding typeAndVariant. Override:", override.typeAndVariant, "OCR Data:", ocrData.typeAndVariant);
          }
 
-         // Plate Number - Removed
-          // if (shouldUpdate('plateNumber')) {
-          //     console.log("Updating plateNumber field with label OCR data:", ocrData.plateNumber);
-          //     form.setValue('plateNumber', ocrData.plateNumber!);
-          //     updates.plateNumber = ocrData.plateNumber;
-          // } else {
-          //     console.log("Not overriding plateNumber (Step 2). Override:", override.plateNumber, "OCR Data:", ocrData.plateNumber);
-          // }
+         // Plate Number
+          if (shouldUpdate('plateNumber')) {
+              console.log("Updating plateNumber field with label OCR data:", ocrData.plateNumber);
+              form.setValue('plateNumber', ocrData.plateNumber!);
+              updates.plateNumber = ocrData.plateNumber;
+          } else {
+              console.log("Not overriding plateNumber (Step 2). Override:", override.plateNumber, "OCR Data:", ocrData.plateNumber);
+          }
 
 
          // Update potentially other fields in the global state based on label OCR decision
@@ -256,7 +256,6 @@ export default function NewRecordStep2() {
          } else {
             console.log("Not overriding owner (Step 2). Override:", override.owner, "OCR Data:", ocrData.owner);
          }
-        // Plate number update from label already handled above for form field and updates object - Removed
 
 
          toast({
@@ -282,9 +281,9 @@ export default function NewRecordStep2() {
                     form.setValue('brand', ocrDataFallback.brand);
                     updates.brand = ocrDataFallback.brand;
                 }
-                 if (!form.getValues('plateNumber') && (ocrDataFallback as any).plateNumber) { // Fallback for plate number
-                     form.setValue('plateNumber', (ocrDataFallback as any).plateNumber);
-                     updates.plateNumber = (ocrDataFallback as any).plateNumber;
+                 if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) { // Fallback for plate number
+                     form.setValue('plateNumber', ocrDataFallback.plateNumber);
+                     updates.plateNumber = ocrDataFallback.plateNumber;
                  }
                 // Update global state for potential future use even without decision
                 updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
@@ -295,7 +294,7 @@ export default function NewRecordStep2() {
                  if (!recordData.type && ocrDataFallback.type) updates.type = ocrDataFallback.type;
                  if (!recordData.tradeName && ocrDataFallback.tradeName) updates.tradeName = ocrDataFallback.tradeName;
                  if (!recordData.owner && ocrDataFallback.owner) updates.owner = ocrDataFallback.owner;
-                 if (!recordData.plateNumber && (ocrDataFallback as any).plateNumber) updates.plateNumber = (ocrDataFallback as any).plateNumber; // Fallback for plateNumber
+                 if (!recordData.plateNumber && ocrDataFallback.plateNumber) updates.plateNumber = ocrDataFallback.plateNumber; // Fallback for plateNumber
 
              }
        } finally {

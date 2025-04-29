@@ -29,7 +29,7 @@ const FormSchema = z.object({
   type: z.string().optional(), // Corresponds to "tipi" from the document
   tradeName: z.string().optional(),
   owner: z.string().optional(),
-  // plateNumber: z.string().optional(), // Removed plateNumber
+  plateNumber: z.string().optional(), // Added plateNumber
   document: z.any().optional()
 });
 
@@ -53,7 +53,7 @@ export default function NewRecordStep1() {
       type: recordData.type || '',
       tradeName: recordData.tradeName || '',
       owner: recordData.owner || '',
-      // plateNumber: recordData.plateNumber || '', // Removed default plateNumber
+      plateNumber: recordData.plateNumber || '', // Default plateNumber
       document: recordData.registrationDocument || null,
     },
   });
@@ -138,7 +138,7 @@ export default function NewRecordStep1() {
         type: form.getValues('type') || recordData.type,
         tradeName: form.getValues('tradeName') || recordData.tradeName,
         owner: form.getValues('owner') || recordData.owner,
-        // plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Removed plateNumber
+        plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Include plateNumber
         typeApprovalNumber: recordData.typeApprovalNumber, // From global state (step 2)
         typeAndVariant: recordData.typeAndVariant,     // From global state (step 2)
       };
@@ -147,7 +147,7 @@ export default function NewRecordStep1() {
       // Extend OcrData in DecideOcrOverrideInputSchema if plateNumber needs AI decision
       const ocrDataForDecision = {
         ...ocrData,
-        // plateNumber: ocrData.plateNumber, // Removed plateNumber
+        plateNumber: ocrData.plateNumber, // Include plateNumber from OCR result
       };
       console.log("OCR Data for Override Decision (Step 1):", ocrDataForDecision);
 
@@ -167,18 +167,11 @@ export default function NewRecordStep1() {
       const override = overrideDecision.override;
 
       // Function to decide if a field should be updated
-      const shouldUpdate = (fieldName: keyof typeof override): boolean => { // Removed plateNumber
-        // Handle plateNumber specifically if it's not part of override decision schema
-        // if (fieldName === 'plateNumber') {
-        //      // Update plate number if OCR found it and current is empty, or if OCR is 'better' (customize logic)
-        //      const ocrPlate = (ocrData as any).plateNumber; // Assume plateNumber might exist in ocrData
-        //      const currentPlate = form.getValues('plateNumber');
-        //      return !!(ocrPlate && (!currentPlate || ocrPlate.length > currentPlate.length)); // Example logic
-        // }
+      const shouldUpdate = (fieldName: keyof typeof override): boolean => {
         // Ensure the field exists in ocrData before checking the override decision
         // Also check if OCR actually returned a value for that field.
         const ocrValue = ocrData[fieldName as keyof typeof ocrData];
-        return !!(override[fieldName as keyof typeof override] && ocrValue);
+        return !!(override[fieldName] && ocrValue);
       };
 
       // Update fields based on decision
@@ -222,15 +215,14 @@ export default function NewRecordStep1() {
           console.log("Not overriding owner. Override:", override.owner, "OCR Data:", ocrData.owner);
       }
 
-       // Update plate number (assuming it's extracted) - Removed
-       // if (shouldUpdate('plateNumber')) {
-       //     const ocrPlate = (ocrData as any).plateNumber; // Get plate number from OCR result
-       //     console.log("Updating plateNumber field with OCR data:", ocrPlate);
-       //     form.setValue('plateNumber', ocrPlate);
-       //     updates.plateNumber = ocrPlate;
-       // } else {
-       //      console.log("Not updating plateNumber. OCR Data:", (ocrData as any).plateNumber);
-       // }
+       // Update plate number based on override decision
+       if (shouldUpdate('plateNumber')) {
+           console.log("Updating plateNumber field with OCR data:", ocrData.plateNumber);
+           form.setValue('plateNumber', ocrData.plateNumber!);
+           updates.plateNumber = ocrData.plateNumber;
+       } else {
+            console.log("Not overriding plateNumber. Override:", override.plateNumber, "OCR Data:", ocrData.plateNumber);
+       }
 
 
       // Update global state for step 2 fields if decision suggests it
@@ -280,11 +272,10 @@ export default function NewRecordStep1() {
                  form.setValue('owner', ocrDataFallback.owner);
                  updates.owner = ocrDataFallback.owner;
             }
-            // Removed fallback for plateNumber
-            //  if (!form.getValues('plateNumber') && (ocrDataFallback as any).plateNumber) {
-            //      form.setValue('plateNumber', (ocrDataFallback as any).plateNumber);
-            //      updates.plateNumber = (ocrDataFallback as any).plateNumber;
-            //  }
+             if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) { // Fallback for plateNumber
+                 form.setValue('plateNumber', ocrDataFallback.plateNumber);
+                 updates.plateNumber = ocrDataFallback.plateNumber;
+             }
 
             // Update global state for potential future use even without decision
              updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
@@ -405,7 +396,7 @@ export default function NewRecordStep1() {
         type: data.type,
         tradeName: data.tradeName,
         owner: data.owner,
-        // plateNumber: data.plateNumber, // Removed saving plateNumber
+        plateNumber: data.plateNumber, // Save plateNumber
         registrationDocument: documentToSave // This will be the File or the info object
     });
     router.push('/new-record/step-2');
@@ -423,7 +414,7 @@ export default function NewRecordStep1() {
         type: recordData.type || '',
         tradeName: recordData.tradeName || '',
         owner: recordData.owner || '',
-        // plateNumber: recordData.plateNumber || '', // Removed syncing plateNumber
+        plateNumber: recordData.plateNumber || '', // Sync plateNumber
         document: recordData.registrationDocument || null,
      });
       // Setup preview again after form reset ensures correct preview state
@@ -564,8 +555,7 @@ export default function NewRecordStep1() {
                     </FormItem>
                   )}
                 />
-                {/* Removed Plate Number Field */}
-                {/* <FormField
+                 <FormField
                     control={form.control}
                     name="plateNumber"
                     render={({ field }) => (
@@ -577,7 +567,7 @@ export default function NewRecordStep1() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  /> */}
+                  />
                 <FormField
                   control={form.control}
                   name="brand"

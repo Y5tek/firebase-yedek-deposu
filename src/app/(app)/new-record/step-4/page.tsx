@@ -239,11 +239,15 @@ export default function NewRecordStep4() {
                     />
                 </div>
 
-                {/* Second Row: Plaka&Şasi, Şube Adı */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-md">
+                {/* Second Row: Plaka, Şasi, Şube Adı */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-md">
+                     <FormItem>
+                        <FormLabel>Plaka</FormLabel>
+                        <Input value={recordData.plateNumber || 'Plaka Yok'} disabled />
+                         <FormDescription>Bu bilgi önceki adımlardan alınmıştır.</FormDescription>
+                    </FormItem>
                     <FormItem>
-                        <FormLabel>Şasi</FormLabel> {/* Changed label */}
-                        {/* Display data from state, not editable here */}
+                        <FormLabel>Şasi</FormLabel>
                         <Input value={recordData.chassisNumber || 'Şasi Yok'} disabled />
                          <FormDescription>Bu bilgi önceki adımlardan alınmıştır.</FormDescription>
                     </FormItem>
