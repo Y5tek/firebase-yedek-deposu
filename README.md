@@ -1,4 +1,6 @@
-npm install -g firebase-tools
+git remote add origin <depo-url>
+git branch -M main
+git push -u origin main
 # Firebase Studio
 
 This is a NextJS starter in Firebase Studio.
