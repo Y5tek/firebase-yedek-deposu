@@ -12,10 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Building } from 'lucide-react';
 import { useAppState } from '@/hooks/use-app-state'; // Import the hook
 
+// Updated branch list
 const branches = [
-  { id: 'ankara', name: 'Ankara Şubesi' },
-  { id: 'istanbul', name: 'İstanbul Şubesi' },
-  { id: 'izmir', name: 'İzmir Şubesi' },
+  { id: 'kocaeli', name: 'KOCAELİ' },
+  { id: 'malatya', name: 'MALATYA' },
+  { id: 'erzurum', name: 'ERZURUM' },
+  { id: 'bursa', name: 'BURSA' },
+  { id: 'corlu', name: 'ÇORLU' }, // Use 'corlu' for ID
 ];
 
 const FormSchema = z.object({
