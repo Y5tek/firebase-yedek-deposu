@@ -3,6 +3,15 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { getSerializableFileInfo } from '@/lib/utils'; // Import helper
 
+// Define the structure for an item in the offer form table
+export interface OfferItem {
+  id: string; // Unique ID for react key prop
+  itemName?: string;
+  quantity?: number;
+  unitPrice?: number;
+  totalPrice?: number; // Often calculated automatically
+}
+
 // Define the structure of the data being collected across steps
 export interface RecordData {
   // Step 1 & 2 Fields
@@ -21,18 +30,28 @@ export interface RecordData {
   additionalPhotos?: (File | { name: string; type?: string; size?: number })[];
   additionalVideos?: (File | { name: string; type?: string; size?: number })[];
 
-  // Step 4 Form Fields (Based on the image)
-  customerName?: string;
-  formDate?: string; // Store as ISO string
-  sequenceNo?: string;
+  // Step 4 Form Fields (Seri Tadilat Uygunluk Formu)
+  customerName?: string; // Changed from inspectionCustomerName for consistency
+  formDate?: string; // Store as ISO string (Seri Tadilat Uygunluk Formu Date)
+  sequenceNo?: string; // Seri Tadilat Uygunluk Formu Sequence No
   q1_suitable?: 'olumlu' | 'olumsuz';
   q2_typeApprovalMatch?: 'olumlu' | 'olumsuz';
   q3_scopeExpansion?: 'olumlu' | 'olumsuz';
   q4_unaffectedPartsDefect?: 'olumlu' | 'olumsuz';
-  notes?: string;
-  controllerName?: string;
-  authorityName?: string;
-  // Signatures might be handled differently
+  notes?: string; // Seri Tadilat Uygunluk Formu Notes
+  controllerName?: string; // Seri Tadilat Uygunluk Formu Controller
+  authorityName?: string; // Seri Tadilat Uygunluk Formu Authority
+
+  // Step 5 Form Fields (Teklif Formu - Offer Form)
+  offerAuthorizedName?: string; // Teklif Vermeye Yetkili Kişinin Adı ve Soyadı
+  offerCompanyName?: string; // Teklif Firma Adı
+  offerCompanyAddress?: string; // Teklif Açık Adresi
+  offerTaxOfficeAndNumber?: string; // Teklif Vergi Dairesi ve Vergi Numarası
+  offerPhoneNumber?: string; // Teklif Telefon Numarası
+  offerEmailAddress?: string; // Teklif Elektronik Posta Adresi
+  offerDate?: string; // Teklif Tarihi (Store as ISO string)
+  offerItems?: OfferItem[]; // Array for items in the table
+  offerAcceptance?: 'accepted' | 'rejected'; // Teklif Kabul Durumu
 
   // Archive specific fields (added during final submission)
   archive?: any[]; // To store completed records temporarily (replace with DB)
@@ -54,16 +73,33 @@ interface AppState {
   resetRecordData: () => void; // Explicit reset function
 }
 
+// Default initial state for a single OfferItem
+const defaultOfferItem: OfferItem = {
+  id: Math.random().toString(36).substring(2, 15), // Simple unique ID
+  itemName: '',
+  quantity: undefined,
+  unitPrice: undefined,
+  totalPrice: undefined, // Should likely be calculated
+};
+
 const initialRecordData: RecordData = {
-    archive: [], // Initialize archive array
-    additionalPhotos: [], // Initialize photos array
-    additionalVideos: [], // Initialize videos array
-    // Initialize other fields if needed, e.g., sequenceNo default
-    sequenceNo: '3',
+    // Step 4 Defaults
+    sequenceNo: '3', // Default SIRA to 3 based on image
     q1_suitable: 'olumlu', // Default checklist items to 'olumlu'
     q2_typeApprovalMatch: 'olumlu',
     q3_scopeExpansion: 'olumlu',
     q4_unaffectedPartsDefect: 'olumlu',
+    // Step 5 Defaults
+    offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK', // Prefill from image
+    offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97', // Prefill from image
+    offerItems: [
+      { ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }, // Start with one empty item row
+    ],
+    offerAcceptance: 'accepted', // Default acceptance
+    // General Defaults
+    archive: [], // Initialize archive array
+    additionalPhotos: [], // Initialize photos array
+    additionalVideos: [], // Initialize videos array
 };
 
 
@@ -94,11 +130,18 @@ export const useAppState = create<AppState>()(
                  plateNumber: undefined,
                  registrationDocument: undefined,
                  labelDocument: undefined,
-                 customerName: undefined,
-                 formDate: undefined, // Maybe default to new Date().toISOString()?
-                 notes: undefined,
-                 controllerName: undefined,
-                 authorityName: undefined,
+                 customerName: undefined, // Step 4
+                 formDate: undefined, // Step 4 date
+                 notes: undefined, // Step 4 notes
+                 controllerName: undefined, // Step 4
+                 authorityName: undefined, // Step 4
+                 offerAuthorizedName: undefined, // Step 5
+                 offerCompanyAddress: undefined, // Step 5
+                 offerPhoneNumber: undefined, // Step 5
+                 offerEmailAddress: undefined, // Step 5
+                 offerDate: undefined, // Step 5 date
+                 offerAcceptance: 'accepted', // Reset Step 5 acceptance
+                 // Reset old fields
                  additionalNotes: undefined,
                  inspectionDate: undefined,
                  inspectorName: undefined,
@@ -148,6 +191,15 @@ export const useAppState = create<AppState>()(
                      mergedData.additionalVideos = [];
                 }
 
+                // Ensure offerItems is always an array
+                if (newData.offerItems && Array.isArray(newData.offerItems)) {
+                    mergedData.offerItems = newData.offerItems;
+                } else if (state.recordData.offerItems && !('offerItems' in newData)) {
+                     mergedData.offerItems = state.recordData.offerItems;
+                } else if ('offerItems' in newData && !newData.offerItems) {
+                    mergedData.offerItems = [];
+                }
+
 
              return { recordData: mergedData };
            });
@@ -169,11 +221,18 @@ export const useAppState = create<AppState>()(
                  plateNumber: undefined,
                  registrationDocument: undefined,
                  labelDocument: undefined,
-                 customerName: undefined,
-                 formDate: undefined, // Maybe default to new Date().toISOString()?
-                 notes: undefined,
-                 controllerName: undefined,
-                 authorityName: undefined,
+                 customerName: undefined, // Step 4
+                 formDate: undefined, // Step 4 date
+                 notes: undefined, // Step 4 notes
+                 controllerName: undefined, // Step 4
+                 authorityName: undefined, // Step 4
+                 offerAuthorizedName: undefined, // Step 5
+                 offerCompanyAddress: undefined, // Step 5
+                 offerPhoneNumber: undefined, // Step 5
+                 offerEmailAddress: undefined, // Step 5
+                 offerDate: undefined, // Step 5 date
+                 offerAcceptance: 'accepted', // Reset Step 5 acceptance
+                 // Reset old fields
                  additionalNotes: undefined,
                  inspectionDate: undefined,
                  inspectorName: undefined,
@@ -187,7 +246,7 @@ export const useAppState = create<AppState>()(
             branch: state.branch,
             // Only persist serializable parts of recordData
              recordData: {
-                 // Persist all non-File fields
+                 // Persist all non-File fields from Steps 1-4
                  chassisNumber: state.recordData.chassisNumber,
                  brand: state.recordData.brand,
                  type: state.recordData.type,
@@ -196,16 +255,29 @@ export const useAppState = create<AppState>()(
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
                  plateNumber: state.recordData.plateNumber,
-                 customerName: state.recordData.customerName,
-                 formDate: state.recordData.formDate,
-                 sequenceNo: state.recordData.sequenceNo,
-                 q1_suitable: state.recordData.q1_suitable,
-                 q2_typeApprovalMatch: state.recordData.q2_typeApprovalMatch,
-                 q3_scopeExpansion: state.recordData.q3_scopeExpansion,
-                 q4_unaffectedPartsDefect: state.recordData.q4_unaffectedPartsDefect,
-                 notes: state.recordData.notes,
-                 controllerName: state.recordData.controllerName,
-                 authorityName: state.recordData.authorityName,
+                 customerName: state.recordData.customerName, // Step 4
+                 formDate: state.recordData.formDate, // Step 4 date
+                 sequenceNo: state.recordData.sequenceNo, // Step 4
+                 q1_suitable: state.recordData.q1_suitable, // Step 4
+                 q2_typeApprovalMatch: state.recordData.q2_typeApprovalMatch, // Step 4
+                 q3_scopeExpansion: state.recordData.q3_scopeExpansion, // Step 4
+                 q4_unaffectedPartsDefect: state.recordData.q4_unaffectedPartsDefect, // Step 4
+                 notes: state.recordData.notes, // Step 4 notes
+                 controllerName: state.recordData.controllerName, // Step 4
+                 authorityName: state.recordData.authorityName, // Step 4
+
+                 // Persist Step 5 Fields
+                 offerAuthorizedName: state.recordData.offerAuthorizedName,
+                 offerCompanyName: state.recordData.offerCompanyName,
+                 offerCompanyAddress: state.recordData.offerCompanyAddress,
+                 offerTaxOfficeAndNumber: state.recordData.offerTaxOfficeAndNumber,
+                 offerPhoneNumber: state.recordData.offerPhoneNumber,
+                 offerEmailAddress: state.recordData.offerEmailAddress,
+                 offerDate: state.recordData.offerDate, // Step 5 Date
+                 offerItems: state.recordData.offerItems, // Step 5 Items (already serializable)
+                 offerAcceptance: state.recordData.offerAcceptance, // Step 5 Acceptance
+
+                 // Persist legacy fields
                  additionalNotes: state.recordData.additionalNotes,
                  inspectionDate: state.recordData.inspectionDate,
                  inspectorName: state.recordData.inspectorName,
@@ -240,12 +312,14 @@ export const useAppState = create<AppState>()(
                   additionalVideos: mergeFileArrays(currentState.recordData.additionalVideos, typedPersistedState.recordData?.additionalVideos),
 
                   archive: typedPersistedState.recordData?.archive ?? currentState.recordData.archive ?? [], // Ensure archive is an array
+                  offerItems: typedPersistedState.recordData?.offerItems ?? currentState.recordData.offerItems ?? [], // Ensure offerItems is an array
              };
 
              // Ensure essential fields are present, falling back to initial state if necessary
              mergedRecordData.archive = mergedRecordData.archive || [];
              mergedRecordData.additionalPhotos = mergedRecordData.additionalPhotos || [];
              mergedRecordData.additionalVideos = mergedRecordData.additionalVideos || [];
+             mergedRecordData.offerItems = mergedRecordData.offerItems || [{ ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }];
 
 
             const merged: AppState = {

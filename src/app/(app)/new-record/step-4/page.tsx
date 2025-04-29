@@ -9,7 +9,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { CalendarIcon, FileSpreadsheet, Loader2, Save } from 'lucide-react'; // Adjusted icons
+import { CalendarIcon, FileSpreadsheet, Loader2, ChevronRight } from 'lucide-react'; // Adjusted icons
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -21,8 +21,8 @@ import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useAppState, RecordData } from '@/hooks/use-app-state'; // Removed getAppState
-import { cn, getSerializableFileInfo } from '@/lib/utils'; // Import cn and getSerializableFileInfo
+import { useAppState, RecordData } from '@/hooks/use-app-state'; // RecordData type is implicitly used via useAppState
+import { cn } from '@/lib/utils'; // Import cn only
 
 // Schema for the detailed form based on the image
 const FormSchema = z.object({
@@ -46,8 +46,8 @@ export default function NewRecordStep4() {
   const router = useRouter();
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [progress] = React.useState(100); // Step 4 of 4
+  const [isLoading, setIsLoading] = React.useState(false); // Keep loading state if needed for async ops later
+  const [progress] = React.useState(80); // Step 4 of 5
 
   const form = useForm<FormData>({
     resolver: zodResolver(FormSchema),
@@ -65,9 +65,8 @@ export default function NewRecordStep4() {
     },
   });
 
-  const onSubmit = async (data: FormData) => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate saving
+  const onSubmit = (data: FormData) => {
+    setIsLoading(true); // Optional: Keep if future steps might be async
 
     // Update app state with the latest form data
     updateRecordData({
@@ -83,53 +82,10 @@ export default function NewRecordStep4() {
         authorityName: data.authorityName,
     });
 
-    // Use getState() to access the latest state after update
-    const finalRecordData = useAppState.getState().recordData;
+    console.log("Submitting Step 4 Data, navigating to Step 5:", data);
 
-    // Create the final archive entry
-    const archiveEntry = {
-        // --- Data from previous steps ---
-        branch: branch,
-        chassisNumber: finalRecordData.chassisNumber,
-        brand: finalRecordData.brand,
-        type: finalRecordData.type,
-        tradeName: finalRecordData.tradeName,
-        owner: finalRecordData.owner,
-        typeApprovalNumber: finalRecordData.typeApprovalNumber,
-        typeAndVariant: finalRecordData.typeAndVariant,
-        plateNumber: finalRecordData.plateNumber, // Add plate number if captured
-        // --- Data from this step (Step 4 Form) ---
-        customerName: data.customerName,
-        formDate: data.formDate?.toISOString(),
-        sequenceNo: data.sequenceNo,
-        q1_suitable: data.q1_suitable,
-        q2_typeApprovalMatch: data.q2_typeApprovalMatch,
-        q3_scopeExpansion: data.q3_scopeExpansion,
-        q4_unaffectedPartsDefect: data.q4_unaffectedPartsDefect,
-        notes: data.notes,
-        controllerName: data.controllerName,
-        authorityName: data.authorityName,
-        // --- File Info & Metadata ---
-        registrationDocument: getSerializableFileInfo(finalRecordData.registrationDocument),
-        labelDocument: getSerializableFileInfo(finalRecordData.labelDocument),
-        additionalPhotos: finalRecordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-        additionalVideos: finalRecordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-        archivedAt: new Date().toISOString(),
-        fileName: `${branch}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}`
-    };
-
-    console.log("Archiving entry:", archiveEntry);
-
-    const currentArchive = finalRecordData.archive || [];
-    updateRecordData({ archive: [...currentArchive, archiveEntry] });
-
-    setIsLoading(false);
-    toast({
-      title: 'Kayıt Tamamlandı',
-      description: 'Seri tadilat uygunluk formu başarıyla kaydedildi ve kayıt arşivlendi.',
-    });
-    updateRecordData({}, true); // Reset record data
-    router.push('/archive');
+    setIsLoading(false); // Optional: Reset loading state
+    router.push('/new-record/step-5'); // Navigate to the new Step 5 (Offer Form)
   };
 
   const goBack = () => {
@@ -168,7 +124,7 @@ export default function NewRecordStep4() {
         authorityName: recordData.authorityName || '',
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branch, recordData]); // removed router from deps as it shouldn't trigger reset
+  }, [branch, recordData]); // removed router from deps
 
 
   if (!branch || !recordData.chassisNumber) {
@@ -196,7 +152,7 @@ export default function NewRecordStep4() {
             Seri Tadilat Uygunluk Formu
           </CardTitle>
           <CardDescription>
-            Lütfen formu doldurun ve kaydedin. Bu son adımdır.
+            Lütfen formu doldurun ve devam edin.
             (Şube: {branch}, Şase: {recordData.chassisNumber})
             </CardDescription>
             {/* Placeholder for Document Info from image - could be static or dynamic */}
@@ -420,8 +376,8 @@ export default function NewRecordStep4() {
                         Geri
                     </Button>
                     <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading}>
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Kaydı Tamamla ve Arşivle
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChevronRight className="mr-2 h-4 w-4" />}
+                        Devam Et (Teklif Formu)
                     </Button>
                 </div>
             </form>

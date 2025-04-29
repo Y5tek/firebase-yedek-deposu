@@ -3,13 +3,13 @@
 
 import * as React from 'react';
 import Image from 'next/image'; // Import Image component
-import { useAppState } from '@/hooks/use-app-state';
+import { useAppState, OfferItem } from '@/hooks/use-app-state'; // Import OfferItem
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X } from 'lucide-react'; // Added Check, X icons
+import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X, Info } from 'lucide-react'; // Added Check, X, Info icons
 import { format, parseISO, getMonth, getYear } from 'date-fns';
 import { tr } from 'date-fns/locale'; // Import Turkish locale
 import {
@@ -42,7 +42,7 @@ interface ArchiveEntry {
   labelDocument?: { name: string; type?: string; size?: number };
   additionalPhotos?: { name: string; type?: string; size?: number }[];
   additionalVideos?: { name: string; type?: string; size?: number }[];
-  // Step 4 Form
+  // Step 4 Form (Seri Tadilat Uygunluk)
   customerName?: string;
   formDate?: string; // ISO String
   sequenceNo?: string;
@@ -53,6 +53,16 @@ interface ArchiveEntry {
   notes?: string;
   controllerName?: string;
   authorityName?: string;
+  // Step 5 Form (Teklif)
+  offerAuthorizedName?: string;
+  offerCompanyName?: string;
+  offerCompanyAddress?: string;
+  offerTaxOfficeAndNumber?: string;
+  offerPhoneNumber?: string;
+  offerEmailAddress?: string;
+  offerDate?: string; // ISO String
+  offerItems?: OfferItem[];
+  offerAcceptance?: 'accepted' | 'rejected';
   // Metadata
   archivedAt: string; // ISO string format
   fileName: string;
@@ -80,7 +90,8 @@ export default function ArchivePage() {
       entry.brand?.toLowerCase().includes(lowerSearchTerm) ||
       entry.owner?.toLowerCase().includes(lowerSearchTerm) ||
       entry.branch?.toLowerCase().includes(lowerSearchTerm) ||
-      entry.customerName?.toLowerCase().includes(lowerSearchTerm) ||
+      entry.customerName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 4 customer
+      entry.offerCompanyName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 5 company
       entry.plateNumber?.toLowerCase().includes(lowerSearchTerm)
     );
   });
@@ -193,6 +204,19 @@ export default function ArchivePage() {
        return <span className="text-muted-foreground">-</span>;
    };
 
+   // Helper to display Offer Acceptance status
+    const renderOfferAcceptanceStatus = (status: 'accepted' | 'rejected' | undefined) => {
+        if (status === 'accepted') return <span className="text-green-600 font-medium">Kabul Edildi</span>;
+        if (status === 'rejected') return <span className="text-red-600 font-medium">Reddedildi</span>;
+        return <span className="text-muted-foreground">-</span>;
+    };
+
+   // Helper to format currency
+    const formatCurrency = (value: number | undefined): string => {
+        if (value === undefined || value === null) return '-';
+        return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value);
+    };
+
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -206,7 +230,7 @@ export default function ArchivePage() {
           <div className="flex items-center gap-2 pt-4">
             <Search className="h-5 w-5 text-muted-foreground" />
             <Input
-              placeholder="Şube, Şase, Plaka, Müşteri ara..."
+              placeholder="Şube, Şase, Plaka, Müşteri, Firma ara..." // Updated placeholder
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="max-w-sm"
@@ -230,7 +254,7 @@ export default function ArchivePage() {
                             <TableHeader>
                             <TableRow>
                                 <TableHead>Dosya Adı (Şube/Şase)</TableHead>
-                                <TableHead>Müşteri</TableHead>
+                                <TableHead>Müşteri/Firma</TableHead> {/* Combined customer/company */}
                                 <TableHead>Marka</TableHead>
                                 <TableHead>Plaka</TableHead>
                                 <TableHead>Arşivlenme Tarihi</TableHead>
@@ -242,7 +266,10 @@ export default function ArchivePage() {
                             {groupedArchive[groupKey].map((entry) => (
                                 <TableRow key={entry.fileName}>
                                 <TableCell className="font-medium">{entry.fileName}</TableCell>
-                                <TableCell>{entry.customerName || '-'}</TableCell>
+                                <TableCell>
+                                    {entry.customerName || entry.offerCompanyName || '-'} {/* Display customer or company */}
+                                    {entry.customerName && entry.offerCompanyName && <span className="text-xs text-muted-foreground block">(Form: {entry.customerName} / Teklif: {entry.offerCompanyName})</span>}
+                                </TableCell>
                                 <TableCell>{entry.brand || '-'}</TableCell>
                                 <TableCell>{entry.plateNumber || '-'}</TableCell>
                                 <TableCell>{formatDateSafe(entry.archivedAt)}</TableCell>
@@ -276,8 +303,8 @@ export default function ArchivePage() {
                                 </TableCell>
 
                                 <TableCell className="text-right space-x-1">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Düzenle (Detayları Gör)">
-                                        <Pencil className="h-4 w-4" />
+                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Detayları Gör">
+                                        <Info className="h-4 w-4" /> {/* Changed to Info icon */}
                                     </Button>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
@@ -315,34 +342,37 @@ export default function ArchivePage() {
         </CardContent>
       </Card>
 
-      {/* Edit/View Modal Placeholder */}
+      {/* View Details Modal */}
        {editingEntry && (
            <AlertDialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
-               <AlertDialogContent className="max-w-3xl"> {/* Increased width */}
+               <AlertDialogContent className="max-w-4xl"> {/* Increased width further */}
                    <AlertDialogHeader>
                        <AlertDialogTitle>Kayıt Detayları: {editingEntry.fileName}</AlertDialogTitle>
                        <AlertDialogDescription>
                            Bu kaydın arşivlenmiş tüm verilerini aşağıda görebilirsiniz. Düzenleme özelliği henüz aktif değildir.
                        </AlertDialogDescription>
                    </AlertDialogHeader>
-                    {/* Display Archived Data - Improved Layout */}
-                     <div className="mt-4 max-h-[60vh] overflow-auto rounded-md border p-4 bg-secondary/30 text-sm space-y-4">
-                        {/* Basic Info */}
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                            <p><strong className="font-medium">Şube:</strong> {editingEntry.branch}</p>
-                            <p><strong className="font-medium">Şasi No:</strong> {editingEntry.chassisNumber || '-'}</p>
-                            <p><strong className="font-medium">Plaka:</strong> {editingEntry.plateNumber || '-'}</p>
-                            <p><strong className="font-medium">Marka:</strong> {editingEntry.brand || '-'}</p>
-                            <p><strong className="font-medium">Tip:</strong> {editingEntry.type || '-'}</p>
-                            <p><strong className="font-medium">Ticari Adı:</strong> {editingEntry.tradeName || '-'}</p>
-                            <p><strong className="font-medium">Sahip:</strong> {editingEntry.owner || '-'}</p>
-                            <p><strong className="font-medium">Tip Onay No:</strong> {editingEntry.typeApprovalNumber || '-'}</p>
-                            <p><strong className="font-medium">Tip/Varyant:</strong> {editingEntry.typeAndVariant || '-'}</p>
-                        </div>
+                    {/* Display Archived Data - Tabs for different forms */}
+                     <div className="mt-4 max-h-[70vh] overflow-auto rounded-md border p-4 bg-secondary/30 text-sm space-y-4">
+                         {/* Basic Vehicle Info */}
+                         <details className="border rounded p-2" open>
+                            <summary className="cursor-pointer font-medium">Araç Temel Bilgileri</summary>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2">
+                                <p><strong className="font-medium">Şube:</strong> {editingEntry.branch}</p>
+                                <p><strong className="font-medium">Şasi No:</strong> {editingEntry.chassisNumber || '-'}</p>
+                                <p><strong className="font-medium">Plaka:</strong> {editingEntry.plateNumber || '-'}</p>
+                                <p><strong className="font-medium">Marka:</strong> {editingEntry.brand || '-'}</p>
+                                <p><strong className="font-medium">Tip:</strong> {editingEntry.type || '-'}</p>
+                                <p><strong className="font-medium">Ticari Adı:</strong> {editingEntry.tradeName || '-'}</p>
+                                <p><strong className="font-medium">Sahip:</strong> {editingEntry.owner || '-'}</p>
+                                <p><strong className="font-medium">Tip Onay No:</strong> {editingEntry.typeApprovalNumber || '-'}</p>
+                                <p><strong className="font-medium">Tip/Varyant:</strong> {editingEntry.typeAndVariant || '-'}</p>
+                            </div>
+                         </details>
 
-                        {/* Form Data */}
+                         {/* Seri Tadilat Uygunluk Form Data */}
                          <details className="border rounded p-2">
-                           <summary className="cursor-pointer font-medium">Form Bilgileri</summary>
+                           <summary className="cursor-pointer font-medium">Seri Tadilat Uygunluk Formu</summary>
                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
                               <p><strong className="font-medium">Müşteri Adı:</strong> {editingEntry.customerName || '-'}</p>
                               <p><strong className="font-medium">Form Tarihi:</strong> {formatDateSafe(editingEntry.formDate, 'dd.MM.yyyy')}</p>
@@ -353,9 +383,51 @@ export default function ArchivePage() {
                               <p><strong className="font-medium">Diğer Kusur Var mı?:</strong> {renderChecklistStatus(editingEntry.q4_unaffectedPartsDefect)}</p>
                               <p className="col-span-2"><strong className="font-medium">Kontrol Eden:</strong> {editingEntry.controllerName || '-'}</p>
                               <p className="col-span-2"><strong className="font-medium">Yetkili:</strong> {editingEntry.authorityName || '-'}</p>
-                               <p className="col-span-2"><strong className="font-medium">Notlar:</strong> {editingEntry.notes || '-'}</p>
+                              <p className="col-span-2"><strong className="font-medium">Notlar:</strong> {editingEntry.notes || '-'}</p>
                            </div>
                         </details>
+
+                         {/* Teklif Formu Data */}
+                         <details className="border rounded p-2">
+                            <summary className="cursor-pointer font-medium">Teklif Formu</summary>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
+                                <p><strong className="font-medium">Yetkili Adı:</strong> {editingEntry.offerAuthorizedName || '-'}</p>
+                                <p><strong className="font-medium">Firma Adı:</strong> {editingEntry.offerCompanyName || '-'}</p>
+                                <p className="col-span-2"><strong className="font-medium">Açık Adres:</strong> {editingEntry.offerCompanyAddress || '-'}</p>
+                                <p><strong className="font-medium">Vergi D./No:</strong> {editingEntry.offerTaxOfficeAndNumber || '-'}</p>
+                                <p><strong className="font-medium">Telefon:</strong> {editingEntry.offerPhoneNumber || '-'}</p>
+                                <p><strong className="font-medium">E-posta:</strong> {editingEntry.offerEmailAddress || '-'}</p>
+                                <p><strong className="font-medium">Teklif Tarihi:</strong> {formatDateSafe(editingEntry.offerDate, 'dd.MM.yyyy')}</p>
+                                <p className="col-span-2"><strong className="font-medium">Teklif Durumu:</strong> {renderOfferAcceptanceStatus(editingEntry.offerAcceptance)}</p>
+                            </div>
+                             {/* Offer Items Table */}
+                              {editingEntry.offerItems && editingEntry.offerItems.length > 0 && (
+                                <div className="mt-4 overflow-x-auto">
+                                    <Table className="bg-background">
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Sıra No</TableHead>
+                                                <TableHead>Mal ve Malzemenin Adı</TableHead>
+                                                <TableHead>Miktar</TableHead>
+                                                <TableHead>Birim Fiyatı</TableHead>
+                                                <TableHead>Toplam (TL)</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {editingEntry.offerItems.map((item, index) => (
+                                                <TableRow key={item.id || index}>
+                                                    <TableCell>{index + 1}</TableCell>
+                                                    <TableCell>{item.itemName || '-'}</TableCell>
+                                                    <TableCell>{item.quantity || '-'}</TableCell>
+                                                    <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
+                                                    <TableCell>{formatCurrency(item.totalPrice)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                              )}
+                         </details>
 
                         {/* File Info */}
                         <details className="border rounded p-2">
@@ -397,3 +469,4 @@ export default function ArchivePage() {
     </div>
   );
 }
+```

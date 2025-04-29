@@ -16,7 +16,7 @@ import {
   SidebarMenuButton,
   SidebarInset,
 } from '@/components/ui/sidebar';
-import { Home, FilePlus, Archive, Search, Building, StepForward /* Using StepForward for generic step */ } from 'lucide-react';
+import { Home, FilePlus, Archive, Building, ClipboardList, FileText } from 'lucide-react'; // Added FileText for Step 5
 import { Button } from '@/components/ui/button';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -122,6 +122,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                      <SidebarMenuSubItem>
                          <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-4')}>
                              <Link href="/new-record/step-4">Adım 4: Form</Link>
+                         </SidebarMenuSubButton>
+                     </SidebarMenuSubItem>
+                     <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-5')}>
+                             <Link href="/new-record/step-5">Adım 5: Teklif</Link>
                          </SidebarMenuSubButton>
                      </SidebarMenuSubItem>
                  </SidebarMenuSub>
