@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video } from 'lucide-react'; // Added Camera and Video icons
+import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X } from 'lucide-react'; // Added Check, X icons
 import { format, parseISO, getMonth, getYear } from 'date-fns';
 import { tr } from 'date-fns/locale'; // Import Turkish locale
 import {
@@ -25,8 +25,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 
+// Update ArchiveEntry to include all fields from RecordData + metadata
 interface ArchiveEntry {
   branch: string;
+  // Step 1 & 2
   chassisNumber?: string;
   brand?: string;
   type?: string;
@@ -34,15 +36,31 @@ interface ArchiveEntry {
   owner?: string;
   typeApprovalNumber?: string;
   typeAndVariant?: string;
-  additionalNotes?: string;
-  inspectionDate?: string;
-  inspectorName?: string;
-  registrationDocument?: { name: string }; // Stored as info
-  labelDocument?: { name: string }; // Stored as info
-  additionalPhotos?: { name: string }[]; // Stored as info
-  additionalVideos?: { name: string }[]; // Stored as info
+  plateNumber?: string;
+  // Step 3 (File Info)
+  registrationDocument?: { name: string; type?: string; size?: number };
+  labelDocument?: { name: string; type?: string; size?: number };
+  additionalPhotos?: { name: string; type?: string; size?: number }[];
+  additionalVideos?: { name: string; type?: string; size?: number }[];
+  // Step 4 Form
+  customerName?: string;
+  formDate?: string; // ISO String
+  sequenceNo?: string;
+  q1_suitable?: 'olumlu' | 'olumsuz';
+  q2_typeApprovalMatch?: 'olumlu' | 'olumsuz';
+  q3_scopeExpansion?: 'olumlu' | 'olumsuz';
+  q4_unaffectedPartsDefect?: 'olumlu' | 'olumsuz';
+  notes?: string;
+  controllerName?: string;
+  authorityName?: string;
+  // Metadata
   archivedAt: string; // ISO string format
   fileName: string;
+
+   // Keep legacy fields if they exist in older archive data
+   additionalNotes?: string;
+   inspectionDate?: string;
+   inspectorName?: string;
 }
 
 export default function ArchivePage() {
@@ -52,7 +70,7 @@ export default function ArchivePage() {
   const [editingEntry, setEditingEntry] = React.useState<ArchiveEntry | null>(null); // State for editing
 
   // Use recordData.archive or default to empty array
-  const archive = recordData.archive || [];
+  const archive: ArchiveEntry[] = recordData.archive || [];
 
   const filteredArchive = archive.filter((entry: ArchiveEntry) => {
     const lowerSearchTerm = searchTerm.toLowerCase();
@@ -61,7 +79,9 @@ export default function ArchivePage() {
       entry.chassisNumber?.toLowerCase().includes(lowerSearchTerm) ||
       entry.brand?.toLowerCase().includes(lowerSearchTerm) ||
       entry.owner?.toLowerCase().includes(lowerSearchTerm) ||
-      entry.branch?.toLowerCase().includes(lowerSearchTerm)
+      entry.branch?.toLowerCase().includes(lowerSearchTerm) ||
+      entry.customerName?.toLowerCase().includes(lowerSearchTerm) ||
+      entry.plateNumber?.toLowerCase().includes(lowerSearchTerm)
     );
   });
 
@@ -69,7 +89,8 @@ export default function ArchivePage() {
     try {
         // Ensure archivedAt exists and is a valid string before parsing
          if (!entry.archivedAt || typeof entry.archivedAt !== 'string') {
-            throw new Error("Invalid or missing archivedAt date");
+            console.warn("Skipping entry due to invalid or missing archivedAt date:", entry);
+            return acc; // Skip this entry if the date is invalid
          }
         const date = parseISO(entry.archivedAt);
         const year = getYear(date);
@@ -83,6 +104,7 @@ export default function ArchivePage() {
         acc[key].push(entry);
         // Sort entries within the month by date, newest first
         acc[key].sort((a, b) => {
+             // Handle potentially missing archivedAt during sorting
              const timeA = a.archivedAt ? parseISO(a.archivedAt).getTime() : 0;
              const timeB = b.archivedAt ? parseISO(b.archivedAt).getTime() : 0;
              return timeB - timeA;
@@ -90,33 +112,41 @@ export default function ArchivePage() {
 
         return acc;
       } catch (error) {
-         console.error("Error parsing date for entry:", entry, error);
-         // Handle entries with invalid dates, e.g., group them under "Invalid Date"
-         const invalidKey = "Geçersiz Tarih";
-         if (!acc[invalidKey]) {
-             acc[invalidKey] = [];
+         console.error("Error processing date for entry:", entry, error);
+         // Group entries with errors under "Hatalı Kayıtlar" or similar
+         const errorKey = "Hatalı Kayıtlar";
+         if (!acc[errorKey]) {
+             acc[errorKey] = [];
          }
-         acc[invalidKey].push(entry);
+         acc[errorKey].push(entry);
          return acc;
      }
   }, {} as { [key: string]: ArchiveEntry[] });
 
    // Sort group keys (year-month) chronologically, newest first
   const sortedGroupKeys = Object.keys(groupedArchive).sort((a, b) => {
-      if (a === "Geçersiz Tarih") return 1; // Put invalid date last
-      if (b === "Geçersiz Tarih") return -1;
+      if (a === "Hatalı Kayıtlar") return 1; // Put errors last
+      if (b === "Hatalı Kayıtlar") return -1;
 
-      const [yearA, monthNameA] = a.split('-');
-      const [yearB, monthNameB] = b.split('-');
+      // Assuming format YYYY-MonthName (Turkish)
+      const [yearAStr, monthNameA] = a.split('-');
+      const [yearBStr, monthNameB] = b.split('-');
+
+      const yearA = parseInt(yearAStr);
+      const yearB = parseInt(yearBStr);
 
       if (yearA !== yearB) {
-          return parseInt(yearB) - parseInt(yearA);
+          return yearB - yearA; // Sort years descending
       }
 
-      // Convert month names back to numbers for comparison (approximation needed)
+      // Convert month names back to numbers for comparison
        const monthOrder = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
        const monthIndexA = monthOrder.indexOf(monthNameA);
        const monthIndexB = monthOrder.indexOf(monthNameB);
+
+       // Handle cases where month name might be invalid (shouldn't happen often with current logic)
+        if (monthIndexA === -1) return 1;
+        if (monthIndexB === -1) return -1;
 
        return monthIndexB - monthIndexA; // Sort months descending within the year
   });
@@ -132,29 +162,35 @@ export default function ArchivePage() {
   };
 
    const handleEdit = (entry: ArchiveEntry) => {
-       // For now, just log or navigate to an edit page (future enhancement)
        setEditingEntry(entry); // Set the entry to be edited
         toast({
             title: "Düzenleme Modu (Yakında)",
-            description: `${entry.fileName} için düzenleme özelliği eklenecektir.`,
+            description: `${entry.fileName} için düzenleme özelliği gelecekte eklenebilir.`,
         });
-       // In a real app, you might navigate to a form pre-filled with 'entry' data
+       // Future: Navigate to a pre-filled form
        // router.push(`/edit-record/${encodeURIComponent(entry.fileName)}`);
    };
 
    // Helper to get file name (since we store info)
    const getFileName = (fileInfo: { name: string } | undefined): string => {
-     return fileInfo?.name || 'Bilinmeyen Dosya';
+     return fileInfo?.name || 'Yok';
    };
 
    // Helper to format date safely
-   const formatDateSafe = (dateString: string | undefined): string => {
+   const formatDateSafe = (dateString: string | undefined, formatStr: string = 'dd MMMM yyyy HH:mm'): string => {
        if (!dateString) return '-';
        try {
-           return format(parseISO(dateString), 'dd MMMM yyyy HH:mm', { locale: tr });
+           return format(parseISO(dateString), formatStr, { locale: tr });
        } catch (error) {
            return 'Geçersiz Tarih';
        }
+   };
+
+   // Helper to display checklist status
+   const renderChecklistStatus = (status: 'olumlu' | 'olumsuz' | undefined) => {
+       if (status === 'olumlu') return <Check className="h-4 w-4 text-green-600" />;
+       if (status === 'olumsuz') return <X className="h-4 w-4 text-red-600" />;
+       return <span className="text-muted-foreground">-</span>;
    };
 
 
@@ -170,7 +206,7 @@ export default function ArchivePage() {
           <div className="flex items-center gap-2 pt-4">
             <Search className="h-5 w-5 text-muted-foreground" />
             <Input
-              placeholder="Şube, Şase No, Marka, Sahip ara..."
+              placeholder="Şube, Şase, Plaka, Müşteri ara..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="max-w-sm"
@@ -183,125 +219,177 @@ export default function ArchivePage() {
           ) : (
             <Accordion type="multiple" className="w-full">
               {sortedGroupKeys.map((groupKey) => (
-                <AccordionItem value={groupKey} key={groupKey}>
-                  <AccordionTrigger className="text-lg font-medium bg-secondary/50 px-4 py-3 rounded-t-md hover:bg-secondary">
-                    <FolderOpen className="mr-2 h-5 w-5 text-primary" /> {groupKey} ({groupedArchive[groupKey].length} kayıt)
-                  </AccordionTrigger>
-                  <AccordionContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Dosya Adı (Şube/Şase)</TableHead>
-                            <TableHead>Marka</TableHead>
-                            <TableHead>Sahip</TableHead>
-                            <TableHead>Arşivlenme Tarihi</TableHead>
-                             <TableHead>Belgeler</TableHead>
-                            <TableHead className="text-right">İşlemler</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {groupedArchive[groupKey].map((entry) => (
-                            <TableRow key={entry.fileName}>
-                              <TableCell className="font-medium">{entry.fileName}</TableCell>
-                              <TableCell>{entry.brand || '-'}</TableCell>
-                              <TableCell>{entry.owner || '-'}</TableCell>
-                              <TableCell>{formatDateSafe(entry.archivedAt)}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-2 items-center">
-                                  {entry.registrationDocument && (
-                                    <div title={`Ruhsat: ${getFileName(entry.registrationDocument)}`} className="flex items-center gap-1 text-green-600">
-                                      <FileText className="h-4 w-4" />
-                                      <span className="text-xs hidden sm:inline">Ruhsat</span>
-                                    </div>
-                                  )}
-                                  {entry.labelDocument && (
-                                     <div title={`Etiket: ${getFileName(entry.labelDocument)}`} className="flex items-center gap-1 text-blue-600">
-                                      <FileText className="h-4 w-4" />
-                                      <span className="text-xs hidden sm:inline">Etiket</span>
-                                    </div>
-                                  )}
-                                   {entry.additionalPhotos && entry.additionalPhotos.length > 0 && (
-                                    <div title={`${entry.additionalPhotos.length} Ek Fotoğraf`} className="flex items-center gap-1 text-purple-600">
-                                        <Camera className="h-4 w-4" />
-                                        <span className="text-xs">{entry.additionalPhotos.length}</span>
-                                    </div>
-                                   )}
-                                   {entry.additionalVideos && entry.additionalVideos.length > 0 && (
-                                     <div title={`${entry.additionalVideos.length} Ek Video`} className="flex items-center gap-1 text-orange-600">
-                                        <Video className="h-4 w-4" />
-                                        <span className="text-xs">{entry.additionalVideos.length}</span>
-                                    </div>
-                                   )}
-                                </div>
-                              </TableCell>
-
-                              <TableCell className="text-right space-x-1">
-                                 <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Düzenle (Yakında)">
-                                    <Pencil className="h-4 w-4" />
-                                </Button>
-                                <AlertDialog>
-                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" title="Sil">
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                        <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Bu işlem geri alınamaz. '{entry.fileName}' kaydını ve ilişkili tüm verileri kalıcı olarak silmek istediğinizden emin misiniz?
-                                        </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                        <AlertDialogCancel>İptal</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(entry.fileName)} className="bg-destructive hover:bg-destructive/90">
-                                            Sil
-                                        </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                              </TableCell>
+                 groupedArchive[groupKey] && groupedArchive[groupKey].length > 0 ? ( // Ensure the group exists and has entries
+                    <AccordionItem value={groupKey} key={groupKey}>
+                    <AccordionTrigger className="text-lg font-medium bg-secondary/50 px-4 py-3 rounded-t-md hover:bg-secondary">
+                        <FolderOpen className="mr-2 h-5 w-5 text-primary" /> {groupKey} ({groupedArchive[groupKey].length} kayıt)
+                    </AccordionTrigger>
+                    <AccordionContent className="p-0">
+                        <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                            <TableRow>
+                                <TableHead>Dosya Adı (Şube/Şase)</TableHead>
+                                <TableHead>Müşteri</TableHead>
+                                <TableHead>Marka</TableHead>
+                                <TableHead>Plaka</TableHead>
+                                <TableHead>Arşivlenme Tarihi</TableHead>
+                                <TableHead>Belgeler</TableHead>
+                                <TableHead className="text-right">İşlemler</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+                            </TableHeader>
+                            <TableBody>
+                            {groupedArchive[groupKey].map((entry) => (
+                                <TableRow key={entry.fileName}>
+                                <TableCell className="font-medium">{entry.fileName}</TableCell>
+                                <TableCell>{entry.customerName || '-'}</TableCell>
+                                <TableCell>{entry.brand || '-'}</TableCell>
+                                <TableCell>{entry.plateNumber || '-'}</TableCell>
+                                <TableCell>{formatDateSafe(entry.archivedAt)}</TableCell>
+                                <TableCell>
+                                    <div className="flex flex-wrap gap-2 items-center">
+                                    {entry.registrationDocument && (
+                                        <div title={`Ruhsat: ${getFileName(entry.registrationDocument)}`} className="flex items-center gap-1 text-green-600">
+                                        <FileText className="h-4 w-4" />
+                                        <span className="text-xs hidden sm:inline">Ruhsat</span>
+                                        </div>
+                                    )}
+                                    {entry.labelDocument && (
+                                        <div title={`Etiket: ${getFileName(entry.labelDocument)}`} className="flex items-center gap-1 text-blue-600">
+                                        <FileText className="h-4 w-4" />
+                                        <span className="text-xs hidden sm:inline">Etiket</span>
+                                        </div>
+                                    )}
+                                    {entry.additionalPhotos && entry.additionalPhotos.length > 0 && (
+                                        <div title={`${entry.additionalPhotos.length} Ek Fotoğraf`} className="flex items-center gap-1 text-purple-600">
+                                            <Camera className="h-4 w-4" />
+                                            <span className="text-xs">{entry.additionalPhotos.length}</span>
+                                        </div>
+                                    )}
+                                    {entry.additionalVideos && entry.additionalVideos.length > 0 && (
+                                        <div title={`${entry.additionalVideos.length} Ek Video`} className="flex items-center gap-1 text-orange-600">
+                                            <Video className="h-4 w-4" />
+                                            <span className="text-xs">{entry.additionalVideos.length}</span>
+                                        </div>
+                                    )}
+                                    </div>
+                                </TableCell>
+
+                                <TableCell className="text-right space-x-1">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Düzenle (Detayları Gör)">
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" title="Sil">
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                            <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Bu işlem geri alınamaz. '{entry.fileName}' kaydını ve ilişkili tüm verileri kalıcı olarak silmek istediğinizden emin misiniz?
+                                            </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                            <AlertDialogCancel>İptal</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDelete(entry.fileName)} className="bg-destructive hover:bg-destructive/90">
+                                                Sil
+                                            </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </TableCell>
+                                </TableRow>
+                            ))}
+                            </TableBody>
+                        </Table>
+                        </div>
+                    </AccordionContent>
+                    </AccordionItem>
+                 ) : null // Render nothing if group is empty or doesn't exist
               ))}
             </Accordion>
           )}
         </CardContent>
       </Card>
 
-      {/* Basic Edit Modal Placeholder (Future Enhancement) */}
+      {/* Edit/View Modal Placeholder */}
        {editingEntry && (
            <AlertDialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
-               <AlertDialogContent className="max-w-2xl">
+               <AlertDialogContent className="max-w-3xl"> {/* Increased width */}
                    <AlertDialogHeader>
-                       <AlertDialogTitle>Kaydı Düzenle (Yakında)</AlertDialogTitle>
+                       <AlertDialogTitle>Kayıt Detayları: {editingEntry.fileName}</AlertDialogTitle>
                        <AlertDialogDescription>
-                           '{editingEntry.fileName}' kaydının düzenlenmesi için form buraya eklenecektir.
-                           Şimdilik sadece kapatabilirsiniz. Aşağıda arşivlenen veriyi görebilirsiniz.
+                           Bu kaydın arşivlenmiş tüm verilerini aşağıda görebilirsiniz. Düzenleme özelliği henüz aktif değildir.
                        </AlertDialogDescription>
                    </AlertDialogHeader>
-                    {/* Display Archived Data */}
-                     <div className="mt-4 max-h-96 overflow-auto rounded-md border p-4 bg-secondary/30">
-                        <h4 className="font-medium mb-2">Arşivlenmiş Veri:</h4>
-                        <pre className="text-xs bg-muted p-3 rounded-md">
-                           {JSON.stringify(editingEntry, (key, value) => {
-                               // Optionally shorten long file data for display if needed
-                               if ((key === 'additionalPhotos' || key === 'additionalVideos') && Array.isArray(value)) {
-                                   return value.map(f => f.name || 'Bilinmeyen Dosya');
-                               }
-                               return value;
-                           }, 2)}
-                        </pre>
+                    {/* Display Archived Data - Improved Layout */}
+                     <div className="mt-4 max-h-[60vh] overflow-auto rounded-md border p-4 bg-secondary/30 text-sm space-y-4">
+                        {/* Basic Info */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                            <p><strong className="font-medium">Şube:</strong> {editingEntry.branch}</p>
+                            <p><strong className="font-medium">Şasi No:</strong> {editingEntry.chassisNumber || '-'}</p>
+                            <p><strong className="font-medium">Plaka:</strong> {editingEntry.plateNumber || '-'}</p>
+                            <p><strong className="font-medium">Marka:</strong> {editingEntry.brand || '-'}</p>
+                            <p><strong className="font-medium">Tip:</strong> {editingEntry.type || '-'}</p>
+                            <p><strong className="font-medium">Ticari Adı:</strong> {editingEntry.tradeName || '-'}</p>
+                            <p><strong className="font-medium">Sahip:</strong> {editingEntry.owner || '-'}</p>
+                            <p><strong className="font-medium">Tip Onay No:</strong> {editingEntry.typeApprovalNumber || '-'}</p>
+                            <p><strong className="font-medium">Tip/Varyant:</strong> {editingEntry.typeAndVariant || '-'}</p>
+                        </div>
+
+                        {/* Form Data */}
+                         <details className="border rounded p-2">
+                           <summary className="cursor-pointer font-medium">Form Bilgileri</summary>
+                           <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
+                              <p><strong className="font-medium">Müşteri Adı:</strong> {editingEntry.customerName || '-'}</p>
+                              <p><strong className="font-medium">Form Tarihi:</strong> {formatDateSafe(editingEntry.formDate, 'dd.MM.yyyy')}</p>
+                              <p><strong className="font-medium">Sıra No:</strong> {editingEntry.sequenceNo || '-'}</p>
+                              <p><strong className="font-medium">Tadilat Uygun mu?:</strong> {renderChecklistStatus(editingEntry.q1_suitable)}</p>
+                              <p><strong className="font-medium">Tip Onay Uygun mu?:</strong> {renderChecklistStatus(editingEntry.q2_typeApprovalMatch)}</p>
+                              <p><strong className="font-medium">Kapsam Gen. Uygun mu?:</strong> {renderChecklistStatus(editingEntry.q3_scopeExpansion)}</p>
+                              <p><strong className="font-medium">Diğer Kusur Var mı?:</strong> {renderChecklistStatus(editingEntry.q4_unaffectedPartsDefect)}</p>
+                              <p className="col-span-2"><strong className="font-medium">Kontrol Eden:</strong> {editingEntry.controllerName || '-'}</p>
+                              <p className="col-span-2"><strong className="font-medium">Yetkili:</strong> {editingEntry.authorityName || '-'}</p>
+                               <p className="col-span-2"><strong className="font-medium">Notlar:</strong> {editingEntry.notes || '-'}</p>
+                           </div>
+                        </details>
+
+                        {/* File Info */}
+                        <details className="border rounded p-2">
+                           <summary className="cursor-pointer font-medium">Yüklenen Dosyalar</summary>
+                           <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
+                               <p><strong className="font-medium">Ruhsat:</strong> {getFileName(editingEntry.registrationDocument)}</p>
+                               <p><strong className="font-medium">Etiket:</strong> {getFileName(editingEntry.labelDocument)}</p>
+                               <p><strong className="font-medium">Ek Fotoğraflar ({editingEntry.additionalPhotos?.length || 0}):</strong> {editingEntry.additionalPhotos?.map(f => f.name).join(', ') || 'Yok'}</p>
+                               <p><strong className="font-medium">Ek Videolar ({editingEntry.additionalVideos?.length || 0}):</strong> {editingEntry.additionalVideos?.map(f => f.name).join(', ') || 'Yok'}</p>
+                           </div>
+                        </details>
+
+                        {/* Metadata */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-2 mt-2">
+                           <p><strong className="font-medium">Arşivlenme Tarihi:</strong> {formatDateSafe(editingEntry.archivedAt)}</p>
+                           <p><strong className="font-medium">Dosya Adı:</strong> {editingEntry.fileName}</p>
+                        </div>
+
+                         {/* Optional: Display legacy fields if they exist */}
+                          {(editingEntry.additionalNotes || editingEntry.inspectionDate || editingEntry.inspectorName) && (
+                             <details className="border rounded p-2">
+                                <summary className="cursor-pointer font-medium text-muted-foreground">Eski Veriler (Opsiyonel)</summary>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
+                                    {editingEntry.inspectionDate && <p><strong className="font-medium">Muayene Tarihi (Eski):</strong> {formatDateSafe(editingEntry.inspectionDate, 'dd.MM.yyyy')}</p>}
+                                    {editingEntry.inspectorName && <p><strong className="font-medium">Muayene Yapan (Eski):</strong> {editingEntry.inspectorName}</p>}
+                                    {editingEntry.additionalNotes && <p className="col-span-2"><strong className="font-medium">Ek Notlar (Eski):</strong> {editingEntry.additionalNotes}</p>}
+                                </div>
+                            </details>
+                          )}
+
                     </div>
                    <AlertDialogFooter>
                        <AlertDialogCancel onClick={() => setEditingEntry(null)}>Kapat</AlertDialogCancel>
-                       {/* <AlertDialogAction onClick={handleSaveChanges}>Değişiklikleri Kaydet</AlertDialogAction> */}
+                       {/* <AlertDialogAction disabled>Değişiklikleri Kaydet (Yakında)</AlertDialogAction> */}
                    </AlertDialogFooter>
                </AlertDialogContent>
            </AlertDialog>
@@ -309,4 +397,3 @@ export default function ArchivePage() {
     </div>
   );
 }
-
