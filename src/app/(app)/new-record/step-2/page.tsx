@@ -28,7 +28,9 @@ const FormSchema = z.object({
   chassisNumber: z.string().optional(), // Display only, filled from step 1/OCR
   typeApprovalNumber: z.string().optional(),
   typeAndVariant: z.string().optional(),
-  labelDocument: z.any().optional()
+  labelDocument: z.any().optional(),
+  brand: z.string().optional(), // Add brand field
+  plateNumber: z.string().optional(), // Add plate number field for display/update
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -38,8 +40,9 @@ export default function NewRecordStep2() {
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [progress] = React.useState(50); // Step 2 of 4 (soon to be 5)
+  const [progress] = React.useState(50); // Step 2 of 5
   const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null);
+
   const [ocrError, setOcrError] = React.useState<string | null>(null);
   const [currentFile, setCurrentFile] = React.useState<File | null>(null);
 
@@ -50,6 +53,8 @@ export default function NewRecordStep2() {
       typeApprovalNumber: recordData.typeApprovalNumber || '',
       typeAndVariant: recordData.typeAndVariant || '',
       labelDocument: recordData.labelDocument || null,
+      brand: recordData.brand || '', // Pre-fill brand
+      plateNumber: recordData.plateNumber || '', // Pre-fill plate number
     },
   });
 
@@ -128,16 +133,27 @@ export default function NewRecordStep2() {
          // Get current form data AND data from previous steps
          const currentDataForDecision = {
              chassisNumber: recordData.chassisNumber, // Use value from global state (set in Step 1)
-             brand: recordData.brand,
+             brand: form.getValues('brand') || recordData.brand, // Use form value first
              type: recordData.type,
              tradeName: recordData.tradeName,
              owner: recordData.owner,
+             plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Use form value first
              typeApprovalNumber: form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber, // Use form value first
              typeAndVariant: form.getValues('typeAndVariant') || recordData.typeAndVariant, // Use form value first
          };
          console.log("Current Data for Override Decision (Step 2):", currentDataForDecision);
 
-         const ocrDataForDecision = ocrData;
+         // Ensure all fields from OcrData are present in the decision input
+         const ocrDataForDecision = {
+           chassisNumber: ocrData.chassisNumber,
+           brand: ocrData.brand,
+           type: ocrData.type,
+           tradeName: ocrData.tradeName,
+           owner: ocrData.owner,
+           plateNumber: ocrData.plateNumber,
+           typeApprovalNumber: ocrData.typeApprovalNumber,
+           typeAndVariant: ocrData.typeAndVariant,
+         };
          console.log("OCR Data for Override Decision (Step 2 Label):", ocrDataForDecision);
 
          console.log("Calling decideOcrOverride flow for Step 2...");
@@ -179,7 +195,16 @@ export default function NewRecordStep2() {
              form.setValue('chassisNumber', ocrData.chassisNumber!);
              updates.chassisNumber = ocrData.chassisNumber;
          } else {
-             console.log("Not overriding chassisNumber. Override:", override.chassisNumber, "OCR Data:", ocrData.chassisNumber);
+             console.log("Not overriding chassisNumber (Step 2). Override:", override.chassisNumber, "OCR Data:", ocrData.chassisNumber);
+         }
+
+         // Brand
+         if (shouldUpdate('brand')) {
+             console.log("Updating brand field with label OCR data:", ocrData.brand);
+             form.setValue('brand', ocrData.brand!);
+             updates.brand = ocrData.brand;
+         } else {
+             console.log("Not overriding brand (Step 2). Override:", override.brand, "OCR Data:", ocrData.brand);
          }
 
 
@@ -201,14 +226,18 @@ export default function NewRecordStep2() {
              console.log("Not overriding typeAndVariant. Override:", override.typeAndVariant, "OCR Data:", ocrData.typeAndVariant);
          }
 
+         // Plate Number
+          if (shouldUpdate('plateNumber')) {
+              console.log("Updating plateNumber field with label OCR data:", ocrData.plateNumber);
+              form.setValue('plateNumber', ocrData.plateNumber!);
+              updates.plateNumber = ocrData.plateNumber;
+          } else {
+              console.log("Not overriding plateNumber (Step 2). Override:", override.plateNumber, "OCR Data:", ocrData.plateNumber);
+          }
+
+
          // Update potentially other fields in the global state based on label OCR decision
          // These might override Step 1 data if deemed more accurate by the AI
-         if (shouldUpdate('brand')) {
-             console.log("Preparing update for brand in global state (from label):", ocrData.brand);
-             updates.brand = ocrData.brand;
-         } else {
-              console.log("Not overriding brand (Step 2). Override:", override.brand, "OCR Data:", ocrData.brand);
-         }
          if (shouldUpdate('type')) {
             console.log("Preparing update for type in global state (from label):", ocrData.type);
             updates.type = ocrData.type; // Update "tipi"
@@ -227,6 +256,7 @@ export default function NewRecordStep2() {
          } else {
             console.log("Not overriding owner (Step 2). Override:", override.owner, "OCR Data:", ocrData.owner);
          }
+        // Plate number update from label already handled above for form field and updates object
 
 
          toast({
@@ -248,6 +278,14 @@ export default function NewRecordStep2() {
                     form.setValue('typeAndVariant', ocrDataFallback.typeAndVariant);
                     updates.typeAndVariant = ocrDataFallback.typeAndVariant;
                 }
+                if (!form.getValues('brand') && ocrDataFallback.brand) { // Fallback for brand
+                    form.setValue('brand', ocrDataFallback.brand);
+                    updates.brand = ocrDataFallback.brand;
+                }
+                if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) { // Fallback for plate number
+                     form.setValue('plateNumber', ocrDataFallback.plateNumber);
+                     updates.plateNumber = ocrDataFallback.plateNumber;
+                 }
                 // Update global state for potential future use even without decision
                 updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
                 updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
@@ -257,6 +295,7 @@ export default function NewRecordStep2() {
                  if (!recordData.type && ocrDataFallback.type) updates.type = ocrDataFallback.type;
                  if (!recordData.tradeName && ocrDataFallback.tradeName) updates.tradeName = ocrDataFallback.tradeName;
                  if (!recordData.owner && ocrDataFallback.owner) updates.owner = ocrDataFallback.owner;
+                 if (!recordData.plateNumber && ocrDataFallback.plateNumber) updates.plateNumber = ocrDataFallback.plateNumber; // Fallback for plateNumber
 
              }
        } finally {
@@ -369,14 +408,14 @@ export default function NewRecordStep2() {
 
 
     // Update global state, ensuring the file (or its info) is correctly passed
+    // Also update fields that might have been changed by OCR/manual input in this step
     updateRecordData({
-        // Preserve potentially updated fields from global state (e.g., if label OCR updated them)
-        chassisNumber: recordData.chassisNumber,
-        brand: recordData.brand,
-        type: recordData.type,
-        tradeName: recordData.tradeName,
-        owner: recordData.owner,
-        // Update with current form values for step 2 specific fields
+        chassisNumber: recordData.chassisNumber, // Preserve potentially updated chassis no
+        brand: data.brand, // Update brand from form
+        type: recordData.type, // Preserve potentially updated type
+        tradeName: recordData.tradeName, // Preserve potentially updated tradeName
+        owner: recordData.owner, // Preserve potentially updated owner
+        plateNumber: data.plateNumber, // Update plateNumber from form
         typeApprovalNumber: data.typeApprovalNumber,
         typeAndVariant: data.typeAndVariant,
         labelDocument: documentToSave // This will be the File or the info object
@@ -388,6 +427,8 @@ export default function NewRecordStep2() {
      // Save current data before going back
      updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve
+        brand: form.getValues('brand'), // Save brand
+        plateNumber: form.getValues('plateNumber'), // Save plate number
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
         labelDocument: currentFile || recordData.labelDocument // Save current file/info
@@ -403,6 +444,8 @@ export default function NewRecordStep2() {
      // This ensures data potentially updated by step 1 OCR/override is reflected here
      form.reset({
         chassisNumber: recordData.chassisNumber || '',
+        brand: recordData.brand || '', // Sync brand
+        plateNumber: recordData.plateNumber || '', // Sync plate number
         typeApprovalNumber: recordData.typeApprovalNumber || '',
         typeAndVariant: recordData.typeAndVariant || '',
         labelDocument: recordData.labelDocument || null
@@ -435,6 +478,7 @@ export default function NewRecordStep2() {
   if (!branch) {
       return <div className="flex min-h-screen items-center justify-center p-4">Şube seçimine yönlendiriliyorsunuz...</div>;
   }
+
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
@@ -529,48 +573,76 @@ export default function NewRecordStep2() {
                     )}
                 />
 
+                {/* Auto-filled/Display Fields */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="chassisNumber"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Şase Numarası (Ruhsat/Etiket)</FormLabel>
+                            <FormControl>
+                            {/* Use the field value directly, as it's managed by useForm and synced */}
+                            <Input placeholder="Ruhsattan/Etiketten alınacak..." {...field} disabled />
+                            </FormControl>
+                            {/* No FormMessage needed for disabled display field */}
+                        </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="plateNumber"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Plaka</FormLabel>
+                            <FormControl>
+                            <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="brand"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Marka</FormLabel>
+                            <FormControl>
+                            <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="typeApprovalNumber"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Tip Onay Numarası</FormLabel>
+                            <FormControl>
+                            <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="typeAndVariant"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Tip ve Varyant</FormLabel>
+                            <FormControl>
+                            <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                </div>
 
-              {/* Auto-filled/Display Fields */}
-              <FormField
-                control={form.control}
-                name="chassisNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Şase Numarası (Ruhsat/Etiket)</FormLabel>
-                    <FormControl>
-                      {/* Use the field value directly, as it's managed by useForm and synced */}
-                      <Input placeholder="Ruhsattan/Etiketten alınacak..." {...field} disabled />
-                    </FormControl>
-                    {/* No FormMessage needed for disabled display field */}
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="typeApprovalNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tip Onay Numarası</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="typeAndVariant"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tip ve Varyant</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <div className="flex justify-between">
                  <Button type="button" variant="outline" onClick={goBack} disabled={isLoading}>
@@ -586,5 +658,5 @@ export default function NewRecordStep2() {
       </Card>
     </div>
   );
-}
 
+}
