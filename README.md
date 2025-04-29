@@ -14,6 +14,7 @@ This is a Next.js application using Genkit for AI features, ShadCN for UI compon
     ```env
     GOOGLE_GENAI_API_KEY=YOUR_API_KEY
     ```
+    **Important:** Ensure your `.env` file is listed in your `.gitignore` file to prevent accidentally committing your API key. If `.gitignore` doesn't exist or doesn't include `.env`, add `.env` on a new line in the `.gitignore` file.
 
 3.  **Run the development server:**
     ```bash
@@ -34,39 +35,79 @@ This is a Next.js application using Genkit for AI features, ShadCN for UI compon
 
 ## Backing Up to GitHub
 
-To back up your project to a GitHub repository:
+To back up your project code to a new or existing GitHub repository:
 
-1.  **Initialize Git (if you haven't already):**
+1.  **Initialize Git (if not already done):**
+    If you haven't initialized a Git repository in your project folder yet, run:
     ```bash
     git init
     ```
 
-2.  **Stage all your project files:**
+2.  **Check Status:**
+    See which files are tracked, untracked, or modified:
+    ```bash
+    git status
+    ```
+
+3.  **Add Files to Staging:**
+    Add all new and modified files to the staging area for the next commit.
     ```bash
     git add .
     ```
+    *Note:* Make sure your `.gitignore` file is correctly configured (especially to exclude `node_modules` and `.env`) before running `git add .`.
 
-3.  **Create your first commit:**
+4.  **Commit Changes:**
+    Save your staged changes with a descriptive message:
     ```bash
-    git commit -m "Initial commit"
+    git commit -m "Your descriptive commit message"
     ```
+    *(Example: `git commit -m "feat: Implement user authentication"`)
 
-4.  **Create a new repository on GitHub.** (e.g., `my-arsiv-asistani`)
+5.  **Connect to a GitHub Repository:**
 
-5.  **Add the GitHub repository as the remote origin:**
-    Replace `<your-github-repo-url>` with the URL provided by GitHub (e.g., `https://github.com/your-username/my-arsiv-asistani.git`).
-    ```bash
-    git remote add origin <your-github-repo-url>
-    ```
+    *   **If creating a NEW repository on GitHub:**
+        a. Go to [GitHub](https://github.com/) and create a new repository (e.g., `my-arsiv-asistani`). **Do NOT initialize it with a README, .gitignore, or license** if you already have these locally.
+        b. Copy the repository URL provided by GitHub (it looks like `https://github.com/your-username/my-arsiv-asistani.git`).
+        c. Add this URL as the "remote origin" for your local repository:
+           ```bash
+           git remote add origin <your-github-repo-url>
+           ```
+        d. Verify the remote connection:
+           ```bash
+           git remote -v
+           ```
 
-6.  **Rename the default branch to `main` (common practice):**
+    *   **If connecting to an EXISTING empty GitHub repository:**
+        Follow steps 5a to 5d above.
+
+    *   **If connecting to an EXISTING repository with files:**
+        This is more complex and might require fetching, merging, or rebasing. Consult Git documentation or tutorials if needed. A common first step is:
+        ```bash
+        git remote add origin <your-github-repo-url>
+        git fetch origin
+        # You might need to merge or rebase branches here, e.g.:
+        # git merge origin/main # (Or origin/master)
+        ```
+
+6.  **Rename Default Branch (Optional but Recommended):**
+    The standard default branch name is `main`. If your local default branch is different (e.g., `master`), rename it:
     ```bash
     git branch -M main
     ```
 
-7.  **Push your code to GitHub:**
+7.  **Push Your Code to GitHub:**
+    Upload your local commits to the remote repository on GitHub. The `-u` flag sets the upstream branch for future pushes.
     ```bash
     git push -u origin main
     ```
+    *(If your branch isn't `main`, replace `main` with your branch name).*
 
-Now your project code is backed up on GitHub. For future updates, use `git add .`, `git commit -m "Your commit message"`, and `git push`.
+**Future Backups:**
+
+After the initial setup, your workflow for backing up changes will typically be:
+
+1.  Make changes to your code.
+2.  Stage the changes: `git add .` (or add specific files: `git add src/app/page.tsx`)
+3.  Commit the changes: `git commit -m "Your new commit message"`
+4.  Push the commits to GitHub: `git push origin main` (or just `git push` if upstream is set)
+```
