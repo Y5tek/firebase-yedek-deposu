@@ -177,8 +177,8 @@ export default function NewRecordStep1() {
       // Update fields based on decision
       if (shouldUpdate('chassisNumber')) {
         console.log("Updating chassisNumber field with OCR data:", ocrData.chassisNumber);
-        form.setValue('chassisNumber', ocrData.chassisNumber!);
-        updates.chassisNumber = ocrData.chassisNumber;
+        form.setValue('chassisNumber', ocrData.chassisNumber!); // Populates the form field
+        updates.chassisNumber = ocrData.chassisNumber; // Updates the object for global state update
       } else {
           console.log("Not overriding chassisNumber. Override:", override.chassisNumber, "OCR Data:", ocrData.chassisNumber);
       }
