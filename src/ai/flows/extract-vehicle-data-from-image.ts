@@ -85,10 +85,12 @@ const extractVehicleDataFlow = ai.defineFlow<
   },
   async (input) => {
     console.log("Calling AI prompt for OCR extraction...");
-    let llmResponse;
+    let extractedData: OcrData | undefined;
     try {
-        // Call the AI prompt with the image data URI
-        llmResponse = await extractDataPrompt(input);
+        // Call the AI prompt with the image data URI and destructure the output
+        const { output } = await extractDataPrompt(input);
+        extractedData = output;
+
     } catch (error) {
         console.error("Error calling extractDataPrompt:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -99,8 +101,6 @@ const extractVehicleDataFlow = ai.defineFlow<
          // Re-throw other errors
          throw new Error(`AI prompt error: ${errorMessage}`);
     }
-
-    const extractedData = llmResponse.output(); // Use .output() to get the structured output
 
     if (!extractedData) {
         throw new Error("AI failed to extract data from the image.");
@@ -114,4 +114,3 @@ const extractVehicleDataFlow = ai.defineFlow<
     };
   }
 );
-

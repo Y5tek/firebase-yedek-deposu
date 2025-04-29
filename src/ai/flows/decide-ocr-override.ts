@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -111,9 +112,11 @@ const decideOcrOverrideFlow = ai.defineFlow<
   inputSchema: DecideOcrOverrideInputSchema,
   outputSchema: DecideOcrOverrideOutputSchema,
 }, async input => {
-   let llmResponse;
+   let output: DecideOcrOverrideOutput | undefined;
     try {
-        llmResponse = await prompt(input);
+        // Destructure the output directly from the prompt call
+        const { output: promptOutput } = await prompt(input);
+        output = promptOutput;
     } catch (error) {
         console.error("Error calling decideOcrOverridePrompt:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -124,9 +127,10 @@ const decideOcrOverrideFlow = ai.defineFlow<
          // Re-throw other errors
          throw new Error(`AI prompt error: ${errorMessage}`);
     }
-    const output = llmResponse.output();
+
     if (!output) {
         throw new Error("AI failed to generate an override decision.");
     }
   return output;
 });
+
