@@ -11,7 +11,7 @@ import { Form, FormControl, FormItem, FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Camera, Video, Image as ImageIcon, Trash2, AlertCircle } from 'lucide-react';
+import { Upload, Camera, Video, Image as ImageIcon, Trash2, AlertCircle, Film, FileUp } from 'lucide-react'; // Added Film and FileUp icons
 import { useAppState, RecordData } from '@/hooks/use-app-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -29,6 +29,7 @@ import {
 // Define acceptable file types
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const ACCEPTED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+const ACCEPTED_MEDIA_TYPES = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_VIDEO_TYPES];
 
 interface MediaFile {
   file: File;
@@ -47,8 +48,7 @@ export default function NewRecordStep3() {
   // Use a simple form instance, no schema needed here as we manage files directly
   const form = useForm();
 
-  const photoInputRef = React.useRef<HTMLInputElement>(null);
-  const videoInputRef = React.useRef<HTMLInputElement>(null);
+  const mediaInputRef = React.useRef<HTMLInputElement>(null); // Single ref for combined input
 
   // Initialize mediaFiles state from global state on component mount
   React.useEffect(() => {
@@ -66,8 +66,7 @@ export default function NewRecordStep3() {
       });
     };
 
-    // Only add files from global state if they are actual File objects
-    // and not already present in the current local state
+    // Retrieve files from global state and determine their type based on the array they are in
     addFilesToMedia(recordData.additionalPhotos as File[], 'image');
     addFilesToMedia(recordData.additionalVideos as File[], 'video');
 
@@ -85,7 +84,7 @@ export default function NewRecordStep3() {
   }, []); // Empty dependency array to run only on mount
 
 
-   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
+   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
      const files = event.target.files;
      setUploadError(null); // Clear previous errors
 
@@ -94,25 +93,36 @@ export default function NewRecordStep3() {
        let errorFound = false;
 
        Array.from(files).forEach(file => {
-         const acceptedTypes = type === 'image' ? ACCEPTED_IMAGE_TYPES : ACCEPTED_VIDEO_TYPES;
-         if (!acceptedTypes.includes(file.type)) {
-           setUploadError(`Desteklenmeyen dosya türü: ${file.name}. Sadece ${type === 'image' ? 'resim' : 'video'} dosyaları kabul edilir.`);
+          let fileType: 'image' | 'video' | null = null;
+          if (ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+              fileType = 'image';
+          } else if (ACCEPTED_VIDEO_TYPES.includes(file.type)) {
+              fileType = 'video';
+          }
+
+         if (!fileType) {
+           setUploadError(`Desteklenmeyen dosya türü: ${file.name}. Sadece resim veya video dosyaları kabul edilir.`);
            errorFound = true;
            return; // Skip this file
          }
 
          const previewUrl = URL.createObjectURL(file);
-         newMediaFiles.push({ file, previewUrl, type });
+         newMediaFiles.push({ file, previewUrl, type: fileType });
        });
 
        if (!errorFound) {
          setMediaFiles(prev => [...prev, ...newMediaFiles]);
-         // Update global state immediately
-         if (type === 'image') {
-           updateRecordData({ additionalPhotos: [...(recordData.additionalPhotos || []).filter(f => f instanceof File), ...newMediaFiles.map(mf => mf.file)] as File[] });
-         } else {
-           updateRecordData({ additionalVideos: [...(recordData.additionalVideos || []).filter(f => f instanceof File), ...newMediaFiles.map(mf => mf.file)] as File[] });
-         }
+         // Update global state immediately, separating into photos and videos
+         const currentPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File);
+         const currentVideos = (recordData.additionalVideos || []).filter(f => f instanceof File);
+
+         const addedPhotos = newMediaFiles.filter(mf => mf.type === 'image').map(mf => mf.file);
+         const addedVideos = newMediaFiles.filter(mf => mf.type === 'video').map(mf => mf.file);
+
+         updateRecordData({
+             additionalPhotos: [...currentPhotos, ...addedPhotos] as File[],
+             additionalVideos: [...currentVideos, ...addedVideos] as File[]
+          });
        }
      }
        // Reset file input to allow selecting the same file again
@@ -127,14 +137,17 @@ export default function NewRecordStep3() {
       if (fileToDelete) {
         URL.revokeObjectURL(fileToDelete.previewUrl); // Clean up object URL
 
-        // Update global state by filtering out the deleted file
+        // Update global state by filtering out the deleted file from the correct array
         if (fileToDelete.type === 'image') {
-            const updatedPhotos = (recordData.additionalPhotos || []).filter((_, index) => index !== indexToDelete);
-             // Ensure we only store File objects or serializable info in global state
-             updateRecordData({ additionalPhotos: updatedPhotos.map(f => f instanceof File ? f : { name: f.name }) });
+            const updatedPhotos = (recordData.additionalPhotos || [])
+                .filter(f => f instanceof File) // Work only with File objects
+                .filter(file => !(file.name === fileToDelete.file.name && file.size === fileToDelete.file.size));
+             updateRecordData({ additionalPhotos: updatedPhotos });
         } else {
-             const updatedVideos = (recordData.additionalVideos || []).filter((_, index) => index !== indexToDelete);
-             updateRecordData({ additionalVideos: updatedVideos.map(f => f instanceof File ? f : { name: f.name }) });
+             const updatedVideos = (recordData.additionalVideos || [])
+                 .filter(f => f instanceof File) // Work only with File objects
+                 .filter(file => !(file.name === fileToDelete.file.name && file.size === fileToDelete.file.size));
+             updateRecordData({ additionalVideos: updatedVideos });
         }
       }
       // Return the updated local state
@@ -150,7 +163,8 @@ export default function NewRecordStep3() {
 
   const onSubmit = () => {
     console.log("Submitting Step 3 Data - Media Files:", mediaFiles.map(mf => mf.file.name));
-    // Update global state one last time before navigating (already done in handleFileChange/handleDeleteFile)
+    // Global state is already updated in handleFileChange/handleDeleteFile
+    // Just need to ensure it's finalized before navigating
      updateRecordData({
        additionalPhotos: mediaFiles.filter(mf => mf.type === 'image').map(mf => mf.file),
        additionalVideos: mediaFiles.filter(mf => mf.type === 'video').map(mf => mf.file),
@@ -209,8 +223,8 @@ export default function NewRecordStep3() {
       <Card className="w-full max-w-2xl shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
-            <Camera className="text-primary" /> / <Video className="text-primary" />
-            Yeni Kayıt - Adım 3: Ek Fotoğraf/Video Yükleme
+            <FileUp className="text-primary" /> {/* Combined Icon */}
+            Yeni Kayıt - Adım 3: Ek Dosya Yükleme
           </CardTitle>
           <CardDescription>
              Varsa araca ait ek fotoğraf veya videoları yükleyebilirsiniz.
@@ -222,47 +236,30 @@ export default function NewRecordStep3() {
             {/* No actual form submission needed here, just managing files */}
             <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-6">
               <FormItem>
-                <FormLabel>Ek Fotoğraflar</FormLabel>
+                <FormLabel>Ek Dosyalar (Fotoğraf/Video)</FormLabel>
                 <FormControl>
                   <div className="flex flex-col items-center gap-4 rounded-md border border-dashed p-6">
                     <Input
                       type="file"
-                      accept={ACCEPTED_IMAGE_TYPES.join(',')}
-                      ref={photoInputRef}
-                      onChange={(e) => handleFileChange(e, 'image')}
+                      accept={ACCEPTED_MEDIA_TYPES.join(',')} // Accept both image and video
+                      ref={mediaInputRef}
+                      onChange={handleFileChange}
                       className="hidden"
-                      id="photo-upload"
+                      id="media-upload"
                       multiple // Allow multiple file selection
                     />
-                    <Button type="button" variant="outline" onClick={() => photoInputRef.current?.click()}>
-                      <Upload className="mr-2 h-4 w-4" /> Fotoğraf Seç
-                    </Button>
-                     <Button type="button" variant="outline" onClick={() => toast({ title: 'Yakında', description: 'Kamera özelliği eklenecektir.' })}>
-                        <Camera className="mr-2 h-4 w-4" /> Kamera ile Çek
-                    </Button>
-                  </div>
-                </FormControl>
-              </FormItem>
-
-              <FormItem>
-                <FormLabel>Ek Videolar</FormLabel>
-                <FormControl>
-                  <div className="flex flex-col items-center gap-4 rounded-md border border-dashed p-6">
-                    <Input
-                      type="file"
-                      accept={ACCEPTED_VIDEO_TYPES.join(',')}
-                      ref={videoInputRef}
-                      onChange={(e) => handleFileChange(e, 'video')}
-                      className="hidden"
-                      id="video-upload"
-                      multiple // Allow multiple file selection
-                    />
-                    <Button type="button" variant="outline" onClick={() => videoInputRef.current?.click()}>
-                      <Upload className="mr-2 h-4 w-4" /> Video Seç
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => toast({ title: 'Yakında', description: 'Video kayıt özelliği eklenecektir.' })}>
-                        <Video className="mr-2 h-4 w-4" /> Video Kaydet
-                    </Button>
+                     {/* Combined Buttons */}
+                     <div className="flex flex-wrap justify-center gap-2">
+                        <Button type="button" variant="outline" onClick={() => mediaInputRef.current?.click()}>
+                            <Upload className="mr-2 h-4 w-4" /> Dosya Seç (Fotoğraf/Video)
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => toast({ title: 'Yakında', description: 'Kamera ile fotoğraf çekme özelliği eklenecektir.' })}>
+                            <Camera className="mr-2 h-4 w-4" /> Kamera ile Fotoğraf Çek
+                        </Button>
+                         <Button type="button" variant="outline" onClick={() => toast({ title: 'Yakında', description: 'Kamera ile video kayıt özelliği eklenecektir.' })}>
+                            <Video className="mr-2 h-4 w-4" /> Kamera ile Video Kaydet
+                        </Button>
+                    </div>
                   </div>
                 </FormControl>
               </FormItem>
@@ -278,7 +275,7 @@ export default function NewRecordStep3() {
               {/* Display uploaded files */}
               {mediaFiles.length > 0 && (
                 <div className="mt-6 space-y-4">
-                  <h3 className="text-lg font-medium">Yüklenen Dosyalar:</h3>
+                  <h3 className="text-lg font-medium">Yüklenen Dosyalar ({mediaFiles.length}):</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {mediaFiles.map((media, index) => (
                       <div key={index} className="relative group border rounded-md overflow-hidden aspect-square">
@@ -293,7 +290,7 @@ export default function NewRecordStep3() {
                           />
                         ) : (
                            <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground p-2">
-                              <Video className="w-1/2 h-1/2 mb-1" />
+                              <Film className="w-1/2 h-1/2 mb-1" /> {/* Using Film icon for video */}
                               <span className="text-xs text-center break-all line-clamp-2">{media.file.name}</span>
                            </div>
                         )}
