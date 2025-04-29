@@ -1,3 +1,4 @@
+
 /**
  * Represents information extracted from a document using OCR.
  * All fields are optional as OCR might not always find every piece of information.
@@ -24,6 +25,10 @@ export interface OcrData {
      */
     owner?: string;
     /**
+     * The license plate number extracted from the document.
+     */
+    plateNumber?: string;
+    /**
      * The type approval number extracted from the document.
      */
     typeApprovalNumber?: string;
@@ -48,4 +53,3 @@ export async function extractDataFromImage(imageBase64: string): Promise<OcrData
     throw new Error("OCR extraction is handled by the Genkit AI flow, not this service function directly.");
     // If you need a non-AI OCR implementation later, implement it here.
 }
-```
