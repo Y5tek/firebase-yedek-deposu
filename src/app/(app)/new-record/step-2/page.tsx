@@ -58,6 +58,8 @@ export default function NewRecordStep2() {
      if (!file) return;
      setIsLoading(true);
      setOcrError(null);
+     console.log("Starting OCR scan for Step 2...");
+
 
      try {
        const reader = new FileReader();
@@ -70,8 +72,11 @@ export default function NewRecordStep2() {
        const base64String = reader.result as string;
 
        try {
+         console.log("Calling extractVehicleData flow for label...");
          // Call Genkit flow for OCR (reuse or create specific one if needed)
          const ocrResult = await extractVehicleData({ imageBase64: base64String });
+         console.log("OCR Result (Step 2 Label):", ocrResult.ocrData);
+
 
           // Get current form data AND data from previous steps to pass to decision flow
           const currentDataForDecision = {
@@ -83,57 +88,91 @@ export default function NewRecordStep2() {
               typeApprovalNumber: form.getValues('typeApprovalNumber'), // Current Step 2 form value
               typeAndVariant: form.getValues('typeAndVariant'), // Current Step 2 form value
           };
+            console.log("Current Data for Override Decision (Step 2):", currentDataForDecision);
+
+
+         // Prepare OCR data for decision flow
+         const ocrDataForDecision = ocrResult.ocrData; // Use the full OCR data from label
+         console.log("OCR Data for Override Decision (Step 2 Label):", ocrDataForDecision);
+
 
          // Call Genkit flow to decide which fields to override
+         console.log("Calling decideOcrOverride flow for Step 2...");
          const overrideDecision = await decideOcrOverride({
-            ocrData: ocrResult.ocrData, // Pass all OCR data from the *label* scan
+            ocrData: ocrDataForDecision, // Pass all OCR data from the *label* scan
             currentData: currentDataForDecision // Pass combined current data
           });
+         console.log("Override Decision (Step 2):", overrideDecision.override);
 
-         // Update form fields based on the decision (for Step 2 fields)
-          const updates: Partial<RecordData> = {}; // Use RecordData
 
-          // IMPORTANT: Even if chassis number is found in the label OCR, we prioritize the one from Step 1 (License).
-          // However, the decision flow *might* still suggest overriding other fields based on the label scan.
-          // We update the global state if the decision says so for other fields.
+         // --- Update form fields and state based on the OCR data and override decision ---
+         const ocrData = ocrResult.ocrData;
+         const override = overrideDecision.override;
+         const updates: Partial<RecordData> = {}; // Use RecordData
 
-          if (overrideDecision.override.chassisNumber && ocrResult.ocrData.chassisNumber && ocrResult.ocrData.chassisNumber !== recordData.chassisNumber) {
-              // Optional: Log or notify if label chassis differs significantly from license chassis?
-              console.warn("Chassis number on label OCR differs from license OCR:", ocrResult.ocrData.chassisNumber);
-              // We are NOT updating the form/state chassis number here, sticking to Step 1's value.
-          }
+         // IMPORTANT: Even if chassis number is found in the label OCR, we prioritize the one from Step 1 (License).
+         // However, the decision flow *might* still suggest overriding other fields based on the label scan.
+         // We update the global state if the decision says so for other fields.
 
-          if (overrideDecision.override.typeApprovalNumber && ocrResult.ocrData.typeApprovalNumber) {
-            form.setValue('typeApprovalNumber', ocrResult.ocrData.typeApprovalNumber);
-            updates.typeApprovalNumber = ocrResult.ocrData.typeApprovalNumber;
-          }
-          if (overrideDecision.override.typeAndVariant && ocrResult.ocrData.typeAndVariant) {
-            form.setValue('typeAndVariant', ocrResult.ocrData.typeAndVariant);
-            updates.typeAndVariant = ocrResult.ocrData.typeAndVariant;
-          }
+         if (override.chassisNumber && ocrData.chassisNumber && ocrData.chassisNumber !== recordData.chassisNumber) {
+             // Optional: Log or notify if label chassis differs significantly from license chassis?
+             console.warn("Chassis number on label OCR differs from license OCR:", ocrData.chassisNumber);
+             // We are NOT updating the form/state chassis number here, sticking to Step 1's value.
+         }
+
+         // Type Approval Number
+         if (override.typeApprovalNumber && ocrData.typeApprovalNumber) {
+            console.log("Updating typeApprovalNumber field with OCR data:", ocrData.typeApprovalNumber);
+           form.setValue('typeApprovalNumber', ocrData.typeApprovalNumber);
+           updates.typeApprovalNumber = ocrData.typeApprovalNumber;
+         } else {
+             console.log("Not overriding typeApprovalNumber. Override:", override.typeApprovalNumber, "OCR Data:", ocrData.typeApprovalNumber);
+         }
+
+         // Type and Variant
+         if (override.typeAndVariant && ocrData.typeAndVariant) {
+            console.log("Updating typeAndVariant field with OCR data:", ocrData.typeAndVariant);
+           form.setValue('typeAndVariant', ocrData.typeAndVariant);
+           updates.typeAndVariant = ocrData.typeAndVariant;
+         } else {
+             console.log("Not overriding typeAndVariant. Override:", override.typeAndVariant, "OCR Data:", ocrData.typeAndVariant);
+         }
 
          // Update potentially other fields in the global state based on label OCR decision
-          if (overrideDecision.override.brand && ocrResult.ocrData.brand) updates.brand = ocrResult.ocrData.brand;
-          if (overrideDecision.override.type && ocrResult.ocrData.type) updates.type = ocrResult.ocrData.type; // Update "tipi" if suggested
-          if (overrideDecision.override.tradeName && ocrResult.ocrData.tradeName) updates.tradeName = ocrResult.ocrData.tradeName;
-          if (overrideDecision.override.owner && ocrResult.ocrData.owner) updates.owner = ocrResult.ocrData.owner;
+         if (override.brand && ocrData.brand) {
+             console.log("Preparing update for brand in global state:", ocrData.brand);
+             updates.brand = ocrData.brand;
+         }
+         if (override.type && ocrData.type) {
+            console.log("Preparing update for type in global state:", ocrData.type);
+            updates.type = ocrData.type; // Update "tipi" if suggested
+         }
+         if (override.tradeName && ocrData.tradeName) {
+             console.log("Preparing update for tradeName in global state:", ocrData.tradeName);
+             updates.tradeName = ocrData.tradeName;
+         }
+         if (override.owner && ocrData.owner) {
+            console.log("Preparing update for owner in global state:", ocrData.owner);
+            updates.owner = ocrData.owner;
+         }
 
 
          // Update app state with potentially overridden values from this OCR scan
-          if (Object.keys(updates).length > 0) {
-              updateRecordData({ ...updates, labelDocument: file }); // Ensure file object is in state
-          } else {
-              // If no updates based on decision, still ensure the file object is in state
-              updateRecordData({ labelDocument: file });
-          }
+         console.log("Updating global state with (Step 2):", { ...updates, labelDocument: file });
+         if (Object.keys(updates).length > 0) {
+             updateRecordData({ ...updates, labelDocument: file }); // Ensure file object is in state
+         } else {
+             // If no updates based on decision, still ensure the file object is in state
+             updateRecordData({ labelDocument: file });
+         }
 
 
          toast({
            title: 'Başarılı',
-           description: 'Etiket bilgileri başarıyla okundu.',
+           description: 'Etiket bilgileri başarıyla okundu ve ilgili alanlar güncellendi.',
          });
          } catch (aiError) {
-             console.error('AI/OCR error:', aiError);
+             console.error('AI/OCR error in Step 2:', aiError);
              const errorMessage = aiError instanceof Error ? aiError.message : 'Bilinmeyen bir hata oluştu.';
 
               // Check for specific 503 error
@@ -143,6 +182,7 @@ export default function NewRecordStep2() {
                     title: 'Servis Kullanılamıyor',
                     description: 'Yapay zeka servisi şu anda yoğun veya geçici olarak devre dışı. Lütfen tekrar deneyin.',
                     variant: 'destructive',
+                    duration: 5000,
                   });
               } else {
                  setOcrError('Etiket okunurken bir hata oluştu. Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin.');
@@ -150,15 +190,17 @@ export default function NewRecordStep2() {
                     title: 'OCR Hatası',
                     description: 'Etiket taranırken bir hata oluştu. Bilgileri kontrol edin.',
                     variant: 'destructive',
+                     duration: 5000,
                   });
               }
        } finally {
           setIsLoading(false);
+          console.log("OCR Scan finished for Step 2.");
        }
 
      } catch (error) {
        // Catch errors from FileReader or other setup
-       console.error('File handling/reading error:', error);
+       console.error('File handling/reading error in Step 2:', error);
        toast({
          title: 'Dosya Hatası',
          description: 'Dosya okunurken veya işlenirken bir hata oluştu.',
@@ -221,7 +263,7 @@ export default function NewRecordStep2() {
       updateRecordData({ labelDocument: file }); // Update app state immediately
 
       // Automatically initiate OCR scan upon file selection
-      await initiateOcrScan(file);
+      // await initiateOcrScan(file); // Deactivated auto-scan
 
     } else {
         // Clear preview if no file is selected
@@ -235,6 +277,7 @@ export default function NewRecordStep2() {
 
   const handleManualScanClick = () => {
       if (currentFile && !isLoading) {
+          console.log("Manual scan button clicked for Step 2");
           initiateOcrScan(currentFile);
       } else if (!currentFile) {
           toast({
@@ -257,6 +300,10 @@ export default function NewRecordStep2() {
 
      // Ensure the current file object or persisted info is saved
      const documentToSave = currentFile || recordData.labelDocument;
+
+     console.log("Submitting Step 2 Data:", data);
+     console.log("Label Document to save:", documentToSave);
+
 
     updateRecordData({
         // Ensure chassisNumber from global state is preserved, not overwritten by disabled form field
@@ -286,10 +333,17 @@ export default function NewRecordStep2() {
       router.push('/select-branch');
     }
      // Pre-fill chassis number when component mounts if not already set in form
+     // Also pre-fill other fields from global state if they exist
      if (recordData.chassisNumber && form.getValues('chassisNumber') !== recordData.chassisNumber) {
        form.setValue('chassisNumber', recordData.chassisNumber);
      }
-  }, [branch, recordData.chassisNumber, form, router]);
+     if (recordData.typeApprovalNumber && form.getValues('typeApprovalNumber') !== recordData.typeApprovalNumber) {
+        form.setValue('typeApprovalNumber', recordData.typeApprovalNumber);
+     }
+     if (recordData.typeAndVariant && form.getValues('typeAndVariant') !== recordData.typeAndVariant) {
+         form.setValue('typeAndVariant', recordData.typeAndVariant);
+     }
+  }, [branch, recordData, form, router]);
 
 
   if (!branch) {
@@ -307,7 +361,7 @@ export default function NewRecordStep2() {
             Yeni Kayıt - Adım 2: Etiket Bilgileri
           </CardTitle>
           <CardDescription>
-             Lütfen araç etiketini yükleyin. Bilgiler otomatik olarak doldurulacaktır.
+             Lütfen araç etiketini yükleyin ve 'Etiketi Tara' butonu ile bilgileri alın.
              (Şube: {branch})
           </CardDescription>
         </CardHeader>
@@ -372,14 +426,15 @@ export default function NewRecordStep2() {
                                     onClick={handleManualScanClick}
                                     disabled={!currentFile || isLoading} // Disable if no file or loading
                                  >
-                                    <ScanSearch className="mr-2 h-4 w-4" /> Etiketi Tara (OCR)
+                                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanSearch className="mr-2 h-4 w-4" />}
+                                    Etiketi Tara (OCR)
                                  </Button>
                                 {/* Basic Camera Placeholder */}
                                 <Button type="button" variant="outline" disabled={isLoading} onClick={() => toast({ title: 'Yakında', description: 'Kamera özelliği eklenecektir.'})}>
                                     <Camera className="mr-2 h-4 w-4" /> Kamera ile Tara
                                 </Button>
                             </div>
-                           {isLoading && <Loader2 className="h-6 w-6 animate-spin text-primary mt-2" />}
+                           {/* {isLoading && <Loader2 className="h-6 w-6 animate-spin text-primary mt-2" />} */}
                            {ocrError && !isLoading && ( // Show error only if not loading
                                 <Alert variant="destructive" className="mt-4">
                                 <AlertCircle className="h-4 w-4" />
@@ -418,7 +473,7 @@ export default function NewRecordStep2() {
                   <FormItem>
                     <FormLabel>Tip Onay Numarası</FormLabel>
                     <FormControl>
-                      <Input placeholder="Etiketten otomatik doldurulacak..." {...field} disabled={isLoading} />
+                      <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -431,7 +486,7 @@ export default function NewRecordStep2() {
                   <FormItem>
                     <FormLabel>Tip ve Varyant</FormLabel>
                     <FormControl>
-                      <Input placeholder="Etiketten otomatik doldurulacak..." {...field} disabled={isLoading} />
+                      <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -443,7 +498,7 @@ export default function NewRecordStep2() {
                      Geri
                 </Button>
                 <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading || !currentFile && !(typeof form.getValues('labelDocument') === 'object' && form.getValues('labelDocument')?.name)}>
-                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                   {/* {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} */}
                   Devam Et
                 </Button>
               </div>

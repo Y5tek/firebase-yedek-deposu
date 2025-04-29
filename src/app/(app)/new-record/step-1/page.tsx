@@ -62,6 +62,7 @@ export default function NewRecordStep1() {
     if (!file) return;
     setIsLoading(true);
     setOcrError(null);
+    console.log("Starting OCR scan for Step 1...");
 
     try {
       const reader = new FileReader();
@@ -74,8 +75,10 @@ export default function NewRecordStep1() {
       const base64String = reader.result as string;
 
       try {
+        console.log("Calling extractVehicleData flow...");
         // Call Genkit flow for OCR
         const ocrResult = await extractVehicleData({ imageBase64: base64String });
+        console.log("OCR Result (Step 1):", ocrResult.ocrData);
 
         const updates: Partial<RecordData> = {}; // Use RecordData type
 
@@ -91,58 +94,95 @@ export default function NewRecordStep1() {
           typeApprovalNumber: recordData.typeApprovalNumber, // From step 2 state
           typeAndVariant: recordData.typeAndVariant,     // From step 2 state
         };
+        console.log("Current Data for Override Decision:", currentDataForDecision);
 
         // Prepare OCR data for decision flow
         const ocrDataForDecision = ocrResult.ocrData; // Use the full OCR data
+        console.log("OCR Data for Override Decision:", ocrDataForDecision);
+
 
         // Call Genkit flow to decide which fields to override
+        console.log("Calling decideOcrOverride flow...");
         const overrideDecision = await decideOcrOverride({
           ocrData: ocrDataForDecision,
           currentData: currentDataForDecision
         });
+        console.log("Override Decision (Step 1):", overrideDecision.override);
 
-        // Update form fields and state based on the decision
-        if (overrideDecision.override.chassisNumber && ocrResult.ocrData.chassisNumber) {
-          form.setValue('chassisNumber', ocrResult.ocrData.chassisNumber);
-          updates.chassisNumber = ocrResult.ocrData.chassisNumber;
+
+        // --- Update form fields and state based on the OCR data and override decision ---
+        const ocrData = ocrResult.ocrData;
+        const override = overrideDecision.override;
+
+        // Chassis Number
+        if (override.chassisNumber && ocrData.chassisNumber) {
+          console.log("Updating chassisNumber field with OCR data:", ocrData.chassisNumber);
+          form.setValue('chassisNumber', ocrData.chassisNumber);
+          updates.chassisNumber = ocrData.chassisNumber;
+        } else {
+            console.log("Not overriding chassisNumber. Override:", override.chassisNumber, "OCR Data:", ocrData.chassisNumber);
         }
-        if (overrideDecision.override.brand && ocrResult.ocrData.brand) {
-          form.setValue('brand', ocrResult.ocrData.brand);
-          updates.brand = ocrResult.ocrData.brand;
+
+        // Brand
+        if (override.brand && ocrData.brand) {
+            console.log("Updating brand field with OCR data:", ocrData.brand);
+            form.setValue('brand', ocrData.brand);
+            updates.brand = ocrData.brand;
+        } else {
+            console.log("Not overriding brand. Override:", override.brand, "OCR Data:", ocrData.brand);
         }
-        if (overrideDecision.override.type && ocrResult.ocrData.type) { // Check override for 'type' ("tipi")
-          form.setValue('type', ocrResult.ocrData.type); // Update form field
-          updates.type = ocrResult.ocrData.type;         // Prepare state update
+
+        // Type (Tip)
+        if (override.type && ocrData.type) {
+            console.log("Updating type field with OCR data:", ocrData.type);
+            form.setValue('type', ocrData.type);
+            updates.type = ocrData.type;
+        } else {
+            console.log("Not overriding type. Override:", override.type, "OCR Data:", ocrData.type);
         }
-        if (overrideDecision.override.tradeName && ocrResult.ocrData.tradeName) {
-          form.setValue('tradeName', ocrResult.ocrData.tradeName);
-          updates.tradeName = ocrResult.ocrData.tradeName;
+
+        // Trade Name
+        if (override.tradeName && ocrData.tradeName) {
+            console.log("Updating tradeName field with OCR data:", ocrData.tradeName);
+            form.setValue('tradeName', ocrData.tradeName);
+            updates.tradeName = ocrData.tradeName;
+        } else {
+             console.log("Not overriding tradeName. Override:", override.tradeName, "OCR Data:", ocrData.tradeName);
         }
-        if (overrideDecision.override.owner && ocrResult.ocrData.owner) {
-          form.setValue('owner', ocrResult.ocrData.owner);
-          updates.owner = ocrResult.ocrData.owner;
+
+        // Owner
+        if (override.owner && ocrData.owner) {
+            console.log("Updating owner field with OCR data:", ocrData.owner);
+            form.setValue('owner', ocrData.owner);
+            updates.owner = ocrData.owner;
+        } else {
+            console.log("Not overriding owner. Override:", override.owner, "OCR Data:", ocrData.owner);
         }
+
         // Update global state for step 2 fields if decision suggests it
-        if (overrideDecision.override.typeApprovalNumber && ocrResult.ocrData.typeApprovalNumber) {
-          updates.typeApprovalNumber = ocrResult.ocrData.typeApprovalNumber;
+        if (override.typeApprovalNumber && ocrData.typeApprovalNumber) {
+             console.log("Preparing update for typeApprovalNumber in global state:", ocrData.typeApprovalNumber);
+            updates.typeApprovalNumber = ocrData.typeApprovalNumber;
         }
-        if (overrideDecision.override.typeAndVariant && ocrResult.ocrData.typeAndVariant) {
-          updates.typeAndVariant = ocrResult.ocrData.typeAndVariant;
+        if (override.typeAndVariant && ocrData.typeAndVariant) {
+            console.log("Preparing update for typeAndVariant in global state:", ocrData.typeAndVariant);
+            updates.typeAndVariant = ocrData.typeAndVariant;
         }
 
         // --- END: Handle Override Decision ---
 
 
         // Update app state with all potentially overridden values
+        console.log("Updating global state with:", { ...updates, registrationDocument: file });
         updateRecordData({ ...updates, registrationDocument: file }); // Ensure file object is in state
 
         toast({
           title: 'Başarılı',
-          description: 'Araç ruhsatı bilgileri başarıyla okundu.',
+          description: 'Araç ruhsatı bilgileri başarıyla okundu ve ilgili alanlar güncellendi.',
         });
 
       } catch (aiError) {
-        console.error('AI/OCR error:', aiError);
+        console.error('AI/OCR error in Step 1:', aiError);
         const errorMessage = aiError instanceof Error ? aiError.message : 'Bilinmeyen bir hata oluştu.';
 
         // Check for specific 503 error
@@ -152,6 +192,7 @@ export default function NewRecordStep1() {
             title: 'Servis Kullanılamıyor',
             description: 'Yapay zeka servisi şu anda yoğun veya geçici olarak devre dışı. Lütfen tekrar deneyin.',
             variant: 'destructive',
+            duration: 5000,
           });
         } else {
           setOcrError('Belge okunurken bir hata oluştu. Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin.');
@@ -159,15 +200,17 @@ export default function NewRecordStep1() {
             title: 'OCR Hatası',
             description: 'Belge taranırken bir hata oluştu. Bilgileri kontrol edin.',
             variant: 'destructive',
+            duration: 5000,
           });
         }
       } finally {
         setIsLoading(false);
+        console.log("OCR Scan finished for Step 1.");
       }
 
     } catch (error) {
       // Catch errors from FileReader or other setup
-      console.error('File handling/reading error:', error);
+      console.error('File handling/reading error in Step 1:', error);
       toast({
         title: 'Dosya Hatası',
         description: 'Dosya okunurken veya işlenirken bir hata oluştu.',
@@ -230,7 +273,7 @@ export default function NewRecordStep1() {
       updateRecordData({ registrationDocument: file }); // Update app state immediately
 
       // Automatically initiate OCR scan upon file selection
-      await initiateOcrScan(file);
+      // await initiateOcrScan(file); // Deactivated auto-scan, user clicks button now
 
     } else {
       // Clear preview if no file is selected
@@ -244,6 +287,7 @@ export default function NewRecordStep1() {
 
    const handleManualScanClick = () => {
      if (currentFile && !isLoading) {
+        console.log("Manual scan button clicked for Step 1");
        initiateOcrScan(currentFile);
      } else if (!currentFile) {
        toast({
@@ -266,6 +310,9 @@ export default function NewRecordStep1() {
 
     // Ensure the current file object or persisted info is saved
     const documentToSave = currentFile || recordData.registrationDocument;
+
+    console.log("Submitting Step 1 Data:", data);
+    console.log("Document to save:", documentToSave);
 
     updateRecordData({
         chassisNumber: data.chassisNumber,
@@ -302,7 +349,7 @@ export default function NewRecordStep1() {
             Yeni Kayıt - Adım 1: Araç Ruhsatı
           </CardTitle>
           <CardDescription>
-            Lütfen araç ruhsatını yükleyin. Bilgiler otomatik olarak doldurulacaktır.
+            Lütfen araç ruhsatını yükleyin ve 'Resmi Tara' butonu ile bilgileri alın.
             (Şube: {branch})
           </CardDescription>
         </CardHeader>
@@ -368,14 +415,15 @@ export default function NewRecordStep1() {
                                 onClick={handleManualScanClick}
                                 disabled={!currentFile || isLoading} // Disable if no file or loading
                            >
-                                <ScanSearch className="mr-2 h-4 w-4" /> Resmi Tara (OCR)
+                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanSearch className="mr-2 h-4 w-4" />}
+                                Resmi Tara (OCR)
                            </Button>
                           {/* Basic Camera Placeholder */}
                           <Button type="button" variant="outline" disabled={isLoading} onClick={() => toast({ title: 'Yakında', description: 'Kamera özelliği eklenecektir.' })}>
                             <Camera className="mr-2 h-4 w-4" /> Kamera ile Tara
                           </Button>
                         </div>
-                        {isLoading && <Loader2 className="h-6 w-6 animate-spin text-primary mt-2" />}
+                        {/* {isLoading && <Loader2 className="h-6 w-6 animate-spin text-primary mt-2" />} */}
                         {ocrError && !isLoading && ( // Show error only if not loading
                           <Alert variant="destructive" className="mt-4">
                             <AlertCircle className="h-4 w-4" />
@@ -400,7 +448,7 @@ export default function NewRecordStep1() {
                     <FormItem>
                       <FormLabel>Şase Numarası</FormLabel>
                       <FormControl>
-                        <Input placeholder="Otomatik doldurulacak..." {...field} disabled={isLoading} />
+                        <Input placeholder="Resmi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -413,7 +461,7 @@ export default function NewRecordStep1() {
                     <FormItem>
                       <FormLabel>Marka</FormLabel>
                       <FormControl>
-                        <Input placeholder="Otomatik doldurulacak..." {...field} disabled={isLoading} />
+                        <Input placeholder="Resmi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -426,7 +474,7 @@ export default function NewRecordStep1() {
                     <FormItem>
                       <FormLabel>Tip</FormLabel> {/* Label for UI */}
                       <FormControl>
-                        <Input placeholder="Otomatik doldurulacak..." {...field} disabled={isLoading} />
+                        <Input placeholder="Resmi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -439,7 +487,7 @@ export default function NewRecordStep1() {
                     <FormItem>
                       <FormLabel>Ticari Adı</FormLabel>
                       <FormControl>
-                        <Input placeholder="Otomatik doldurulacak..." {...field} disabled={isLoading} />
+                        <Input placeholder="Resmi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -452,7 +500,7 @@ export default function NewRecordStep1() {
                     <FormItem>
                       <FormLabel>Sahibi</FormLabel>
                       <FormControl>
-                        <Input placeholder="Otomatik doldurulacak..." {...field} disabled={isLoading} />
+                        <Input placeholder="Resmi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -461,7 +509,7 @@ export default function NewRecordStep1() {
               </div>
 
               <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading || !currentFile && !(typeof form.getValues('document') === 'object' && form.getValues('document')?.name)}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {/* {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} */}
                 Devam Et
               </Button>
             </form>
