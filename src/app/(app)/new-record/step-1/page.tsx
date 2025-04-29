@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image'; // Import next/image
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
@@ -12,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Camera, FileText, Loader2 } from 'lucide-react';
+import { Upload, Camera, FileText, Loader2, Image as ImageIcon } from 'lucide-react'; // Added ImageIcon
 import { useAppState } from '@/hooks/use-app-state';
 import { extractVehicleData } from '@/ai/flows/extract-vehicle-data-from-image';
 import { decideOcrOverride } from '@/ai/flows/decide-ocr-override';
@@ -25,7 +26,7 @@ const FormSchema = z.object({
   tradeName: z.string().optional(),
   owner: z.string().optional(),
   // Add other fields relevant to step 1 if any, e.g., file upload
-  document: z.any().refine((file) => file?.length > 0, 'Belge yüklemek zorunludur.')
+  document: z.any().refine((file) => !!file, 'Belge yüklemek zorunludur.') // Changed check to !!file
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -36,6 +37,7 @@ export default function NewRecordStep1() {
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
   const [progress] = React.useState(25); // Step 1 of 4
+  const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null); // State for image preview
 
   const form = useForm<FormData>({
     resolver: zodResolver(FormSchema),
@@ -51,9 +53,37 @@ export default function NewRecordStep1() {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Revoke object URL on unmount or change
+  React.useEffect(() => {
+    // Set initial preview if document exists in state (from previous navigation)
+    if (recordData.registrationDocument instanceof File) {
+      const url = URL.createObjectURL(recordData.registrationDocument);
+      setImagePreviewUrl(url);
+    } else if (typeof recordData.registrationDocument === 'object' && recordData.registrationDocument?.name) {
+        // If only file info exists (persisted state), we can't preview
+        setImagePreviewUrl(null);
+    }
+
+    // Cleanup function
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount to handle initial state and setup cleanup
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Revoke previous URL if exists
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+      // Create new object URL for preview
+      const newPreviewUrl = URL.createObjectURL(file);
+      setImagePreviewUrl(newPreviewUrl);
+
       setIsLoading(true);
       form.setValue('document', file); // Update form state
        // Update app state immediately for UI feedback if needed
@@ -131,21 +161,33 @@ export default function NewRecordStep1() {
           description: 'Belge taranırken bir hata oluştu. Lütfen tekrar deneyin.',
           variant: 'destructive',
         });
+         // Clear preview if OCR fails? Optional.
+         // if (newPreviewUrl) URL.revokeObjectURL(newPreviewUrl);
+         // setImagePreviewUrl(null);
       } finally {
         setIsLoading(false);
       }
+    } else {
+        // Clear preview if no file is selected
+        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+        setImagePreviewUrl(null);
+        form.setValue('document', null); // Clear document value in form
+        updateRecordData({ registrationDocument: undefined }); // Clear in app state
     }
   };
 
   const onSubmit = (data: FormData) => {
     // Update app state with the latest form data before navigating
+    // Ensure the actual file object is passed if it exists, otherwise the stored info
+    const documentToSave = data.document instanceof File ? data.document : recordData.registrationDocument;
+
     updateRecordData({
         chassisNumber: data.chassisNumber,
         brand: data.brand,
         type: data.type,
         tradeName: data.tradeName,
         owner: data.owner,
-        registrationDocument: data.document // Save the file object itself or its info
+        registrationDocument: documentToSave // Save the file object or its info
     });
     router.push('/new-record/step-2');
   };
@@ -185,19 +227,39 @@ export default function NewRecordStep1() {
                 <FormField
                     control={form.control}
                     name="document"
-                    render={({ field }) => (
+                    render={({ field }) => ( // field is not directly used for input display but for validation state
                     <FormItem>
                         <FormLabel>Ruhsat Belgesi</FormLabel>
                         <FormControl>
                         <div className="flex flex-col items-center gap-4 rounded-md border border-dashed p-6">
-                             {field.value && typeof field.value === 'object' && 'name' in field.value ? (
-                                <p className="text-sm text-muted-foreground">Yüklendi: {field.value.name}</p>
+                            {/* Image Preview */}
+                            {imagePreviewUrl ? (
+                                <div className="relative w-full max-w-xs h-48 mb-4">
+                                     <Image
+                                        src={imagePreviewUrl}
+                                        alt="Yüklenen Belge Önizlemesi"
+                                        layout="fill"
+                                        objectFit="contain"
+                                        className="rounded-md"
+                                    />
+                                </div>
                             ) : (
-                               <p className="text-sm text-muted-foreground">Belge yüklemek için tıklayın veya sürükleyip bırakın.</p>
+                                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                                    <ImageIcon className="w-12 h-12 mb-2" />
+                                    <span>Belge önizlemesi burada görünecek</span>
+                                </div>
                             )}
+
+                            {/* Display filename if available */}
+                            {field.value && typeof field.value === 'object' && 'name' in field.value ? (
+                                <p className="text-sm text-muted-foreground">Yüklendi: {field.value.name}</p>
+                             ) : !imagePreviewUrl && ( // Show placeholder text only if no preview and no file info
+                                <p className="text-sm text-muted-foreground">Belge yüklemek için tıklayın veya sürükleyip bırakın.</p>
+                             )}
+
                             <Input
                                 type="file"
-                                accept="image/*,.pdf,.doc,.docx" // Adjust accepted file types
+                                accept="image/*" // Only allow image files
                                 ref={fileInputRef}
                                 onChange={handleFileChange}
                                 className="hidden"
@@ -206,7 +268,7 @@ export default function NewRecordStep1() {
                             />
                             <div className="flex gap-2">
                                 <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
-                                    <Upload className="mr-2 h-4 w-4" /> Dosya Seç
+                                    <Upload className="mr-2 h-4 w-4" /> {imagePreviewUrl ? 'Değiştir' : 'Dosya Seç'}
                                 </Button>
                                 {/* Basic Camera Placeholder */}
                                 <Button type="button" variant="outline" disabled={isLoading} onClick={() => toast({ title: 'Yakında', description: 'Kamera özelliği eklenecektir.'})}>
@@ -290,7 +352,7 @@ export default function NewRecordStep1() {
                         />
                 </div>
 
-                <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
+                <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading || !form.formState.isValid}>
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Devam Et
                 </Button>

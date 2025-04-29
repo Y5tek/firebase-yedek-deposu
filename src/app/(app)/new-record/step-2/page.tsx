@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image'; // Import next/image
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -11,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Camera, Tag, Loader2 } from 'lucide-react';
+import { Upload, Camera, Tag, Loader2, Image as ImageIcon } from 'lucide-react'; // Added ImageIcon
 import { useAppState } from '@/hooks/use-app-state';
 import { extractVehicleData } from '@/ai/flows/extract-vehicle-data-from-image'; // Assuming same flow can extract label info
 import { decideOcrOverride } from '@/ai/flows/decide-ocr-override';
@@ -22,7 +23,7 @@ const FormSchema = z.object({
   chassisNumber: z.string().optional(), // Display only, filled from step 1/OCR
   typeApprovalNumber: z.string().optional(),
   typeAndVariant: z.string().optional(),
-  labelDocument: z.any().refine((file) => file?.length > 0, 'Etiket belgesi yüklemek zorunludur.') // File upload for label
+  labelDocument: z.any().refine((file) => !!file, 'Etiket belgesi yüklemek zorunludur.') // File upload for label, Changed check to !!file
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -33,6 +34,7 @@ export default function NewRecordStep2() {
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
   const [progress] = React.useState(50); // Step 2 of 4
+  const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null); // State for image preview
 
   const form = useForm<FormData>({
     resolver: zodResolver(FormSchema),
@@ -46,9 +48,38 @@ export default function NewRecordStep2() {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Revoke object URL on unmount or change
+  React.useEffect(() => {
+    // Set initial preview if document exists in state (from previous navigation)
+     if (recordData.labelDocument instanceof File) {
+        const url = URL.createObjectURL(recordData.labelDocument);
+        setImagePreviewUrl(url);
+     } else if (typeof recordData.labelDocument === 'object' && recordData.labelDocument?.name) {
+        // If only file info exists (persisted state), we can't preview
+        setImagePreviewUrl(null);
+     }
+
+    // Cleanup function
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount to handle initial state and setup cleanup
+
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Revoke previous URL if exists
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+       // Create new object URL for preview
+       const newPreviewUrl = URL.createObjectURL(file);
+       setImagePreviewUrl(newPreviewUrl);
+
       setIsLoading(true);
       form.setValue('labelDocument', file); // Update form state
       updateRecordData({ labelDocument: file }); // Update app state
@@ -97,10 +128,10 @@ export default function NewRecordStep2() {
            }
 
           // Update potentially other fields in the global state based on decision
-           if (overrideDecision.override.brand && ocrResult.ocrData.brand) updates.brand = ocrResult.ocrData.brand;
-           if (overrideDecision.override.type && ocrResult.ocrData.type) updates.type = ocrResult.ocrData.type;
-           if (overrideDecision.override.tradeName && ocrResult.ocrData.tradeName) updates.tradeName = ocrResult.ocrData.tradeName;
-           if (overrideDecision.override.owner && ocrResult.ocrData.owner) updates.owner = ocrResult.ocrData.owner;
+           if (overrideDecision.override.brand && ocrResult.ocrData.brand) updates.brand = recordData.brand; // Preserve original unless explicit override needed
+           if (overrideDecision.override.type && ocrResult.ocrData.type) updates.type = recordData.type;
+           if (overrideDecision.override.tradeName && ocrResult.ocrData.tradeName) updates.tradeName = recordData.tradeName;
+           if (overrideDecision.override.owner && ocrResult.ocrData.owner) updates.owner = recordData.owner;
 
 
           // Update app state with potentially overridden values from this OCR scan
@@ -131,15 +162,22 @@ export default function NewRecordStep2() {
       } finally {
         setIsLoading(false);
       }
+    } else {
+        // Clear preview if no file is selected
+        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+        setImagePreviewUrl(null);
+        form.setValue('labelDocument', null); // Clear document value in form
+        updateRecordData({ labelDocument: undefined }); // Clear in app state
     }
   };
 
   const onSubmit = (data: FormData) => {
      // Update app state with the latest form data before navigating
+     const documentToSave = data.labelDocument instanceof File ? data.labelDocument : recordData.labelDocument;
     updateRecordData({
         typeApprovalNumber: data.typeApprovalNumber,
         typeAndVariant: data.typeAndVariant,
-        labelDocument: data.labelDocument // Save the file object
+        labelDocument: documentToSave // Save the file object or its info
     });
     router.push('/new-record/step-3');
   };
@@ -149,7 +187,7 @@ export default function NewRecordStep2() {
      updateRecordData({
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
-        labelDocument: form.getValues('labelDocument')
+        labelDocument: form.getValues('labelDocument') instanceof File ? form.getValues('labelDocument') : recordData.labelDocument // Preserve File or info
     });
     router.push('/new-record/step-1');
   };
@@ -192,16 +230,36 @@ export default function NewRecordStep2() {
                 <FormField
                     control={form.control}
                     name="labelDocument"
-                    render={({ field }) => (
+                    render={({ field }) => ( // field not used directly for display, use imagePreviewUrl
                     <FormItem>
                         <FormLabel>Etiket Belgesi</FormLabel>
                         <FormControl>
                         <div className="flex flex-col items-center gap-4 rounded-md border border-dashed p-6">
-                            {field.value && typeof field.value === 'object' && 'name' in field.value ? (
+                             {/* Image Preview */}
+                            {imagePreviewUrl ? (
+                                <div className="relative w-full max-w-xs h-48 mb-4">
+                                     <Image
+                                        src={imagePreviewUrl}
+                                        alt="Yüklenen Etiket Önizlemesi"
+                                        layout="fill"
+                                        objectFit="contain"
+                                        className="rounded-md"
+                                    />
+                                </div>
+                             ) : (
+                                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                                    <ImageIcon className="w-12 h-12 mb-2" />
+                                    <span>Etiket önizlemesi burada görünecek</span>
+                                </div>
+                            )}
+
+                             {/* Display filename if available */}
+                             {field.value && typeof field.value === 'object' && 'name' in field.value ? (
                                 <p className="text-sm text-muted-foreground">Yüklendi: {field.value.name}</p>
-                            ) : (
+                             ) : !imagePreviewUrl && ( // Show placeholder text only if no preview and no file info
                                <p className="text-sm text-muted-foreground">Etiket belgesini yüklemek için tıklayın veya sürükleyip bırakın.</p>
                             )}
+
                             <Input
                                 type="file"
                                 accept="image/*" // Primarily images for labels
@@ -213,7 +271,7 @@ export default function NewRecordStep2() {
                             />
                              <div className="flex gap-2">
                                 <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
-                                    <Upload className="mr-2 h-4 w-4" /> Dosya Seç
+                                    <Upload className="mr-2 h-4 w-4" /> {imagePreviewUrl ? 'Değiştir' : 'Dosya Seç'}
                                 </Button>
                                 {/* Basic Camera Placeholder */}
                                 <Button type="button" variant="outline" disabled={isLoading} onClick={() => toast({ title: 'Yakında', description: 'Kamera özelliği eklenecektir.'})}>
@@ -274,7 +332,7 @@ export default function NewRecordStep2() {
                  <Button type="button" variant="outline" onClick={goBack} disabled={isLoading}>
                      Geri
                 </Button>
-                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading}>
+                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading || !form.formState.isValid}>
                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Devam Et
                 </Button>
