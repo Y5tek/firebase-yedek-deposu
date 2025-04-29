@@ -1,10 +1,11 @@
+// noinspection JSUnusedLocalSymbols
 'use client';
 
 import * as React from 'react';
 import Image from 'next/image'; // Import next/image
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,10 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Camera, FileText, Loader2, Image as ImageIcon } from 'lucide-react'; // Added ImageIcon
+import { Upload, Camera, FileText, Loader2, Image as ImageIcon, AlertCircle } from 'lucide-react'; // Added ImageIcon, AlertCircle
 import { useAppState } from '@/hooks/use-app-state';
 import { extractVehicleData } from '@/ai/flows/extract-vehicle-data-from-image';
 import { decideOcrOverride } from '@/ai/flows/decide-ocr-override';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // Schema for the form fields including the initial OCR fields
 const FormSchema = z.object({
@@ -38,6 +40,7 @@ export default function NewRecordStep1() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [progress] = React.useState(25); // Step 1 of 4
   const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null); // State for image preview
+  const [ocrError, setOcrError] = React.useState<string | null>(null); // State for OCR errors
 
   const form = useForm<FormData>({
     resolver: zodResolver(FormSchema),
@@ -75,6 +78,8 @@ export default function NewRecordStep1() {
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+     setOcrError(null); // Clear previous errors
+
     if (file) {
       // Revoke previous URL if exists
       if (imagePreviewUrl) {
@@ -94,56 +99,83 @@ export default function NewRecordStep1() {
         reader.onloadend = async () => {
           const base64String = reader.result as string;
 
-          // Call Genkit flow for OCR
-          const ocrResult = await extractVehicleData({ imageBase64: base64String });
+          try {
+            // Call Genkit flow for OCR
+             const ocrResult = await extractVehicleData({ imageBase64: base64String });
 
-          // Get current form data to pass to decision flow
-          const currentData = form.getValues();
+             // Get current form data to pass to decision flow
+             const currentData = form.getValues();
 
-          // Call Genkit flow to decide which fields to override
-          const overrideDecision = await decideOcrOverride({
-             ocrData: ocrResult.ocrData,
-             currentData: {
-               chassisNumber: currentData.chassisNumber,
-               brand: currentData.brand,
-               type: currentData.type,
-               tradeName: currentData.tradeName,
-               owner: currentData.owner,
-               // Pass other relevant fields if they exist in the form
-               typeApprovalNumber: recordData.typeApprovalNumber,
-               typeAndVariant: recordData.typeAndVariant,
+             // Call Genkit flow to decide which fields to override
+            const overrideDecision = await decideOcrOverride({
+                ocrData: ocrResult.ocrData,
+                currentData: {
+                chassisNumber: currentData.chassisNumber,
+                brand: currentData.brand,
+                type: currentData.type,
+                tradeName: currentData.tradeName,
+                owner: currentData.owner,
+                // Pass other relevant fields if they exist in the form
+                typeApprovalNumber: recordData.typeApprovalNumber,
+                typeAndVariant: recordData.typeAndVariant,
+                }
+            });
+
+
+            // Update form fields based on the decision
+            const updates: Partial<FormData> = {};
+            if (overrideDecision.override.chassisNumber && ocrResult.ocrData.chassisNumber) {
+                form.setValue('chassisNumber', ocrResult.ocrData.chassisNumber);
+                updates.chassisNumber = ocrResult.ocrData.chassisNumber;
+            }
+            if (overrideDecision.override.brand && ocrResult.ocrData.brand) {
+                form.setValue('brand', ocrResult.ocrData.brand);
+                updates.brand = ocrResult.ocrData.brand;
+            }
+            if (overrideDecision.override.type && ocrResult.ocrData.type) {
+                form.setValue('type', ocrResult.ocrData.type);
+                updates.type = ocrResult.ocrData.type;
+            }
+            if (overrideDecision.override.tradeName && ocrResult.ocrData.tradeName) {
+                form.setValue('tradeName', ocrResult.ocrData.tradeName);
+                updates.tradeName = ocrResult.ocrData.tradeName;
+            }
+            if (overrideDecision.override.owner && ocrResult.ocrData.owner) {
+                form.setValue('owner', ocrResult.ocrData.owner);
+                updates.owner = ocrResult.ocrData.owner;
+            }
+            // Update app state with potentially overridden values
+            updateRecordData(updates);
+
+            toast({
+                title: 'Başarılı',
+                description: 'Araç ruhsatı bilgileri başarıyla okundu.',
+            });
+
+          } catch (aiError) {
+             console.error('AI/OCR error:', aiError);
+             const errorMessage = aiError instanceof Error ? aiError.message : 'Bilinmeyen bir hata oluştu.';
+
+             // Check for specific 503 error
+             if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded')) {
+                 setOcrError('Yapay zeka servisi şu anda yoğun. Lütfen birkaç dakika sonra tekrar deneyin.');
+                 toast({
+                   title: 'Servis Yoğun',
+                   description: 'Yapay zeka servisi şu anda yoğun. Lütfen tekrar deneyin.',
+                   variant: 'destructive',
+                 });
+             } else {
+                setOcrError('Belge okunurken bir hata oluştu. Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin.');
+                 toast({
+                   title: 'OCR Hatası',
+                   description: 'Belge taranırken bir hata oluştu. Bilgileri kontrol edin.',
+                   variant: 'destructive',
+                 });
              }
-           });
+          } finally {
+             setIsLoading(false);
+          }
 
-          // Update form fields based on the decision
-           const updates: Partial<FormData> = {};
-           if (overrideDecision.override.chassisNumber && ocrResult.ocrData.chassisNumber) {
-             form.setValue('chassisNumber', ocrResult.ocrData.chassisNumber);
-             updates.chassisNumber = ocrResult.ocrData.chassisNumber;
-           }
-           if (overrideDecision.override.brand && ocrResult.ocrData.brand) {
-             form.setValue('brand', ocrResult.ocrData.brand);
-             updates.brand = ocrResult.ocrData.brand;
-           }
-           if (overrideDecision.override.type && ocrResult.ocrData.type) {
-             form.setValue('type', ocrResult.ocrData.type);
-             updates.type = ocrResult.ocrData.type;
-           }
-           if (overrideDecision.override.tradeName && ocrResult.ocrData.tradeName) {
-             form.setValue('tradeName', ocrResult.ocrData.tradeName);
-             updates.tradeName = ocrResult.ocrData.tradeName;
-           }
-           if (overrideDecision.override.owner && ocrResult.ocrData.owner) {
-             form.setValue('owner', ocrResult.ocrData.owner);
-             updates.owner = ocrResult.ocrData.owner;
-           }
-          // Update app state with potentially overridden values
-          updateRecordData(updates);
-
-          toast({
-            title: 'Başarılı',
-            description: 'Araç ruhsatı bilgileri başarıyla okundu.',
-          });
         };
         reader.onerror = (error) => {
           console.error("File reading error:", error);
@@ -153,19 +185,18 @@ export default function NewRecordStep1() {
             variant: 'destructive',
           });
            setIsLoading(false);
+           setOcrError('Dosya okunurken bir hata oluştu.'); // Set error state
         }
       } catch (error) {
-        console.error('OCR error:', error);
-        toast({
-          title: 'OCR Hatası',
-          description: 'Belge taranırken bir hata oluştu. Lütfen tekrar deneyin.',
-          variant: 'destructive',
-        });
-         // Clear preview if OCR fails? Optional.
-         // if (newPreviewUrl) URL.revokeObjectURL(newPreviewUrl);
-         // setImagePreviewUrl(null);
-      } finally {
-        setIsLoading(false);
+         // Catch errors outside the reader.onloadend (e.g., FileReader setup)
+         console.error('File handling error:', error);
+         toast({
+             title: 'Dosya Hatası',
+             description: 'Dosya işlenirken bir hata oluştu.',
+             variant: 'destructive',
+         });
+         setIsLoading(false);
+         setOcrError('Dosya işlenirken bir hata oluştu.');
       }
     } else {
         // Clear preview if no file is selected
@@ -238,9 +269,10 @@ export default function NewRecordStep1() {
                                      <Image
                                         src={imagePreviewUrl}
                                         alt="Yüklenen Belge Önizlemesi"
-                                        layout="fill"
-                                        objectFit="contain"
+                                        fill // Use fill instead of layout="fill"
+                                        style={{ objectFit: 'contain' }} // Use style for objectFit
                                         className="rounded-md"
+                                        unoptimized // Add if external images cause issues, or configure next.config.js properly
                                     />
                                 </div>
                             ) : (
@@ -276,6 +308,13 @@ export default function NewRecordStep1() {
                                 </Button>
                             </div>
                             {isLoading && <Loader2 className="h-6 w-6 animate-spin text-primary mt-2" />}
+                            {ocrError && !isLoading && ( // Show error only if not loading
+                                <Alert variant="destructive" className="mt-4">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertTitle>OCR Hatası</AlertTitle>
+                                <AlertDescription>{ocrError}</AlertDescription>
+                                </Alert>
+                             )}
                         </div>
                         </FormControl>
                         <FormMessage />
@@ -352,7 +391,7 @@ export default function NewRecordStep1() {
                         />
                 </div>
 
-                <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading || !form.formState.isValid}>
+                <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading || !form.formState.isValid || !!ocrError}>
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Devam Et
                 </Button>
@@ -363,3 +402,5 @@ export default function NewRecordStep1() {
     </div>
   );
 }
+
+    
