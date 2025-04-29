@@ -157,7 +157,8 @@ export default function NewRecordStep2() {
          // Function to decide if a field should be updated
         const shouldUpdate = (fieldName: keyof typeof override): boolean => {
             // Ensure the field exists in ocrData before checking the override decision
-            return !!(override[fieldName] && ocrData[fieldName as keyof typeof ocrData]);
+            const ocrValue = ocrData[fieldName as keyof typeof ocrData];
+            return !!(override[fieldName] && ocrValue); // Check override flag AND if OCR found a value
         };
 
 
@@ -165,7 +166,6 @@ export default function NewRecordStep2() {
          if (override.chassisNumber && ocrData.chassisNumber && ocrData.chassisNumber !== recordData.chassisNumber) {
              console.warn("Chassis number on label OCR differs from license OCR:", ocrData.chassisNumber);
              // Optionally notify user about discrepancy, but generally trust the registration doc (Step 1) more for chassis no.
-             // Do NOT update chassisNumber based on label scan automatically unless specifically required.
              if (overrideDecision.override.chassisNumber) { // If AI explicitly said to override...
                  console.log("AI decided to override chassis number based on label. Applying change.");
                  updates.chassisNumber = ocrData.chassisNumber; // Update global state
@@ -178,6 +178,8 @@ export default function NewRecordStep2() {
              console.log("Updating chassisNumber field with label OCR data (was potentially empty):", ocrData.chassisNumber);
              form.setValue('chassisNumber', ocrData.chassisNumber!);
              updates.chassisNumber = ocrData.chassisNumber;
+         } else {
+             console.log("Not overriding chassisNumber. Override:", override.chassisNumber, "OCR Data:", ocrData.chassisNumber);
          }
 
 
@@ -204,18 +206,26 @@ export default function NewRecordStep2() {
          if (shouldUpdate('brand')) {
              console.log("Preparing update for brand in global state (from label):", ocrData.brand);
              updates.brand = ocrData.brand;
+         } else {
+              console.log("Not overriding brand (Step 2). Override:", override.brand, "OCR Data:", ocrData.brand);
          }
          if (shouldUpdate('type')) {
             console.log("Preparing update for type in global state (from label):", ocrData.type);
             updates.type = ocrData.type; // Update "tipi"
+         } else {
+              console.log("Not overriding type (Step 2). Override:", override.type, "OCR Data:", ocrData.type);
          }
          if (shouldUpdate('tradeName')) {
              console.log("Preparing update for tradeName in global state (from label):", ocrData.tradeName);
              updates.tradeName = ocrData.tradeName;
+         } else {
+                console.log("Not overriding tradeName (Step 2). Override:", override.tradeName, "OCR Data:", ocrData.tradeName);
          }
          if (shouldUpdate('owner')) {
             console.log("Preparing update for owner in global state (from label):", ocrData.owner);
             updates.owner = ocrData.owner;
+         } else {
+            console.log("Not overriding owner (Step 2). Override:", override.owner, "OCR Data:", ocrData.owner);
          }
 
 
@@ -570,5 +580,4 @@ export default function NewRecordStep2() {
     </div>
   );
 }
-
 
