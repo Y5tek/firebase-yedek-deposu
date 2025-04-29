@@ -35,7 +35,7 @@ This is a Next.js application using Genkit for AI features, ShadCN for UI compon
 
 ## Backing Up to GitHub
 
-To back up your project code to a new or existing GitHub repository:
+To back up your project code to the **firebase-yedek-deposu** GitHub repository:
 
 1.  **Initialize Git (if not already done):**
     If you haven't initialized a Git repository in your project folder yet, run:
@@ -63,31 +63,37 @@ To back up your project code to a new or existing GitHub repository:
     ```
     *(Example: `git commit -m "feat: Implement user authentication"`)
 
-5.  **Connect to a GitHub Repository:**
+5.  **Connect to the GitHub Repository:**
 
-    *   **If creating a NEW repository on GitHub:**
-        a. Go to [GitHub](https://github.com/) and create a new repository (e.g., `my-arsiv-asistani`). **Do NOT initialize it with a README, .gitignore, or license** if you already have these locally.
-        b. Copy the repository URL provided by GitHub (it looks like `https://github.com/your-username/my-arsiv-asistani.git`).
-        c. Add this URL as the "remote origin" for your local repository:
+    *   **If this is the first time connecting to this repository:**
+        a. Add the repository URL as the "remote origin" for your local repository:
            ```bash
-           git remote add origin <your-github-repo-url>
+           git remote add origin https://github.com/Y5tek/firebase-yedek-deposu.git
            ```
-        d. Verify the remote connection:
+        b. Verify the remote connection:
            ```bash
            git remote -v
            ```
+        (You should see the `firebase-yedek-deposu.git` URL listed for fetch and push).
 
-    *   **If connecting to an EXISTING empty GitHub repository:**
-        Follow steps 5a to 5d above.
-
-    *   **If connecting to an EXISTING repository with files:**
-        This is more complex and might require fetching, merging, or rebasing. Consult Git documentation or tutorials if needed. A common first step is:
+    *   **If the remote 'origin' already exists but points to a different repository:**
+        You can either remove the old origin (`git remote remove origin`) and then add the new one as above, or update the existing origin's URL:
         ```bash
-        git remote add origin <your-github-repo-url>
-        git fetch origin
-        # You might need to merge or rebase branches here, e.g.:
-        # git merge origin/main # (Or origin/master)
+        git remote set-url origin https://github.com/Y5tek/firebase-yedek-deposu.git
         ```
+        Verify with `git remote -v`.
+
+    *   **If connecting to an EXISTING repository with files (use with caution):**
+        If the remote repository already has commits you don't have locally, you might need to pull changes first. This can get complex. A common approach is:
+        ```bash
+        git fetch origin
+        # Check the branches (e.g., git branch -a)
+        # Merge or rebase - CAUTION: This can create conflicts or rewrite history.
+        git merge origin/main # Or the appropriate branch name (e.g., origin/master)
+        # OR
+        # git pull origin main --rebase
+        ```
+        Consult Git documentation if unsure.
 
 6.  **Rename Default Branch (Optional but Recommended):**
     The standard default branch name is `main`. If your local default branch is different (e.g., `master`), rename it:
@@ -96,7 +102,7 @@ To back up your project code to a new or existing GitHub repository:
     ```
 
 7.  **Push Your Code to GitHub:**
-    Upload your local commits to the remote repository on GitHub. The `-u` flag sets the upstream branch for future pushes.
+    Upload your local commits to the `main` branch of the `firebase-yedek-deposu` repository on GitHub. The `-u` flag sets the upstream branch for future pushes, so you can just use `git push` later.
     ```bash
     git push -u origin main
     ```
@@ -110,4 +116,3 @@ After the initial setup, your workflow for backing up changes will typically be:
 2.  Stage the changes: `git add .` (or add specific files: `git add src/app/page.tsx`)
 3.  Commit the changes: `git commit -m "Your new commit message"`
 4.  Push the commits to GitHub: `git push origin main` (or just `git push` if upstream is set)
-```
