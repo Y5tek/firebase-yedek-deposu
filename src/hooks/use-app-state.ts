@@ -1,5 +1,7 @@
+
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { getSerializableFileInfo } from '@/lib/utils'; // Import helper
 
 // Define the structure of the data being collected across steps
 export interface RecordData {
@@ -15,6 +17,8 @@ export interface RecordData {
   inspectorName?: string;
   registrationDocument?: File | { name: string; type?: string; size?: number }; // Store File object or just info for persistence
   labelDocument?: File | { name: string; type?: string; size?: number }; // Store File object or just info for persistence
+  additionalPhotos?: (File | { name: string; type?: string; size?: number })[]; // Array for additional photos
+  additionalVideos?: (File | { name: string; type?: string; size?: number })[]; // Array for additional videos
   archive?: any[]; // To store completed records temporarily (replace with DB)
 }
 
@@ -29,17 +33,8 @@ interface AppState {
 
 const initialRecordData: RecordData = {
     archive: [], // Initialize archive array
-};
-
-
-// Helper function to get serializable file info
-const getSerializableFileInfo = (file: File | { name: string; type?: string; size?: number } | undefined | null): { name: string; type?: string; size?: number } | undefined => {
-    if (file instanceof File) {
-        return { name: file.name, type: file.type, size: file.size };
-    } else if (typeof file === 'object' && file !== null && 'name' in file) {
-        return file; // Already serializable info
-    }
-    return undefined; // Not a file or file info
+    additionalPhotos: [], // Initialize photos array
+    additionalVideos: [], // Initialize videos array
 };
 
 
@@ -54,19 +49,17 @@ export const useAppState = create<AppState>()(
 
       updateRecordData: (newData, reset = false) => {
         if (reset) {
-           // Keep archive, reset the rest
-           set({ recordData: { archive: get().recordData.archive } });
+           // Keep archive, reset the rest, including file arrays
+           set({ recordData: { archive: get().recordData.archive, additionalPhotos: [], additionalVideos: [] } });
         } else {
            set((state) => {
              // Merge new data, prioritizing File objects if newData provides them
              const mergedData = { ...state.recordData, ...newData };
 
-              // Ensure files are handled correctly (keep File object if present, otherwise keep existing info)
+              // Ensure individual files are handled correctly
               if (newData.registrationDocument === undefined && 'registrationDocument' in newData) {
-                  // If explicitly set to undefined, remove it
                    delete mergedData.registrationDocument;
               } else if (!(newData.registrationDocument instanceof File) && state.recordData.registrationDocument instanceof File) {
-                   // If new data is not a File, but old state had a File, keep the old File
                    mergedData.registrationDocument = state.recordData.registrationDocument;
               }
 
@@ -76,12 +69,43 @@ export const useAppState = create<AppState>()(
                   mergedData.labelDocument = state.recordData.labelDocument;
               }
 
+              // Handle file arrays: ensure new files are added correctly, preserve existing Files
+              if (newData.additionalPhotos) {
+                const existingFiles = (state.recordData.additionalPhotos || []).filter(f => f instanceof File);
+                const newFiles = (newData.additionalPhotos).filter(f => f instanceof File);
+                // Combine existing File objects with new File objects, avoiding duplicates based on name/size
+                 const combinedFiles = [...existingFiles];
+                 newFiles.forEach(newFile => {
+                     if (!combinedFiles.some(ef => ef.name === newFile.name && ef.size === newFile.size)) {
+                         combinedFiles.push(newFile);
+                     }
+                 });
+                mergedData.additionalPhotos = combinedFiles;
+              } else if (state.recordData.additionalPhotos) {
+                  // If newData doesn't provide photos, keep existing File objects
+                  mergedData.additionalPhotos = state.recordData.additionalPhotos.filter(f => f instanceof File);
+              }
+
+              if (newData.additionalVideos) {
+                  const existingFiles = (state.recordData.additionalVideos || []).filter(f => f instanceof File);
+                  const newFiles = (newData.additionalVideos).filter(f => f instanceof File);
+                  const combinedFiles = [...existingFiles];
+                  newFiles.forEach(newFile => {
+                      if (!combinedFiles.some(ef => ef.name === newFile.name && ef.size === newFile.size)) {
+                          combinedFiles.push(newFile);
+                      }
+                  });
+                  mergedData.additionalVideos = combinedFiles;
+              } else if (state.recordData.additionalVideos) {
+                  mergedData.additionalVideos = state.recordData.additionalVideos.filter(f => f instanceof File);
+              }
+
 
              return { recordData: mergedData };
            });
         }
        },
-        resetRecordData: () => set({ recordData: { archive: get().recordData.archive } }), // Keep archive on explicit reset
+        resetRecordData: () => set({ recordData: { archive: get().recordData.archive, additionalPhotos: [], additionalVideos: [] } }), // Keep archive on explicit reset
     }),
     {
       name: 'arsiv-asistani-storage', // Name of the item in storage (must be unique)
@@ -94,32 +118,64 @@ export const useAppState = create<AppState>()(
                 // Convert File objects to serializable info before saving
                 registrationDocument: getSerializableFileInfo(state.recordData.registrationDocument),
                 labelDocument: getSerializableFileInfo(state.recordData.labelDocument),
-                 archive: state.recordData.archive // Persist archive
+                additionalPhotos: state.recordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[], // Ensure array is correctly typed
+                additionalVideos: state.recordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[], // Ensure array is correctly typed
+                archive: state.recordData.archive // Persist archive
             }
         }),
         // When rehydrating, keep File objects if they exist in the runtime state
-         // This prevents overwriting a File object with just its info from storage
-        // Note: This merge logic is complex; consider simpler state structures if possible.
-         merge: (persistedState, currentState) => {
+        merge: (persistedState, currentState) => {
             const typedPersistedState = persistedState as Partial<AppState>; // Type assertion
+             const mergedRecordData = {
+                 ...currentState.recordData, // Start with current runtime recordData
+                 ...(typedPersistedState.recordData || {}), // Overwrite with persisted recordData (non-file fields)
+                 // Restore File objects if they exist in current state but only info in persisted
+                  registrationDocument: currentState.recordData.registrationDocument instanceof File
+                      ? currentState.recordData.registrationDocument
+                      : typedPersistedState.recordData?.registrationDocument,
+                  labelDocument: currentState.recordData.labelDocument instanceof File
+                      ? currentState.recordData.labelDocument
+                      : typedPersistedState.recordData?.labelDocument,
+                  // Restore File arrays - merge persisted info with current File objects
+                  additionalPhotos: mergeFileArrays(currentState.recordData.additionalPhotos, typedPersistedState.recordData?.additionalPhotos),
+                  additionalVideos: mergeFileArrays(currentState.recordData.additionalVideos, typedPersistedState.recordData?.additionalVideos),
+                  archive: typedPersistedState.recordData?.archive ?? currentState.recordData.archive ?? [], // Ensure archive is an array
+             };
+
             const merged: AppState = {
                 ...currentState, // Start with current runtime state
-                ...typedPersistedState, // Overwrite with persisted non-File data
-                recordData: {
-                    ...currentState.recordData, // Start with current runtime recordData
-                    ...typedPersistedState.recordData, // Overwrite with persisted recordData
-                    // Restore File objects if they exist in current state but only info in persisted
-                     registrationDocument: currentState.recordData.registrationDocument instanceof File
-                        ? currentState.recordData.registrationDocument
-                        : typedPersistedState.recordData?.registrationDocument,
-                     labelDocument: currentState.recordData.labelDocument instanceof File
-                        ? currentState.recordData.labelDocument
-                        : typedPersistedState.recordData?.labelDocument,
-                    archive: typedPersistedState.recordData?.archive ?? currentState.recordData.archive ?? [], // Ensure archive is an array
-                },
+                ...(typedPersistedState || {}), // Overwrite with persisted non-recordData fields
+                recordData: mergedRecordData,
             };
             return merged;
         },
     }
   )
 );
+
+
+// Helper function to merge file arrays during rehydration
+function mergeFileArrays(
+    currentFiles: (File | { name: string })[] | undefined,
+    persistedFiles: { name: string }[] | undefined
+): (File | { name: string })[] {
+    const merged: (File | { name: string })[] = [];
+    const currentFileMap = new Map<string, File>();
+
+    // Add current File objects to map
+    currentFiles?.forEach(f => {
+        if (f instanceof File) {
+            currentFileMap.set(f.name, f);
+            merged.push(f); // Add File object directly
+        }
+    });
+
+    // Add persisted file info only if a File object with the same name doesn't exist
+    persistedFiles?.forEach(pf => {
+        if (!currentFileMap.has(pf.name)) {
+            merged.push(pf); // Add persisted info
+        }
+    });
+
+    return merged;
+}

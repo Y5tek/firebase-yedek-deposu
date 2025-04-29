@@ -38,7 +38,7 @@ export default function NewRecordStep2() {
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [progress] = React.useState(50); // Step 2 of 4
+  const [progress] = React.useState(50); // Step 2 of 4 (soon to be 5)
   const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null);
   const [ocrError, setOcrError] = React.useState<string | null>(null);
   const [currentFile, setCurrentFile] = React.useState<File | null>(null);
@@ -240,8 +240,14 @@ export default function NewRecordStep2() {
              if (ocrResult && ocrResult.ocrData && !overrideDecision) {
                 console.warn("Override decision failed (Step 2), populating empty fields with label OCR data as fallback.");
                 const ocrDataFallback = ocrResult.ocrData;
-                if (!form.getValues('typeApprovalNumber') && ocrDataFallback.typeApprovalNumber) form.setValue('typeApprovalNumber', ocrDataFallback.typeApprovalNumber);
-                if (!form.getValues('typeAndVariant') && ocrDataFallback.typeAndVariant) form.setValue('typeAndVariant', ocrDataFallback.typeAndVariant);
+                if (!form.getValues('typeApprovalNumber') && ocrDataFallback.typeApprovalNumber) {
+                     form.setValue('typeApprovalNumber', ocrDataFallback.typeApprovalNumber);
+                     updates.typeApprovalNumber = ocrDataFallback.typeApprovalNumber;
+                 }
+                if (!form.getValues('typeAndVariant') && ocrDataFallback.typeAndVariant) {
+                    form.setValue('typeAndVariant', ocrDataFallback.typeAndVariant);
+                    updates.typeAndVariant = ocrDataFallback.typeAndVariant;
+                }
                 // Update global state for potential future use even without decision
                 updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
                 updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
@@ -345,14 +351,15 @@ export default function NewRecordStep2() {
        const documentValue = form.getValues('labelDocument');
        const hasDocument = currentFile || (typeof documentValue === 'object' && documentValue?.name);
 
-      if (!hasDocument) {
-          toast({
-              title: 'Eksik Bilgi',
-              description: 'Lütfen devam etmeden önce bir etiket belgesi yükleyin.',
-              variant: 'destructive',
-          });
-          return;
-      }
+      // Allow skipping this step if no document is provided (it's optional)
+      // if (!hasDocument) {
+      //     toast({
+      //         title: 'Eksik Bilgi',
+      //         description: 'Lütfen devam etmeden önce bir etiket belgesi yükleyin.',
+      //         variant: 'destructive',
+      //     });
+      //     return;
+      // }
 
      // Prioritize the current File object if it exists, otherwise use persisted info
      const documentToSave = currentFile || recordData.labelDocument;
@@ -374,7 +381,7 @@ export default function NewRecordStep2() {
         typeAndVariant: data.typeAndVariant,
         labelDocument: documentToSave // This will be the File or the info object
     });
-    router.push('/new-record/step-3');
+    router.push('/new-record/step-3'); // Navigate to the NEW step 3 (additional photos/videos)
   };
 
   const goBack = () => {
@@ -436,10 +443,10 @@ export default function NewRecordStep2() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
             <Tag className="text-primary" />
-            Yeni Kayıt - Adım 2: Etiket Bilgileri
+            Yeni Kayıt - Adım 2: Etiket Bilgileri (İsteğe Bağlı)
           </CardTitle>
           <CardDescription>
-             Lütfen araç etiketini yükleyin ve 'Etiketi Tara' butonu ile bilgileri alın.
+             Varsa araç etiketini yükleyin ve 'Etiketi Tara' butonu ile bilgileri alın. Bu adımı atlayabilirsiniz.
              (Şube: {branch})
           </CardDescription>
         </CardHeader>
@@ -569,7 +576,7 @@ export default function NewRecordStep2() {
                  <Button type="button" variant="outline" onClick={goBack} disabled={isLoading}>
                      Geri
                 </Button>
-                 <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading || !(currentFile || (typeof form.getValues('labelDocument') === 'object' && form.getValues('labelDocument')?.name))}>
+                 <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading}>
                   Devam Et
                 </Button>
               </div>

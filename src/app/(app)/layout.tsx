@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -15,7 +16,7 @@ import {
   SidebarMenuButton,
   SidebarInset,
 } from '@/components/ui/sidebar';
-import { Home, FilePlus, Archive, Search, Building } from 'lucide-react';
+import { Home, FilePlus, Archive, Search, Building, StepForward /* Using StepForward for generic step */ } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -40,7 +41,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const [open, setOpen] = React.useState(getInitialSidebarState);
 
-  const isActive = (path: string) => pathname === path;
+  const isActive = (path: string, exact: boolean = true) => {
+      if (exact) {
+          return pathname === path;
+      }
+      return pathname.startsWith(path);
+  };
+
 
   if (!isClient) {
     // Render nothing or a loading indicator on the server
@@ -85,14 +92,40 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith('/new-record')}
+                isActive={isActive('/new-record', false)} // Check if path starts with /new-record
                 tooltip="Yeni Kayıt"
               >
+                {/* Link to the first step */}
                 <Link href="/new-record/step-1">
                   <FilePlus />
                   <span>Yeni Kayıt</span>
                 </Link>
               </SidebarMenuButton>
+              {/* Optional: Add sub-menu for steps if needed later */}
+              {/* {isActive('/new-record', false) && (
+                 <SidebarMenuSub>
+                     <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-1')}>
+                             <Link href="/new-record/step-1">Adım 1: Ruhsat</Link>
+                         </SidebarMenuSubButton>
+                     </SidebarMenuSubItem>
+                     <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-2')}>
+                             <Link href="/new-record/step-2">Adım 2: Etiket</Link>
+                         </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                     <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-3')}>
+                             <Link href="/new-record/step-3">Adım 3: Ek Dosya</Link>
+                         </SidebarMenuSubButton>
+                     </SidebarMenuSubItem>
+                     <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-4')}>
+                             <Link href="/new-record/step-4">Adım 4: Form</Link>
+                         </SidebarMenuSubButton>
+                     </SidebarMenuSubItem>
+                 </SidebarMenuSub>
+              )} */}
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton

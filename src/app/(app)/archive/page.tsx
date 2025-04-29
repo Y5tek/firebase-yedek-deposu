@@ -1,13 +1,15 @@
+
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image'; // Import Image component
 import { useAppState } from '@/hooks/use-app-state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Archive, Search, FolderOpen, Trash2, Pencil, FileText } from 'lucide-react';
+import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video } from 'lucide-react'; // Added Camera and Video icons
 import { format, parseISO, getMonth, getYear } from 'date-fns';
 import { tr } from 'date-fns/locale'; // Import Turkish locale
 import {
@@ -35,8 +37,10 @@ interface ArchiveEntry {
   additionalNotes?: string;
   inspectionDate?: string;
   inspectorName?: string;
-  registrationDocument?: File | { name: string }; // Can be File or just info
-  labelDocument?: File | { name: string }; // Can be File or just info
+  registrationDocument?: { name: string }; // Stored as info
+  labelDocument?: { name: string }; // Stored as info
+  additionalPhotos?: { name: string }[]; // Stored as info
+  additionalVideos?: { name: string }[]; // Stored as info
   archivedAt: string; // ISO string format
   fileName: string;
 }
@@ -63,6 +67,10 @@ export default function ArchivePage() {
 
   const groupedArchive = filteredArchive.reduce((acc, entry) => {
     try {
+        // Ensure archivedAt exists and is a valid string before parsing
+         if (!entry.archivedAt || typeof entry.archivedAt !== 'string') {
+            throw new Error("Invalid or missing archivedAt date");
+         }
         const date = parseISO(entry.archivedAt);
         const year = getYear(date);
         const month = getMonth(date); // 0-indexed month
@@ -74,7 +82,11 @@ export default function ArchivePage() {
         }
         acc[key].push(entry);
         // Sort entries within the month by date, newest first
-        acc[key].sort((a, b) => parseISO(b.archivedAt).getTime() - parseISO(a.archivedAt).getTime());
+        acc[key].sort((a, b) => {
+             const timeA = a.archivedAt ? parseISO(a.archivedAt).getTime() : 0;
+             const timeB = b.archivedAt ? parseISO(b.archivedAt).getTime() : 0;
+             return timeB - timeA;
+         });
 
         return acc;
       } catch (error) {
@@ -130,10 +142,19 @@ export default function ArchivePage() {
        // router.push(`/edit-record/${encodeURIComponent(entry.fileName)}`);
    };
 
-   const getFileName = (file: File | { name: string } | undefined): string => {
-       if (!file) return 'Yok';
-       if (file instanceof File) return file.name;
-       return file.name || 'Bilinmeyen Dosya';
+   // Helper to get file name (since we store info)
+   const getFileName = (fileInfo: { name: string } | undefined): string => {
+     return fileInfo?.name || 'Bilinmeyen Dosya';
+   };
+
+   // Helper to format date safely
+   const formatDateSafe = (dateString: string | undefined): string => {
+       if (!dateString) return '-';
+       try {
+           return format(parseISO(dateString), 'dd MMMM yyyy HH:mm', { locale: tr });
+       } catch (error) {
+           return 'Geçersiz Tarih';
+       }
    };
 
 
@@ -175,8 +196,7 @@ export default function ArchivePage() {
                             <TableHead>Marka</TableHead>
                             <TableHead>Sahip</TableHead>
                             <TableHead>Arşivlenme Tarihi</TableHead>
-                             <TableHead>Ruhsat</TableHead>
-                             <TableHead>Etiket</TableHead>
+                             <TableHead>Belgeler</TableHead>
                             <TableHead className="text-right">İşlemler</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -186,14 +206,37 @@ export default function ArchivePage() {
                               <TableCell className="font-medium">{entry.fileName}</TableCell>
                               <TableCell>{entry.brand || '-'}</TableCell>
                               <TableCell>{entry.owner || '-'}</TableCell>
-                              <TableCell>{format(parseISO(entry.archivedAt), 'dd MMMM yyyy HH:mm', { locale: tr })}</TableCell>
+                              <TableCell>{formatDateSafe(entry.archivedAt)}</TableCell>
                               <TableCell>
-                                {entry.registrationDocument ? <FileText className="h-5 w-5 text-green-600" title={getFileName(entry.registrationDocument)} /> : '-'}
-                                </TableCell>
-                              <TableCell>
-                                 {entry.labelDocument ? <FileText className="h-5 w-5 text-blue-600" title={getFileName(entry.labelDocument)}/> : '-'}
-                                </TableCell>
-                              <TableCell className="text-right space-x-2">
+                                <div className="flex flex-wrap gap-2 items-center">
+                                  {entry.registrationDocument && (
+                                    <div title={`Ruhsat: ${getFileName(entry.registrationDocument)}`} className="flex items-center gap-1 text-green-600">
+                                      <FileText className="h-4 w-4" />
+                                      <span className="text-xs hidden sm:inline">Ruhsat</span>
+                                    </div>
+                                  )}
+                                  {entry.labelDocument && (
+                                     <div title={`Etiket: ${getFileName(entry.labelDocument)}`} className="flex items-center gap-1 text-blue-600">
+                                      <FileText className="h-4 w-4" />
+                                      <span className="text-xs hidden sm:inline">Etiket</span>
+                                    </div>
+                                  )}
+                                   {entry.additionalPhotos && entry.additionalPhotos.length > 0 && (
+                                    <div title={`${entry.additionalPhotos.length} Ek Fotoğraf`} className="flex items-center gap-1 text-purple-600">
+                                        <Camera className="h-4 w-4" />
+                                        <span className="text-xs">{entry.additionalPhotos.length}</span>
+                                    </div>
+                                   )}
+                                   {entry.additionalVideos && entry.additionalVideos.length > 0 && (
+                                     <div title={`${entry.additionalVideos.length} Ek Video`} className="flex items-center gap-1 text-orange-600">
+                                        <Video className="h-4 w-4" />
+                                        <span className="text-xs">{entry.additionalVideos.length}</span>
+                                    </div>
+                                   )}
+                                </div>
+                              </TableCell>
+
+                              <TableCell className="text-right space-x-1">
                                  <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Düzenle (Yakında)">
                                     <Pencil className="h-4 w-4" />
                                 </Button>
@@ -207,7 +250,7 @@ export default function ArchivePage() {
                                         <AlertDialogHeader>
                                         <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            Bu işlem geri alınamaz. '{entry.fileName}' kaydını kalıcı olarak silmek istediğinizden emin misiniz?
+                                            Bu işlem geri alınamaz. '{entry.fileName}' kaydını ve ilişkili tüm verileri kalıcı olarak silmek istediğinizden emin misiniz?
                                         </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -235,18 +278,27 @@ export default function ArchivePage() {
       {/* Basic Edit Modal Placeholder (Future Enhancement) */}
        {editingEntry && (
            <AlertDialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
-               <AlertDialogContent>
+               <AlertDialogContent className="max-w-2xl">
                    <AlertDialogHeader>
                        <AlertDialogTitle>Kaydı Düzenle (Yakında)</AlertDialogTitle>
                        <AlertDialogDescription>
                            '{editingEntry.fileName}' kaydının düzenlenmesi için form buraya eklenecektir.
-                           Şimdilik sadece kapatabilirsiniz.
+                           Şimdilik sadece kapatabilirsiniz. Aşağıda arşivlenen veriyi görebilirsiniz.
                        </AlertDialogDescription>
                    </AlertDialogHeader>
-                    {/* TODO: Add form fields here pre-filled with editingEntry data */}
-                     <pre className="mt-2 w-full rounded-md bg-slate-950 p-4 overflow-auto max-h-60">
-                        <code className="text-white">{JSON.stringify(editingEntry, null, 2)}</code>
-                    </pre>
+                    {/* Display Archived Data */}
+                     <div className="mt-4 max-h-96 overflow-auto rounded-md border p-4 bg-secondary/30">
+                        <h4 className="font-medium mb-2">Arşivlenmiş Veri:</h4>
+                        <pre className="text-xs bg-muted p-3 rounded-md">
+                           {JSON.stringify(editingEntry, (key, value) => {
+                               // Optionally shorten long file data for display if needed
+                               if ((key === 'additionalPhotos' || key === 'additionalVideos') && Array.isArray(value)) {
+                                   return value.map(f => f.name || 'Bilinmeyen Dosya');
+                               }
+                               return value;
+                           }, 2)}
+                        </pre>
+                    </div>
                    <AlertDialogFooter>
                        <AlertDialogCancel onClick={() => setEditingEntry(null)}>Kapat</AlertDialogCancel>
                        {/* <AlertDialogAction onClick={handleSaveChanges}>Değişiklikleri Kaydet</AlertDialogAction> */}
@@ -257,3 +309,4 @@ export default function ArchivePage() {
     </div>
   );
 }
+

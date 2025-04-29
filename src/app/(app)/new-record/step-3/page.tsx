@@ -1,105 +1,207 @@
+
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormItem, FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea'; // Import Textarea
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { FileSpreadsheet, Loader2 } from 'lucide-react'; // Using FileSpreadsheet icon for form
-import { useAppState } from '@/hooks/use-app-state';
-import { format } from 'date-fns'; // For formatting date
+import { Upload, Camera, Video, Image as ImageIcon, Trash2, AlertCircle } from 'lucide-react';
+import { useAppState, RecordData } from '@/hooks/use-app-state';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-// Schema for step 3 fields
-const FormSchema = z.object({
-  additionalNotes: z.string().optional(),
-  inspectionDate: z.string().optional(), // Example additional field
-  inspectorName: z.string().optional(), // Example additional field
-});
+// Define acceptable file types
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ACCEPTED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
 
-type FormData = z.infer<typeof FormSchema>;
+interface MediaFile {
+  file: File;
+  previewUrl: string;
+  type: 'image' | 'video';
+}
 
 export default function NewRecordStep3() {
   const router = useRouter();
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
-  const [isLoading, setIsLoading] = React.useState(false); // Add loading state if needed for async operations
   const [progress] = React.useState(75); // Step 3 of 4
+  const [mediaFiles, setMediaFiles] = React.useState<MediaFile[]>([]);
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(FormSchema),
-    defaultValues: {
-      additionalNotes: recordData.additionalNotes || '',
-      inspectionDate: recordData.inspectionDate || '',
-      inspectorName: recordData.inspectorName || '',
-    },
-  });
+  // Use a simple form instance, no schema needed here as we manage files directly
+  const form = useForm();
 
-  const onSubmit = async (data: FormData) => {
-     setIsLoading(true);
-     // Simulate saving data or performing an action
-     await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+  const photoInputRef = React.useRef<HTMLInputElement>(null);
+  const videoInputRef = React.useRef<HTMLInputElement>(null);
 
-     // Update app state with the latest form data before navigating
-    updateRecordData({
-        additionalNotes: data.additionalNotes,
-        inspectionDate: data.inspectionDate,
-        inspectorName: data.inspectorName,
-    });
-
-    // Create the final archive entry
-    const archiveEntry = {
-        ...recordData, // Include all previously collected data
-        ...data, // Include data from this step
-        branch: branch, // Add branch information
-        archivedAt: format(new Date(), "yyyy-MM-dd'T'HH:mm:ss"), // Timestamp
-        fileName: `${branch}/${recordData.chassisNumber || 'NO-CHASSIS'}` // Generate filename
+  // Initialize mediaFiles state from global state on component mount
+  React.useEffect(() => {
+    const initialMedia: MediaFile[] = [];
+    const addFilesToMedia = (files: (File | { name: string })[] | undefined, type: 'image' | 'video') => {
+      files?.forEach(fileData => {
+        if (fileData instanceof File) {
+           // Check if this file is already in the mediaFiles state by name and size
+           if (!mediaFiles.some(mf => mf.file.name === fileData.name && mf.file.size === fileData.size)) {
+             const previewUrl = URL.createObjectURL(fileData);
+             initialMedia.push({ file: fileData, previewUrl, type });
+           }
+        }
+        // Note: We cannot recreate previews for non-File objects (persisted info)
+      });
     };
 
-    // TODO: Implement actual saving logic here (e.g., save to database/localStorage)
-    // For now, we store it in the app state's archive list (replace with actual storage)
-    updateRecordData({ archive: [...(recordData.archive || []), archiveEntry] });
+    // Only add files from global state if they are actual File objects
+    // and not already present in the current local state
+    addFilesToMedia(recordData.additionalPhotos as File[], 'image');
+    addFilesToMedia(recordData.additionalVideos as File[], 'video');
+
+     // If initialMedia has new files, update the state
+     if (initialMedia.length > 0) {
+        setMediaFiles(prev => [...prev, ...initialMedia]);
+     }
+
+    // Cleanup object URLs on unmount
+    return () => {
+      mediaFiles.forEach(mf => URL.revokeObjectURL(mf.previewUrl));
+    };
+    // Run only on mount, state updates handled separately
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array to run only on mount
 
 
-     setIsLoading(false);
-     toast({
-      title: 'Kayıt Tamamlandı',
-      description: 'Form bilgileri başarıyla kaydedildi ve kayıt arşivlendi.',
+   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
+     const files = event.target.files;
+     setUploadError(null); // Clear previous errors
+
+     if (files) {
+       const newMediaFiles: MediaFile[] = [];
+       let errorFound = false;
+
+       Array.from(files).forEach(file => {
+         const acceptedTypes = type === 'image' ? ACCEPTED_IMAGE_TYPES : ACCEPTED_VIDEO_TYPES;
+         if (!acceptedTypes.includes(file.type)) {
+           setUploadError(`Desteklenmeyen dosya türü: ${file.name}. Sadece ${type === 'image' ? 'resim' : 'video'} dosyaları kabul edilir.`);
+           errorFound = true;
+           return; // Skip this file
+         }
+
+         const previewUrl = URL.createObjectURL(file);
+         newMediaFiles.push({ file, previewUrl, type });
+       });
+
+       if (!errorFound) {
+         setMediaFiles(prev => [...prev, ...newMediaFiles]);
+         // Update global state immediately
+         if (type === 'image') {
+           updateRecordData({ additionalPhotos: [...(recordData.additionalPhotos || []).filter(f => f instanceof File), ...newMediaFiles.map(mf => mf.file)] as File[] });
+         } else {
+           updateRecordData({ additionalVideos: [...(recordData.additionalVideos || []).filter(f => f instanceof File), ...newMediaFiles.map(mf => mf.file)] as File[] });
+         }
+       }
+     }
+       // Reset file input to allow selecting the same file again
+       if (event.target) {
+         event.target.value = '';
+       }
+   };
+
+  const handleDeleteFile = (indexToDelete: number) => {
+    setMediaFiles(prev => {
+      const fileToDelete = prev[indexToDelete];
+      if (fileToDelete) {
+        URL.revokeObjectURL(fileToDelete.previewUrl); // Clean up object URL
+
+        // Update global state by filtering out the deleted file
+        if (fileToDelete.type === 'image') {
+            const updatedPhotos = (recordData.additionalPhotos || []).filter((_, index) => index !== indexToDelete);
+             // Ensure we only store File objects or serializable info in global state
+             updateRecordData({ additionalPhotos: updatedPhotos.map(f => f instanceof File ? f : { name: f.name }) });
+        } else {
+             const updatedVideos = (recordData.additionalVideos || []).filter((_, index) => index !== indexToDelete);
+             updateRecordData({ additionalVideos: updatedVideos.map(f => f instanceof File ? f : { name: f.name }) });
+        }
+      }
+      // Return the updated local state
+      return prev.filter((_, index) => index !== indexToDelete);
     });
-    // Reset record data after successful archiving
-    updateRecordData({}, true); // Pass true to reset
-    router.push('/archive'); // Navigate to archive page after completion
+    toast({
+        title: "Dosya Silindi",
+        description: "Seçili dosya başarıyla kaldırıldı.",
+        variant: "destructive"
+    });
   };
 
-   const goBack = () => {
-    // Save current data before going back
+
+  const onSubmit = () => {
+    console.log("Submitting Step 3 Data - Media Files:", mediaFiles.map(mf => mf.file.name));
+    // Update global state one last time before navigating (already done in handleFileChange/handleDeleteFile)
      updateRecordData({
-        additionalNotes: form.getValues('additionalNotes'),
-        inspectionDate: form.getValues('inspectionDate'),
-        inspectorName: form.getValues('inspectorName'),
-    });
+       additionalPhotos: mediaFiles.filter(mf => mf.type === 'image').map(mf => mf.file),
+       additionalVideos: mediaFiles.filter(mf => mf.type === 'video').map(mf => mf.file),
+     });
+    router.push('/new-record/step-4'); // Navigate to Step 4 (Final Form)
+  };
+
+  const goBack = () => {
+     // Save current media state before going back
+      updateRecordData({
+        additionalPhotos: mediaFiles.filter(mf => mf.type === 'image').map(mf => mf.file),
+        additionalVideos: mediaFiles.filter(mf => mf.type === 'video').map(mf => mf.file),
+      });
     router.push('/new-record/step-2');
   };
 
-   // Redirect if no branch is selected
+  // Redirect if essential data is missing
   React.useEffect(() => {
-    if (!branch || !recordData.chassisNumber) { // Also check if essential data like chassis number exists
-      router.push('/select-branch'); // Redirect to start if essential data is missing
+    if (!branch || !recordData.chassisNumber) {
+      router.push('/select-branch');
     }
-  }, [branch, recordData.chassisNumber, router]);
+    // Sync local mediaFiles state if global state changes externally (e.g., browser back/forward)
+    const globalPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File) as File[];
+    const globalVideos = (recordData.additionalVideos || []).filter(f => f instanceof File) as File[];
+    const currentLocalFiles = new Set(mediaFiles.map(mf => `${mf.file.name}-${mf.file.size}`));
 
+    const newMediaToAdd: MediaFile[] = [];
+
+     globalPhotos.forEach(file => {
+        if (!currentLocalFiles.has(`${file.name}-${file.size}`)) {
+            const previewUrl = URL.createObjectURL(file);
+            newMediaToAdd.push({ file, previewUrl, type: 'image' });
+        }
+    });
+     globalVideos.forEach(file => {
+         if (!currentLocalFiles.has(`${file.name}-${file.size}`)) {
+            const previewUrl = URL.createObjectURL(file);
+            newMediaToAdd.push({ file, previewUrl, type: 'video' });
+         }
+     });
+
+     if (newMediaToAdd.length > 0) {
+         setMediaFiles(prev => [...prev, ...newMediaToAdd]);
+     }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branch, recordData.chassisNumber, recordData.additionalPhotos, recordData.additionalVideos, router]);
 
   if (!branch || !recordData.chassisNumber) {
-      // Optionally show a loading or redirecting message
-      return <div className="flex min-h-screen items-center justify-center p-4">Gerekli bilgiler eksik, yönlendiriliyorsunuz...</div>;
+    return <div className="flex min-h-screen items-center justify-center p-4">Gerekli bilgiler eksik, yönlendiriliyorsunuz...</div>;
   }
-
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
@@ -107,73 +209,133 @@ export default function NewRecordStep3() {
       <Card className="w-full max-w-2xl shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
-            <FileSpreadsheet className="text-primary" />
-            Yeni Kayıt - Adım 3: Ek Form Bilgileri
+            <Camera className="text-primary" /> / <Video className="text-primary" />
+            Yeni Kayıt - Adım 3: Ek Fotoğraf/Video Yükleme
           </CardTitle>
           <CardDescription>
-            Lütfen ek form bilgilerini doldurun. Bu son adımdır.
-            (Şube: {branch}, Şase: {recordData.chassisNumber})
-            </CardDescription>
+             Varsa araca ait ek fotoğraf veya videoları yükleyebilirsiniz.
+             (Şube: {branch}, Şase: {recordData.chassisNumber})
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Additional Form Fields */}
-                <FormField
-                    control={form.control}
-                    name="inspectionDate"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Muayene Tarihi</FormLabel>
-                        <FormControl>
-                             <Input type="date" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
+            {/* No actual form submission needed here, just managing files */}
+            <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-6">
+              <FormItem>
+                <FormLabel>Ek Fotoğraflar</FormLabel>
+                <FormControl>
+                  <div className="flex flex-col items-center gap-4 rounded-md border border-dashed p-6">
+                    <Input
+                      type="file"
+                      accept={ACCEPTED_IMAGE_TYPES.join(',')}
+                      ref={photoInputRef}
+                      onChange={(e) => handleFileChange(e, 'image')}
+                      className="hidden"
+                      id="photo-upload"
+                      multiple // Allow multiple file selection
                     />
+                    <Button type="button" variant="outline" onClick={() => photoInputRef.current?.click()}>
+                      <Upload className="mr-2 h-4 w-4" /> Fotoğraf Seç
+                    </Button>
+                     <Button type="button" variant="outline" onClick={() => toast({ title: 'Yakında', description: 'Kamera özelliği eklenecektir.' })}>
+                        <Camera className="mr-2 h-4 w-4" /> Kamera ile Çek
+                    </Button>
+                  </div>
+                </FormControl>
+              </FormItem>
 
-                 <FormField
-                    control={form.control}
-                    name="inspectorName"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Muayene Yapan Kişi</FormLabel>
-                        <FormControl>
-                            <Input placeholder="Muayeneyi yapan kişinin adı..." {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
+              <FormItem>
+                <FormLabel>Ek Videolar</FormLabel>
+                <FormControl>
+                  <div className="flex flex-col items-center gap-4 rounded-md border border-dashed p-6">
+                    <Input
+                      type="file"
+                      accept={ACCEPTED_VIDEO_TYPES.join(',')}
+                      ref={videoInputRef}
+                      onChange={(e) => handleFileChange(e, 'video')}
+                      className="hidden"
+                      id="video-upload"
+                      multiple // Allow multiple file selection
                     />
+                    <Button type="button" variant="outline" onClick={() => videoInputRef.current?.click()}>
+                      <Upload className="mr-2 h-4 w-4" /> Video Seç
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => toast({ title: 'Yakında', description: 'Video kayıt özelliği eklenecektir.' })}>
+                        <Video className="mr-2 h-4 w-4" /> Video Kaydet
+                    </Button>
+                  </div>
+                </FormControl>
+              </FormItem>
 
-              <FormField
-                control={form.control}
-                name="additionalNotes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ek Notlar</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Varsa ek notlarınızı buraya yazın..."
-                        className="resize-none"
-                        {...field}
-                         disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {uploadError && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Yükleme Hatası</AlertTitle>
+                  <AlertDescription>{uploadError}</AlertDescription>
+                </Alert>
+              )}
 
+              {/* Display uploaded files */}
+              {mediaFiles.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  <h3 className="text-lg font-medium">Yüklenen Dosyalar:</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {mediaFiles.map((media, index) => (
+                      <div key={index} className="relative group border rounded-md overflow-hidden aspect-square">
+                        {media.type === 'image' ? (
+                          <Image
+                            src={media.previewUrl}
+                            alt={`Önizleme ${index + 1}`}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            className="rounded-md"
+                            unoptimized
+                          />
+                        ) : (
+                           <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground p-2">
+                              <Video className="w-1/2 h-1/2 mb-1" />
+                              <span className="text-xs text-center break-all line-clamp-2">{media.file.name}</span>
+                           </div>
+                        )}
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="destructive"
+                                    size="icon"
+                                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Sil"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Bu '{media.file.name}' dosyasını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>İptal</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteFile(index)} className="bg-destructive hover:bg-destructive/90">
+                                    Sil
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
 
-              <div className="flex justify-between">
-                 <Button type="button" variant="outline" onClick={goBack} disabled={isLoading}>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between pt-4">
+                 <Button type="button" variant="outline" onClick={goBack}>
                      Geri
                 </Button>
-                <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading}>
-                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Kaydı Tamamla ve Arşivle
+                <Button type="submit" className="bg-primary hover:bg-primary/90">
+                  Devam Et
                 </Button>
               </div>
             </form>
