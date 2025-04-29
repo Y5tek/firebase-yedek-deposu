@@ -79,13 +79,14 @@ export default function NewRecordStep1() {
 
         const updates: Partial<RecordData> = {}; // Use RecordData type
 
-        // --- MODIFICATION START ---
-        // Always update chassis number from Step 1 OCR if available
+        // --- START: Ensure Chassis Number Update ---
+        // Always update chassis number form field and prepare state update from Step 1 OCR if available
         if (ocrResult.ocrData.chassisNumber) {
           form.setValue('chassisNumber', ocrResult.ocrData.chassisNumber);
           updates.chassisNumber = ocrResult.ocrData.chassisNumber;
         }
-        // --- MODIFICATION END ---
+        // --- END: Ensure Chassis Number Update ---
+
 
         // Get current form data for *other* fields to pass to decision flow
         const currentDataForDecision = {
