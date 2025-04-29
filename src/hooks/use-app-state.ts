@@ -22,7 +22,7 @@ export interface RecordData {
   owner?: string;
   typeApprovalNumber?: string;
   typeAndVariant?: string;
-  plateNumber?: string; // Added plateNumber field
+  // plateNumber?: string; // Removed plateNumber field
 
   // Step 3 Files
   registrationDocument?: File | { name: string; type?: string; size?: number };
@@ -100,7 +100,7 @@ const initialRecordData: RecordData = {
     archive: [], // Initialize archive array
     additionalPhotos: [], // Initialize photos array
     additionalVideos: [], // Initialize videos array
-    plateNumber: '', // Initialize plateNumber
+    // plateNumber: '', // Initialize plateNumber - removed
 };
 
 
@@ -128,7 +128,7 @@ export const useAppState = create<AppState>()(
                  owner: undefined,
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                 // plateNumber is reset via initialRecordData spread
+                 // plateNumber: undefined, // Removed plateNumber reset
                  registrationDocument: undefined,
                  labelDocument: undefined,
                  customerName: undefined, // Step 4
@@ -219,7 +219,7 @@ export const useAppState = create<AppState>()(
                  owner: undefined,
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                 // plateNumber reset by initialRecordData spread
+                 // plateNumber: undefined, // Removed plateNumber reset
                  registrationDocument: undefined,
                  labelDocument: undefined,
                  customerName: undefined, // Step 4
@@ -255,7 +255,7 @@ export const useAppState = create<AppState>()(
                  owner: state.recordData.owner,
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
-                 plateNumber: state.recordData.plateNumber, // Persist plateNumber
+                 // plateNumber: state.recordData.plateNumber, // Removed plateNumber persistence
                  customerName: state.recordData.customerName, // Step 4
                  formDate: state.recordData.formDate, // Step 4 date
                  sequenceNo: state.recordData.sequenceNo, // Step 4
@@ -321,8 +321,7 @@ export const useAppState = create<AppState>()(
              mergedRecordData.additionalPhotos = mergedRecordData.additionalPhotos || [];
              mergedRecordData.additionalVideos = mergedRecordData.additionalVideos || [];
              mergedRecordData.offerItems = mergedRecordData.offerItems || [{ ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }];
-             mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Ensure plateNumber is initialized
-
+             // mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Ensure plateNumber is initialized - removed
 
             const merged: AppState = {
                 ...currentState, // Start with current runtime state

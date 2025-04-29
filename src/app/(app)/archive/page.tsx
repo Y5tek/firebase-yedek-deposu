@@ -36,7 +36,7 @@ interface ArchiveEntry {
   owner?: string;
   typeApprovalNumber?: string;
   typeAndVariant?: string;
-  plateNumber?: string;
+  // plateNumber?: string; // Removed plateNumber
   // Step 3 (File Info)
   registrationDocument?: { name: string; type?: string; size?: number };
   labelDocument?: { name: string; type?: string; size?: number };
@@ -91,8 +91,8 @@ export default function ArchivePage() {
       entry.owner?.toLowerCase().includes(lowerSearchTerm) ||
       entry.branch?.toLowerCase().includes(lowerSearchTerm) ||
       entry.customerName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 4 customer
-      entry.offerCompanyName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 5 company
-      entry.plateNumber?.toLowerCase().includes(lowerSearchTerm)
+      entry.offerCompanyName?.toLowerCase().includes(lowerSearchTerm) // Search Step 5 company
+      // entry.plateNumber?.toLowerCase().includes(lowerSearchTerm) // Removed plateNumber from search
     );
   });
 
@@ -230,7 +230,7 @@ export default function ArchivePage() {
           <div className="flex items-center gap-2 pt-4">
             <Search className="h-5 w-5 text-muted-foreground" />
             <Input
-              placeholder="Şube, Şase, Plaka, Müşteri, Firma ara..." // Updated placeholder
+              placeholder="Şube, Şase, Müşteri, Firma ara..." // Updated placeholder
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="max-w-sm"
@@ -256,7 +256,7 @@ export default function ArchivePage() {
                                 <TableHead>Dosya Adı (Şube/Şase)</TableHead>
                                 <TableHead>Müşteri/Firma</TableHead> {/* Combined customer/company */}
                                 <TableHead>Marka</TableHead>
-                                <TableHead>Plaka</TableHead>
+                                {/* <TableHead>Plaka</TableHead> Removed plateNumber */}
                                 <TableHead>Arşivlenme Tarihi</TableHead>
                                 <TableHead>Belgeler</TableHead>
                                 <TableHead className="text-right">İşlemler</TableHead>
@@ -271,7 +271,7 @@ export default function ArchivePage() {
                                     {entry.customerName && entry.offerCompanyName && <span className="text-xs text-muted-foreground block">(Form: {entry.customerName} / Teklif: {entry.offerCompanyName})</span>}
                                 </TableCell>
                                 <TableCell>{entry.brand || '-'}</TableCell>
-                                <TableCell>{entry.plateNumber || '-'}</TableCell>
+                                {/* <TableCell>{entry.plateNumber || '-'}</TableCell> Removed plateNumber */}
                                 <TableCell>{formatDateSafe(entry.archivedAt)}</TableCell>
                                 <TableCell>
                                     <div className="flex flex-wrap gap-2 items-center">
@@ -360,7 +360,7 @@ export default function ArchivePage() {
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2">
                                 <p><strong className="font-medium">Şube:</strong> {editingEntry.branch}</p>
                                 <p><strong className="font-medium">Şasi No:</strong> {editingEntry.chassisNumber || '-'}</p>
-                                <p><strong className="font-medium">Plaka:</strong> {editingEntry.plateNumber || '-'}</p>
+                                {/* <p><strong className="font-medium">Plaka:</strong> {editingEntry.plateNumber || '-'}</p> Removed plateNumber */}
                                 <p><strong className="font-medium">Marka:</strong> {editingEntry.brand || '-'}</p>
                                 <p><strong className="font-medium">Tip:</strong> {editingEntry.type || '-'}</p>
                                 <p><strong className="font-medium">Ticari Adı:</strong> {editingEntry.tradeName || '-'}</p>
@@ -469,4 +469,3 @@ export default function ArchivePage() {
     </div>
   );
 }
-```

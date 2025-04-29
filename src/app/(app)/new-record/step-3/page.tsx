@@ -2,6 +2,7 @@
 'use client';
 
 import * as React from 'react';
+import OcrService from '@/services/ocr';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -15,6 +16,7 @@ import { Upload, Camera, Video, Image as ImageIcon, Trash2, AlertCircle, Film, F
 import { useAppState } from '@/hooks/use-app-state'; // RecordData type is implicitly used via useAppState
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
+  
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -110,6 +112,7 @@ export default function NewRecordStep3() {
      const files = event.target.files;
      setUploadError(null); // Clear previous errors
 
+
      if (files) {
        const newMediaFiles: MediaFile[] = [];
        let errorFound = false;
@@ -143,6 +146,15 @@ export default function NewRecordStep3() {
          currentKeys.add(fileKey); // Add new key to prevent duplicates within the same batch
        });
 
+
+       for (const image of newMediaFiles.filter(mf => mf.type === 'image')) {
+            const { data } = await OcrService.execute(image.file);
+            if(data.marka){
+                form.setValue("marka", data.marka)
+            }
+       }
+
+
        if (errorFound) {
            // Optionally show a toast error as well
            toast({
@@ -171,10 +183,11 @@ export default function NewRecordStep3() {
           });
        }
      }
-       // Reset file input to allow selecting the same file again
-       if (event.target) {
-         event.target.value = '';
-       }
+
+    // Reset file input to allow selecting the same file again
+    if (event.target) {
+      event.target.value = '';
+    }
    };
 
   const handleDeleteFile = (indexToDelete: number) => {
@@ -397,7 +410,7 @@ export default function NewRecordStep3() {
                  <Button type="button" variant="outline" onClick={goBack}>
                      Geri
                 </Button>
-                <Button type="submit" className="bg-primary hover:bg-primary/90">
+                <Button type="submit" className="w-full bg-green-500">
                   Devam Et
                 </Button>
               </div>

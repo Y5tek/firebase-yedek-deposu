@@ -30,7 +30,7 @@ const FormSchema = z.object({
   typeAndVariant: z.string().optional(),
   labelDocument: z.any().optional(),
   brand: z.string().optional(), // Add brand field
-  plateNumber: z.string().optional(), // Add plate number field for display/update
+  // plateNumber: z.string().optional(), // Removed plate number field
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -40,7 +40,7 @@ export default function NewRecordStep2() {
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [progress] = React.useState(50); // Step 2 of 5
+  const [progress] = React.useState(40); // Step 2 of 5
   const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null);
 
   const [ocrError, setOcrError] = React.useState<string | null>(null);
@@ -54,7 +54,7 @@ export default function NewRecordStep2() {
       typeAndVariant: recordData.typeAndVariant || '',
       labelDocument: recordData.labelDocument || null,
       brand: recordData.brand || '', // Pre-fill brand
-      plateNumber: recordData.plateNumber || '', // Pre-fill plate number
+      // plateNumber: recordData.plateNumber || '', // Removed pre-fill plate number
     },
   });
 
@@ -137,7 +137,7 @@ export default function NewRecordStep2() {
              type: recordData.type,
              tradeName: recordData.tradeName,
              owner: recordData.owner,
-             plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Use form value first
+             // plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Removed plateNumber
              typeApprovalNumber: form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber, // Use form value first
              typeAndVariant: form.getValues('typeAndVariant') || recordData.typeAndVariant, // Use form value first
          };
@@ -150,7 +150,7 @@ export default function NewRecordStep2() {
            type: ocrData.type,
            tradeName: ocrData.tradeName,
            owner: ocrData.owner,
-           plateNumber: ocrData.plateNumber,
+           // plateNumber: ocrData.plateNumber, // Removed plateNumber
            typeApprovalNumber: ocrData.typeApprovalNumber,
            typeAndVariant: ocrData.typeAndVariant,
          };
@@ -226,14 +226,14 @@ export default function NewRecordStep2() {
              console.log("Not overriding typeAndVariant. Override:", override.typeAndVariant, "OCR Data:", ocrData.typeAndVariant);
          }
 
-         // Plate Number
-          if (shouldUpdate('plateNumber')) {
-              console.log("Updating plateNumber field with label OCR data:", ocrData.plateNumber);
-              form.setValue('plateNumber', ocrData.plateNumber!);
-              updates.plateNumber = ocrData.plateNumber;
-          } else {
-              console.log("Not overriding plateNumber (Step 2). Override:", override.plateNumber, "OCR Data:", ocrData.plateNumber);
-          }
+         // Plate Number - Removed
+          // if (shouldUpdate('plateNumber')) {
+          //     console.log("Updating plateNumber field with label OCR data:", ocrData.plateNumber);
+          //     form.setValue('plateNumber', ocrData.plateNumber!);
+          //     updates.plateNumber = ocrData.plateNumber;
+          // } else {
+          //     console.log("Not overriding plateNumber (Step 2). Override:", override.plateNumber, "OCR Data:", ocrData.plateNumber);
+          // }
 
 
          // Update potentially other fields in the global state based on label OCR decision
@@ -256,7 +256,7 @@ export default function NewRecordStep2() {
          } else {
             console.log("Not overriding owner (Step 2). Override:", override.owner, "OCR Data:", ocrData.owner);
          }
-        // Plate number update from label already handled above for form field and updates object
+        // Plate number update from label already handled above for form field and updates object - Removed
 
 
          toast({
@@ -282,10 +282,11 @@ export default function NewRecordStep2() {
                     form.setValue('brand', ocrDataFallback.brand);
                     updates.brand = ocrDataFallback.brand;
                 }
-                if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) { // Fallback for plate number
-                     form.setValue('plateNumber', ocrDataFallback.plateNumber);
-                     updates.plateNumber = ocrDataFallback.plateNumber;
-                 }
+                // Removed fallback for plate number
+                // if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) {
+                //      form.setValue('plateNumber', ocrDataFallback.plateNumber);
+                //      updates.plateNumber = ocrDataFallback.plateNumber;
+                //  }
                 // Update global state for potential future use even without decision
                 updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
                 updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
@@ -295,7 +296,7 @@ export default function NewRecordStep2() {
                  if (!recordData.type && ocrDataFallback.type) updates.type = ocrDataFallback.type;
                  if (!recordData.tradeName && ocrDataFallback.tradeName) updates.tradeName = ocrDataFallback.tradeName;
                  if (!recordData.owner && ocrDataFallback.owner) updates.owner = ocrDataFallback.owner;
-                 if (!recordData.plateNumber && ocrDataFallback.plateNumber) updates.plateNumber = ocrDataFallback.plateNumber; // Fallback for plateNumber
+                 // if (!recordData.plateNumber && ocrDataFallback.plateNumber) updates.plateNumber = ocrDataFallback.plateNumber; // Removed plateNumber fallback
 
              }
        } finally {
@@ -415,7 +416,7 @@ export default function NewRecordStep2() {
         type: recordData.type, // Preserve potentially updated type
         tradeName: recordData.tradeName, // Preserve potentially updated tradeName
         owner: recordData.owner, // Preserve potentially updated owner
-        plateNumber: data.plateNumber, // Update plateNumber from form
+        // plateNumber: data.plateNumber, // Removed updating plateNumber
         typeApprovalNumber: data.typeApprovalNumber,
         typeAndVariant: data.typeAndVariant,
         labelDocument: documentToSave // This will be the File or the info object
@@ -428,7 +429,7 @@ export default function NewRecordStep2() {
      updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve
         brand: form.getValues('brand'), // Save brand
-        plateNumber: form.getValues('plateNumber'), // Save plate number
+        // plateNumber: form.getValues('plateNumber'), // Removed saving plate number
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
         labelDocument: currentFile || recordData.labelDocument // Save current file/info
@@ -445,7 +446,7 @@ export default function NewRecordStep2() {
      form.reset({
         chassisNumber: recordData.chassisNumber || '',
         brand: recordData.brand || '', // Sync brand
-        plateNumber: recordData.plateNumber || '', // Sync plate number
+        // plateNumber: recordData.plateNumber || '', // Removed syncing plate number
         typeApprovalNumber: recordData.typeApprovalNumber || '',
         typeAndVariant: recordData.typeAndVariant || '',
         labelDocument: recordData.labelDocument || null
@@ -589,7 +590,8 @@ export default function NewRecordStep2() {
                         </FormItem>
                         )}
                     />
-                     <FormField
+                     {/* Removed Plate Number Field */}
+                    {/* <FormField
                         control={form.control}
                         name="plateNumber"
                         render={({ field }) => (
@@ -601,7 +603,7 @@ export default function NewRecordStep2() {
                             <FormMessage />
                         </FormItem>
                         )}
-                    />
+                    /> */}
                     <FormField
                         control={form.control}
                         name="brand"
@@ -658,5 +660,4 @@ export default function NewRecordStep2() {
       </Card>
     </div>
   );
-
 }

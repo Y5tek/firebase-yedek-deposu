@@ -126,7 +126,7 @@ export default function NewRecordStep5() {
         owner: finalRecordData.owner,
         typeApprovalNumber: finalRecordData.typeApprovalNumber,
         typeAndVariant: finalRecordData.typeAndVariant,
-        plateNumber: finalRecordData.plateNumber,
+        // plateNumber: finalRecordData.plateNumber, // Removed plateNumber
         // --- Data from Step 4 Form ---
         customerName: finalRecordData.customerName,
         formDate: finalRecordData.formDate, // Step 4 date
@@ -562,5 +562,3 @@ export default function NewRecordStep5() {
     </div>
   );
 }
-
-    
