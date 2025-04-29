@@ -162,7 +162,9 @@ export default function NewRecordStep1() {
       // Function to decide if a field should be updated
       const shouldUpdate = (fieldName: keyof typeof override): boolean => {
         // Ensure the field exists in ocrData before checking the override decision
-        return !!(override[fieldName] && ocrData[fieldName as keyof typeof ocrData]);
+        // Also check if OCR actually returned a value for that field.
+        const ocrValue = ocrData[fieldName as keyof typeof ocrData];
+        return !!(override[fieldName] && ocrValue);
       };
 
       // Update fields based on decision
@@ -233,11 +235,26 @@ export default function NewRecordStep1() {
        if (ocrResult && ocrResult.ocrData && !overrideDecision) {
             console.warn("Override decision failed, populating empty fields with OCR data as fallback.");
             const ocrDataFallback = ocrResult.ocrData;
-            if (!form.getValues('chassisNumber') && ocrDataFallback.chassisNumber) form.setValue('chassisNumber', ocrDataFallback.chassisNumber);
-            if (!form.getValues('brand') && ocrDataFallback.brand) form.setValue('brand', ocrDataFallback.brand);
-            if (!form.getValues('type') && ocrDataFallback.type) form.setValue('type', ocrDataFallback.type);
-            if (!form.getValues('tradeName') && ocrDataFallback.tradeName) form.setValue('tradeName', ocrDataFallback.tradeName);
-            if (!form.getValues('owner') && ocrDataFallback.owner) form.setValue('owner', ocrDataFallback.owner);
+            if (!form.getValues('chassisNumber') && ocrDataFallback.chassisNumber) {
+                form.setValue('chassisNumber', ocrDataFallback.chassisNumber);
+                updates.chassisNumber = ocrDataFallback.chassisNumber;
+            }
+            if (!form.getValues('brand') && ocrDataFallback.brand) {
+                form.setValue('brand', ocrDataFallback.brand);
+                 updates.brand = ocrDataFallback.brand;
+            }
+            if (!form.getValues('type') && ocrDataFallback.type) {
+                form.setValue('type', ocrDataFallback.type);
+                 updates.type = ocrDataFallback.type;
+            }
+            if (!form.getValues('tradeName') && ocrDataFallback.tradeName) {
+                form.setValue('tradeName', ocrDataFallback.tradeName);
+                updates.tradeName = ocrDataFallback.tradeName;
+            }
+            if (!form.getValues('owner') && ocrDataFallback.owner) {
+                 form.setValue('owner', ocrDataFallback.owner);
+                 updates.owner = ocrDataFallback.owner;
+            }
             // Update global state for potential future use even without decision
              updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
              updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
@@ -366,7 +383,39 @@ export default function NewRecordStep1() {
     if (!branch) {
       router.push('/select-branch');
     }
-  }, [branch, router]);
+     // Sync form fields with global state when the component loads or recordData changes
+     // This ensures data from OCR/override is reflected and persisted data is loaded
+     form.reset({
+        chassisNumber: recordData.chassisNumber || '',
+        brand: recordData.brand || '',
+        type: recordData.type || '',
+        tradeName: recordData.tradeName || '',
+        owner: recordData.owner || '',
+        document: recordData.registrationDocument || null,
+     });
+      // Setup preview again after form reset ensures correct preview state
+       const setupPreview = () => {
+         if (recordData.registrationDocument instanceof File) {
+            const file = recordData.registrationDocument;
+            setCurrentFile(file);
+             // Avoid creating new object URLs unnecessarily if preview already exists for the same file
+             if (!imagePreviewUrl || currentFile?.name !== file.name) {
+                if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+                const url = URL.createObjectURL(file);
+                setImagePreviewUrl(url);
+            }
+         } else if (typeof recordData.registrationDocument === 'object' && recordData.registrationDocument?.name) {
+             setCurrentFile(null);
+             setImagePreviewUrl(null);
+         } else {
+             setCurrentFile(null);
+             setImagePreviewUrl(null);
+         }
+       };
+       setupPreview();
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branch, recordData, router]); // form is excluded as form.reset handles sync
 
 
   if (!branch) {
