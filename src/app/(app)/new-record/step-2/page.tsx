@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Camera, Tag, Loader2, Image as ImageIcon, AlertCircle } from 'lucide-react'; // Added ImageIcon, AlertCircle
-import { useAppState } from '@/hooks/use-app-state';
+import { useAppState, RecordData } from '@/hooks/use-app-state'; // Import RecordData
 import { extractVehicleData } from '@/ai/flows/extract-vehicle-data-from-image'; // Assuming same flow can extract label info
 import { decideOcrOverride } from '@/ai/flows/decide-ocr-override';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -99,31 +99,36 @@ export default function NewRecordStep2() {
             // Call Genkit flow for OCR (reuse or create specific one if needed)
             const ocrResult = await extractVehicleData({ imageBase64: base64String });
 
-             // Get current form data to pass to decision flow
-             const currentData = form.getValues();
-
-            // Call Genkit flow to decide which fields to override
-            const overrideDecision = await decideOcrOverride({
-               ocrData: ocrResult.ocrData, // Pass all OCR data, even if not directly used in this step's form
-               currentData: {
-                 // Pass relevant current data
-                 chassisNumber: recordData.chassisNumber, // From previous step
+             // Get current form data AND data from previous steps to pass to decision flow
+             const currentDataForDecision = {
+                 chassisNumber: recordData.chassisNumber, // Use value from global state (set in Step 1)
                  brand: recordData.brand,
                  type: recordData.type,
                  tradeName: recordData.tradeName,
                  owner: recordData.owner,
-                 typeApprovalNumber: currentData.typeApprovalNumber,
-                 typeAndVariant: currentData.typeAndVariant,
-               }
+                 typeApprovalNumber: form.getValues('typeApprovalNumber'), // Current Step 2 form value
+                 typeAndVariant: form.getValues('typeAndVariant'), // Current Step 2 form value
+             };
+
+            // Call Genkit flow to decide which fields to override
+            const overrideDecision = await decideOcrOverride({
+               ocrData: ocrResult.ocrData, // Pass all OCR data from the *label* scan
+               currentData: currentDataForDecision // Pass combined current data
              });
 
             // Update form fields based on the decision (for Step 2 fields)
-             const updates: Partial<FormData & { chassisNumber?: string }> = {}; // Include chassisNumber for app state update
-             // Check if OCR found chassisNumber and decision allows override (might update app state even if field is read-only)
-             if (overrideDecision.override.chassisNumber && ocrResult.ocrData.chassisNumber) {
-                // form.setValue('chassisNumber', ocrResult.ocrData.chassisNumber); // Field is disabled, but update state
-                 updates.chassisNumber = ocrResult.ocrData.chassisNumber;
+             const updates: Partial<RecordData> = {}; // Use RecordData
+
+             // IMPORTANT: Even if chassis number is found in the label OCR, we prioritize the one from Step 1 (License).
+             // However, the decision flow *might* still suggest overriding other fields based on the label scan.
+             // We update the global state if the decision says so for other fields.
+
+             if (overrideDecision.override.chassisNumber && ocrResult.ocrData.chassisNumber && ocrResult.ocrData.chassisNumber !== recordData.chassisNumber) {
+                 // Optional: Log or notify if label chassis differs significantly from license chassis?
+                 console.warn("Chassis number on label OCR differs from license OCR:", ocrResult.ocrData.chassisNumber);
+                 // We are NOT updating the form/state chassis number here, sticking to Step 1's value.
              }
+
              if (overrideDecision.override.typeApprovalNumber && ocrResult.ocrData.typeApprovalNumber) {
                form.setValue('typeApprovalNumber', ocrResult.ocrData.typeApprovalNumber);
                updates.typeApprovalNumber = ocrResult.ocrData.typeApprovalNumber;
@@ -133,15 +138,17 @@ export default function NewRecordStep2() {
                updates.typeAndVariant = ocrResult.ocrData.typeAndVariant;
              }
 
-            // Update potentially other fields in the global state based on decision
-             if (overrideDecision.override.brand && ocrResult.ocrData.brand) updates.brand = recordData.brand; // Preserve original unless explicit override needed
-             if (overrideDecision.override.type && ocrResult.ocrData.type) updates.type = recordData.type;
-             if (overrideDecision.override.tradeName && ocrResult.ocrData.tradeName) updates.tradeName = recordData.tradeName;
-             if (overrideDecision.override.owner && ocrResult.ocrData.owner) updates.owner = recordData.owner;
+            // Update potentially other fields in the global state based on label OCR decision
+             if (overrideDecision.override.brand && ocrResult.ocrData.brand) updates.brand = ocrResult.ocrData.brand;
+             if (overrideDecision.override.type && ocrResult.ocrData.type) updates.type = ocrResult.ocrData.type;
+             if (overrideDecision.override.tradeName && ocrResult.ocrData.tradeName) updates.tradeName = ocrResult.ocrData.tradeName;
+             if (overrideDecision.override.owner && ocrResult.ocrData.owner) updates.owner = ocrResult.ocrData.owner;
 
 
             // Update app state with potentially overridden values from this OCR scan
-            updateRecordData(updates);
+             if (Object.keys(updates).length > 0) {
+                 updateRecordData(updates);
+             }
 
 
             toast({
@@ -207,6 +214,8 @@ export default function NewRecordStep2() {
      // Update app state with the latest form data before navigating
      const documentToSave = data.labelDocument instanceof File ? data.labelDocument : recordData.labelDocument;
     updateRecordData({
+        // Ensure chassisNumber from global state is preserved, not overwritten by disabled form field
+        chassisNumber: recordData.chassisNumber,
         typeApprovalNumber: data.typeApprovalNumber,
         typeAndVariant: data.typeAndVariant,
         labelDocument: documentToSave // Save the file object or its info
@@ -217,6 +226,8 @@ export default function NewRecordStep2() {
   const goBack = () => {
     // Save current data before going back potentially?
      updateRecordData({
+        // Ensure chassisNumber from global state is preserved
+        chassisNumber: recordData.chassisNumber,
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
         labelDocument: form.getValues('labelDocument') instanceof File ? form.getValues('labelDocument') : recordData.labelDocument // Preserve File or info
@@ -229,8 +240,8 @@ export default function NewRecordStep2() {
     if (!branch) {
       router.push('/select-branch');
     }
-     // Pre-fill chassis number when component mounts if not already set
-     if (recordData.chassisNumber && !form.getValues('chassisNumber')) {
+     // Pre-fill chassis number when component mounts if not already set in form
+     if (recordData.chassisNumber && form.getValues('chassisNumber') !== recordData.chassisNumber) {
        form.setValue('chassisNumber', recordData.chassisNumber);
      }
   }, [branch, recordData.chassisNumber, form, router]);
@@ -335,7 +346,8 @@ export default function NewRecordStep2() {
                   <FormItem>
                     <FormLabel>Şase Numarası (Ruhsattan)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ruhsattan alınacak..." {...field} disabled />
+                       {/* Ensure the value displayed is from recordData, even though the field is disabled */}
+                      <Input placeholder="Ruhsattan alınacak..." {...field} value={recordData.chassisNumber || field.value || ''} disabled />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -384,5 +396,3 @@ export default function NewRecordStep2() {
     </div>
   );
 }
-
-    

@@ -62,7 +62,7 @@ export const useAppState = create<AppState>()(
              const mergedData = { ...state.recordData, ...newData };
 
               // Ensure files are handled correctly (keep File object if present, otherwise keep existing info)
-              if (newData.registrationDocument === undefined) {
+              if (newData.registrationDocument === undefined && 'registrationDocument' in newData) {
                   // If explicitly set to undefined, remove it
                    delete mergedData.registrationDocument;
               } else if (!(newData.registrationDocument instanceof File) && state.recordData.registrationDocument instanceof File) {
@@ -70,7 +70,7 @@ export const useAppState = create<AppState>()(
                    mergedData.registrationDocument = state.recordData.registrationDocument;
               }
 
-              if (newData.labelDocument === undefined) {
+              if (newData.labelDocument === undefined && 'labelDocument' in newData) {
                   delete mergedData.labelDocument;
               } else if (!(newData.labelDocument instanceof File) && state.recordData.labelDocument instanceof File) {
                   mergedData.labelDocument = state.recordData.labelDocument;
@@ -101,20 +101,21 @@ export const useAppState = create<AppState>()(
          // This prevents overwriting a File object with just its info from storage
         // Note: This merge logic is complex; consider simpler state structures if possible.
          merge: (persistedState, currentState) => {
+            const typedPersistedState = persistedState as Partial<AppState>; // Type assertion
             const merged: AppState = {
                 ...currentState, // Start with current runtime state
-                ...(persistedState as Partial<AppState>), // Overwrite with persisted non-File data
+                ...typedPersistedState, // Overwrite with persisted non-File data
                 recordData: {
                     ...currentState.recordData, // Start with current runtime recordData
-                    ...(persistedState as Partial<AppState>).recordData, // Overwrite with persisted recordData
+                    ...typedPersistedState.recordData, // Overwrite with persisted recordData
                     // Restore File objects if they exist in current state but only info in persisted
                      registrationDocument: currentState.recordData.registrationDocument instanceof File
                         ? currentState.recordData.registrationDocument
-                        : (persistedState as Partial<AppState>).recordData?.registrationDocument,
+                        : typedPersistedState.recordData?.registrationDocument,
                      labelDocument: currentState.recordData.labelDocument instanceof File
                         ? currentState.recordData.labelDocument
-                        : (persistedState as Partial<AppState>).recordData?.labelDocument,
-                    archive: (persistedState as Partial<AppState>).recordData?.archive ?? currentState.recordData.archive ?? [], // Ensure archive is an array
+                        : typedPersistedState.recordData?.labelDocument,
+                    archive: typedPersistedState.recordData?.archive ?? currentState.recordData.archive ?? [], // Ensure archive is an array
                 },
             };
             return merged;

@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Camera, FileText, Loader2, Image as ImageIcon, AlertCircle } from 'lucide-react'; // Added ImageIcon, AlertCircle
-import { useAppState } from '@/hooks/use-app-state';
+import { useAppState, RecordData } from '@/hooks/use-app-state'; // Import RecordData type
 import { extractVehicleData } from '@/ai/flows/extract-vehicle-data-from-image';
 import { decideOcrOverride } from '@/ai/flows/decide-ocr-override';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -101,33 +101,49 @@ export default function NewRecordStep1() {
 
           try {
             // Call Genkit flow for OCR
-             const ocrResult = await extractVehicleData({ imageBase64: base64String });
+            const ocrResult = await extractVehicleData({ imageBase64: base64String });
 
-             // Get current form data to pass to decision flow
-             const currentData = form.getValues();
+            const updates: Partial<RecordData> = {}; // Use RecordData type
 
-             // Call Genkit flow to decide which fields to override
-            const overrideDecision = await decideOcrOverride({
-                ocrData: ocrResult.ocrData,
-                currentData: {
-                chassisNumber: currentData.chassisNumber,
-                brand: currentData.brand,
-                type: currentData.type,
-                tradeName: currentData.tradeName,
-                owner: currentData.owner,
-                // Pass other relevant fields if they exist in the form
-                typeApprovalNumber: recordData.typeApprovalNumber,
-                typeAndVariant: recordData.typeAndVariant,
-                }
-            });
-
-
-            // Update form fields based on the decision
-            const updates: Partial<FormData> = {};
-            if (overrideDecision.override.chassisNumber && ocrResult.ocrData.chassisNumber) {
+            // --- MODIFICATION START ---
+            // Always update chassis number from Step 1 OCR if available
+            if (ocrResult.ocrData.chassisNumber) {
                 form.setValue('chassisNumber', ocrResult.ocrData.chassisNumber);
                 updates.chassisNumber = ocrResult.ocrData.chassisNumber;
             }
+            // --- MODIFICATION END ---
+
+            // Get current form data for *other* fields to pass to decision flow
+            const currentDataForDecision = {
+                brand: form.getValues('brand'),
+                type: form.getValues('type'),
+                tradeName: form.getValues('tradeName'),
+                owner: form.getValues('owner'),
+                // Add other relevant fields if they exist in the form and are needed for the decision
+                typeApprovalNumber: recordData.typeApprovalNumber,
+                typeAndVariant: recordData.typeAndVariant,
+            };
+
+            // Prepare OCR data for decision flow (excluding chassis number as we already handled it)
+            const ocrDataForDecision = {
+                chassisNumber: undefined, // Explicitly exclude chassis from override decision here
+                brand: ocrResult.ocrData.brand,
+                type: ocrResult.ocrData.type,
+                tradeName: ocrResult.ocrData.tradeName,
+                owner: ocrResult.ocrData.owner,
+                typeApprovalNumber: ocrResult.ocrData.typeApprovalNumber,
+                typeAndVariant: ocrResult.ocrData.typeAndVariant,
+            };
+
+
+             // Call Genkit flow to decide which *other* fields to override
+            const overrideDecision = await decideOcrOverride({
+                ocrData: ocrDataForDecision,
+                currentData: currentDataForDecision
+            });
+
+
+            // Update *other* form fields based on the decision
             if (overrideDecision.override.brand && ocrResult.ocrData.brand) {
                 form.setValue('brand', ocrResult.ocrData.brand);
                 updates.brand = ocrResult.ocrData.brand;
@@ -144,7 +160,16 @@ export default function NewRecordStep1() {
                 form.setValue('owner', ocrResult.ocrData.owner);
                 updates.owner = ocrResult.ocrData.owner;
             }
-            // Update app state with potentially overridden values
+            // Although Type Approval Number and Type/Variant are primarily from Step 2,
+            // update the global state if the decision flow (based on Step 1 doc) suggests it.
+            if (overrideDecision.override.typeApprovalNumber && ocrResult.ocrData.typeApprovalNumber) {
+                 updates.typeApprovalNumber = ocrResult.ocrData.typeApprovalNumber;
+            }
+            if (overrideDecision.override.typeAndVariant && ocrResult.ocrData.typeAndVariant) {
+                  updates.typeAndVariant = ocrResult.ocrData.typeAndVariant;
+            }
+
+            // Update app state with all potentially overridden values (including chassis)
             updateRecordData(updates);
 
             toast({
@@ -402,5 +427,3 @@ export default function NewRecordStep1() {
     </div>
   );
 }
-
-    
