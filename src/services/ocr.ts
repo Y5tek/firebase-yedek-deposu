@@ -34,34 +34,18 @@ export interface OcrData {
 }
 
 /**
- * Asynchronously extracts data from an image using OCR.
+ * Placeholder function. The actual data extraction is performed by the
+ * `extractVehicleDataFlow` Genkit flow defined in `src/ai/flows/extract-vehicle-data-from-image.ts`.
+ * This function signature is kept for potential future non-AI OCR integrations or utilities.
  *
  * @param imageBase64 The base64 encoded string of the image to process.
- * @returns A promise that resolves to an OcrData object containing the extracted information. Returns optional fields.
+ * @returns A promise that resolves to an OcrData object. Currently throws an error as it's not implemented.
  */
 export async function extractDataFromImage(imageBase64: string): Promise<OcrData> {
-    // TODO: Implement this by calling a real OCR API.
-    // This is a mock implementation for demonstration purposes.
-    console.log("Mock OCR Service: Processing image...");
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Simulate potential partial data extraction
-    const mockData: OcrData = {
-        chassisNumber: `SASE${Math.floor(100000 + Math.random() * 900000)}`, // Example: SASE123456
-        brand: 'ÖRNEK MARKA', // Example Turkish Brand
-        type: `MODEL ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`, // Example: MODEL X
-        tradeName: 'ÖRNEK TİCARİ AD', // Example Turkish Trade Name
-        owner: 'Ali Veli', // Example Turkish Owner Name
-        typeApprovalNumber: `ONAY${Math.floor(1000 + Math.random() * 9000)}`, // Example: ONAY1234
-        typeAndVariant: `Tip ${String.fromCharCode(65 + Math.floor(Math.random() * 5))}/Varyant ${Math.floor(1 + Math.random() * 3)}` // Example: Tip A/Varyant 1
-    };
-
-     // Simulate sometimes failing to extract certain fields
-     if (Math.random() > 0.8) delete mockData.tradeName;
-     if (Math.random() > 0.9) delete mockData.typeApprovalNumber;
-
-
-    console.log("Mock OCR Service: Extracted Data:", mockData);
-    return mockData;
+    // Actual OCR extraction is handled by the AI flow.
+    // This function is not directly called by the AI flow path anymore.
+    console.error("extractDataFromImage service function was called directly, but OCR is handled by AI flow.");
+    throw new Error("OCR extraction is handled by the Genkit AI flow, not this service function directly.");
+    // If you need a non-AI OCR implementation later, implement it here.
 }
+```
