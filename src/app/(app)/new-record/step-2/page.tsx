@@ -84,6 +84,7 @@ export default function NewRecordStep2() {
                 duration: 5000,
             });
         }
+        setIsLoading(false); // Reset loading state on error
     };
 
 
@@ -172,7 +173,6 @@ export default function NewRecordStep2() {
 
          // Function to decide if a field should be updated
         const shouldUpdate = (fieldName: keyof typeof override): boolean => {
-            // Ensure the field exists in ocrData before checking the override decision
             const ocrValue = ocrData[fieldName as keyof typeof ocrData];
             return !!(override[fieldName] && ocrValue); // Check override flag AND if OCR found a value
         };
@@ -309,11 +309,12 @@ export default function NewRecordStep2() {
 
 
   React.useEffect(() => {
+     let url: string | null = null;
      const setupPreview = () => {
          if (recordData.labelDocument instanceof File) {
              const file = recordData.labelDocument;
              setCurrentFile(file);
-             const url = URL.createObjectURL(file);
+             url = URL.createObjectURL(file);
              setImagePreviewUrl(url);
              form.setValue('labelDocument', file);
          } else if (typeof recordData.labelDocument === 'object' && recordData.labelDocument?.name) {
@@ -332,11 +333,13 @@ export default function NewRecordStep2() {
      setupPreview();
 
     return () => {
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
+      if (url) {
+        URL.revokeObjectURL(url);
+        setImagePreviewUrl(null); // Also clear state url
       }
     };
     // Only re-run if the labelDocument itself changes identity or type
+    // form is intentionally omitted
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordData.labelDocument]);
 
@@ -357,18 +360,22 @@ export default function NewRecordStep2() {
       updateRecordData({ labelDocument: file }); // Update global state with File object
        console.log("Label file selected:", file.name);
 
-      // Deactivated auto-scan
-      // initiateOcrScan(file); // Optional: Trigger scan immediately
     } else {
         // Handle cancellation or no file selection
-        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-        setImagePreviewUrl(null);
+        if (imagePreviewUrl) {
+            URL.revokeObjectURL(imagePreviewUrl);
+            setImagePreviewUrl(null);
+        }
         setCurrentFile(null);
         form.setValue('labelDocument', null);
         // Use undefined to explicitly clear the document in global state
         updateRecordData({ labelDocument: undefined });
         console.log("Label file selection cancelled or no file chosen.");
     }
+      // Reset file input to allow selecting the same file again
+      if (event.target) {
+          event.target.value = '';
+      }
   };
 
   const handleManualScanClick = () => {
@@ -390,14 +397,6 @@ export default function NewRecordStep2() {
        const hasDocument = currentFile || (typeof documentValue === 'object' && documentValue?.name);
 
       // Allow skipping this step if no document is provided (it's optional)
-      // if (!hasDocument) {
-      //     toast({
-      //         title: 'Eksik Bilgi',
-      //         description: 'Lütfen devam etmeden önce bir etiket belgesi yükleyin.',
-      //         variant: 'destructive',
-      //     });
-      //     return;
-      // }
 
      // Prioritize the current File object if it exists, otherwise use persisted info
      const documentToSave = currentFile || recordData.labelDocument;
@@ -462,9 +461,11 @@ export default function NewRecordStep2() {
              }
          } else if (typeof recordData.labelDocument === 'object' && recordData.labelDocument?.name) {
              setCurrentFile(null);
+              if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl); // Clean up if switching from File to info
              setImagePreviewUrl(null);
          } else {
              setCurrentFile(null);
+              if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl); // Clean up if no document
              setImagePreviewUrl(null);
          }
      };

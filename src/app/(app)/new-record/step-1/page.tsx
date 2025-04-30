@@ -84,6 +84,7 @@ export default function NewRecordStep1() {
         duration: 5000,
       });
     }
+    setIsLoading(false); // Ensure loading state is reset on error
   };
 
 
@@ -144,7 +145,6 @@ export default function NewRecordStep1() {
       };
       console.log("Current Data for Override Decision (Step 1):", currentDataForDecision);
 
-      // Extend OcrData in DecideOcrOverrideInputSchema if plateNumber needs AI decision
       const ocrDataForDecision = {
         ...ocrData,
         plateNumber: ocrData.plateNumber, // Include plateNumber from OCR result
@@ -168,8 +168,6 @@ export default function NewRecordStep1() {
 
       // Function to decide if a field should be updated
       const shouldUpdate = (fieldName: keyof typeof override): boolean => {
-        // Ensure the field exists in ocrData before checking the override decision
-        // Also check if OCR actually returned a value for that field.
         const ocrValue = ocrData[fieldName as keyof typeof ocrData];
         return !!(override[fieldName] && ocrValue);
       };
@@ -177,8 +175,8 @@ export default function NewRecordStep1() {
       // Update fields based on decision
       if (shouldUpdate('chassisNumber')) {
         console.log("Updating chassisNumber field with OCR data:", ocrData.chassisNumber);
-        form.setValue('chassisNumber', ocrData.chassisNumber!); // Populates the form field
-        updates.chassisNumber = ocrData.chassisNumber; // Updates the object for global state update
+        form.setValue('chassisNumber', ocrData.chassisNumber!);
+        updates.chassisNumber = ocrData.chassisNumber;
       } else {
           console.log("Not overriding chassisNumber. Override:", override.chassisNumber, "OCR Data:", ocrData.chassisNumber);
       }
@@ -215,7 +213,6 @@ export default function NewRecordStep1() {
           console.log("Not overriding owner. Override:", override.owner, "OCR Data:", ocrData.owner);
       }
 
-       // Update plate number based on override decision
        if (shouldUpdate('plateNumber')) {
            console.log("Updating plateNumber field with OCR data:", ocrData.plateNumber);
            form.setValue('plateNumber', ocrData.plateNumber!);
@@ -295,11 +292,12 @@ export default function NewRecordStep1() {
 
   // Revoke object URL on unmount or change
   React.useEffect(() => {
+    let url: string | null = null;
     const setupPreview = () => {
       if (recordData.registrationDocument instanceof File) {
         const file = recordData.registrationDocument;
         setCurrentFile(file);
-        const url = URL.createObjectURL(file);
+        url = URL.createObjectURL(file);
         setImagePreviewUrl(url);
         form.setValue('document', file);
       } else if (typeof recordData.registrationDocument === 'object' && recordData.registrationDocument?.name) {
@@ -318,11 +316,13 @@ export default function NewRecordStep1() {
     setupPreview();
 
     return () => {
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
+      if (url) {
+        URL.revokeObjectURL(url);
+        setImagePreviewUrl(null); // Also clear the state url
       }
     };
     // Only re-run if the registrationDocument itself changes identity or type
+    // form is intentionally omitted to avoid re-running on every keystroke
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordData.registrationDocument]);
 
@@ -341,19 +341,22 @@ export default function NewRecordStep1() {
       form.setValue('document', file); // Set the File object in the form state
       updateRecordData({ registrationDocument: file }); // Update global state with File object
       console.log("File selected:", file.name);
-
-      // Deactivated auto-scan, user clicks button now
-      // initiateOcrScan(file); // Optional: Trigger scan immediately after selection
     } else {
       // Handle case where file selection is cancelled or no file is chosen
-      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-      setImagePreviewUrl(null);
+      if (imagePreviewUrl) {
+          URL.revokeObjectURL(imagePreviewUrl);
+          setImagePreviewUrl(null);
+      }
       setCurrentFile(null);
       form.setValue('document', null);
       // Use undefined to explicitly clear the document in global state
       updateRecordData({ registrationDocument: undefined });
        console.log("File selection cancelled or no file chosen.");
     }
+      // Reset the input value to allow selecting the same file again
+      if (event.target) {
+        event.target.value = '';
+      }
   };
 
    const handleManualScanClick = () => {
@@ -430,9 +433,11 @@ export default function NewRecordStep1() {
             }
          } else if (typeof recordData.registrationDocument === 'object' && recordData.registrationDocument?.name) {
              setCurrentFile(null);
+             if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl); // Clean up if switching from File to info
              setImagePreviewUrl(null);
          } else {
              setCurrentFile(null);
+              if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl); // Clean up if no document
              setImagePreviewUrl(null);
          }
        };
