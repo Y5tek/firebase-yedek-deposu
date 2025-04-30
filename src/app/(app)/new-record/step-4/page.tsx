@@ -381,11 +381,7 @@ export default function NewRecordStep4() {
                     </Button>
                     <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading}>
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChevronRight className="mr-2 h-4 w-4" />}
-<<<<<<< HEAD
-                        Devam Et (İş Emri Formu)
-=======
                         Devam Et (İş Emri)
->>>>>>> origin/main
                     </Button>
                 </div>
             </form>
