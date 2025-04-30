@@ -52,7 +52,7 @@ export default function NewRecordStep3() {
   const router = useRouter();
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
-  const [progress] = React.useState(60); // Step 3 of 5
+  const [progress] = React.useState(50); // Step 3 of 6
   const [mediaFiles, setMediaFiles] = React.useState<MediaFile[]>([]);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [previewImage, setPreviewImage] = React.useState<MediaFile | null>(null); // State for image preview modal
@@ -241,7 +241,7 @@ export default function NewRecordStep3() {
          });
      }
 
-    router.push('/new-record/step-4'); // Navigate to Step 4 (Final Form)
+    router.push('/new-record/step-4'); // Navigate to Step 4 (Seri Tadilat Formu)
   };
 
   const goBack = () => {

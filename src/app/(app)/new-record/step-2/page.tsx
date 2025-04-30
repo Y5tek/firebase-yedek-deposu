@@ -40,7 +40,7 @@ export default function NewRecordStep2() {
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [progress] = React.useState(40); // Step 2 of 5
+  const [progress] = React.useState(33); // Step 2 of 6 (approx 33.33%)
   const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null);
 
   const [ocrError, setOcrError] = React.useState<string | null>(null);
