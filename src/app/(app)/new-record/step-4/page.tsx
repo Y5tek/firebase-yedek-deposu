@@ -47,7 +47,7 @@ export default function NewRecordStep4() {
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false); // Keep loading state if needed for async ops later
-  const [progress] = React.useState(80); // Step 4 of 5
+  const [progress] = React.useState(60); // Step 4 of 6
 
   const form = useForm<FormData>({
     resolver: zodResolver(FormSchema),
@@ -85,7 +85,7 @@ export default function NewRecordStep4() {
     console.log("Submitting Step 4 Data, navigating to Step 5:", data);
 
     setIsLoading(false); // Optional: Reset loading state
-    router.push('/new-record/step-5'); // Navigate to the new Step 5 (Offer Form)
+    router.push('/new-record/step-5'); // Navigate to the new Step 5 (İş Emri Formu)
   };
 
   const goBack = () => {
@@ -381,7 +381,7 @@ export default function NewRecordStep4() {
                     </Button>
                     <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading}>
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChevronRight className="mr-2 h-4 w-4" />}
-                        Devam Et (Teklif Formu)
+                        Devam Et (İş Emri Formu)
                     </Button>
                 </div>
             </form>

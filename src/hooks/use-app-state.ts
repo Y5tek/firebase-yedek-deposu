@@ -42,16 +42,11 @@ export interface RecordData {
   controllerName?: string; // Seri Tadilat Uygunluk Formu Controller
   authorityName?: string; // Seri Tadilat Uygunluk Formu Authority
 
-   // Step 5 Form Fields (İş Emri Formu)
-    projectName?: string;
-    workOrderNumber?: string;
-    workOrderDate?: string;
-    completionDate?: string;
-    detailsOfWork?: string;
-    sparePartsUsed?: string;
-    pricing?: string;
-    vehicleAcceptanceSignature?: string;
-    customerSignature?: string;
+  // Step 5 Form Fields (Ara ve Son Kontrol Formu)
+  projectNo?: string; // Proje No
+  // Checklist statuses might need dedicated fields if they need to be saved explicitly
+  // Example: araSonCheck1?: boolean;
+  // Controller name is already covered by controllerName from Step 4
 
   // Step 6 Form Fields (Teklif Formu - Offer Form)
   offerAuthorizedName?: string; // Teklif Vermeye Yetkili Kişinin Adı ve Soyadı
@@ -63,7 +58,6 @@ export interface RecordData {
   offerDate?: string; // Teklif Tarihi (Store as ISO string)
   offerItems?: OfferItem[]; // Array for items in the table
   offerAcceptance?: 'accepted' | 'rejected'; // Teklif Kabul Durumu
-  plate?: string;
 
   // Archive specific fields (added during final submission)
   archive?: any[]; // To store completed records temporarily (replace with DB)
@@ -74,6 +68,18 @@ export interface RecordData {
   additionalNotes?: string; // Might be replaced by 'notes' field
   inspectionDate?: string; // Might be replaced by 'formDate'
   inspectorName?: string; // Might be replaced by 'controllerName' or 'authorityName'
+
+  // Deprecated/Redundant fields? (Added from previous merge, review if needed)
+  plate?: string; // Seems redundant with plateNumber
+  projectName?: string; // Added previously, potentially for İş Emri? Now using projectNo
+  workOrderNumber?: string;
+  workOrderDate?: string;
+  completionDate?: string;
+  detailsOfWork?: string;
+  sparePartsUsed?: string;
+  pricing?: string;
+  vehicleAcceptanceSignature?: string;
+  customerSignature?: string;
 }
 
 // Define the state structure
@@ -101,19 +107,9 @@ const initialRecordData: RecordData = {
     q2_typeApprovalMatch: 'olumlu',
     q3_scopeExpansion: 'olumlu',
     q4_unaffectedPartsDefect: 'olumlu',
-    // Step 5 Defaults
-     plate: '',
-        projectName: '',
-        workOrderNumber: '',
-        workOrderDate: '',
-        completionDate: '',
-        detailsOfWork: '',
-        sparePartsUsed: '',
-        pricing: '',
-        vehicleAcceptanceSignature: '',
-        customerSignature: '',
-
-    // Step 6 Defaults
+    // Step 5 Defaults (Ara ve Son Kontrol)
+    projectNo: '',
+    // Step 6 Defaults (Teklif)
     offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK', // Prefill from image
     offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97', // Prefill from image
     offerItems: [
@@ -125,6 +121,17 @@ const initialRecordData: RecordData = {
     additionalPhotos: [], // Initialize photos array
     additionalVideos: [], // Initialize videos array
     plateNumber: '', // Initialize plateNumber
+    // Initialize potentially deprecated fields to avoid undefined issues during reset
+    plate: '',
+    projectName: '',
+    workOrderNumber: '',
+    workOrderDate: undefined,
+    completionDate: undefined,
+    detailsOfWork: '',
+    sparePartsUsed: '',
+    pricing: '',
+    vehicleAcceptanceSignature: '',
+    customerSignature: '',
 };
 
 
@@ -139,12 +146,11 @@ export const useAppState = create<AppState>()(
 
       updateRecordData: (newData, reset = false) => {
         if (reset) {
-           // Keep archive, reset the rest, including file arrays and new form fields
+           // Keep archive, reset the rest to initial defaults
            set({ recordData: {
                 archive: get().recordData.archive,
-                // Reset to initial defaults
                 ...initialRecordData,
-                 // Explicitly reset fields not in initialRecordData to undefined if needed
+                 // Explicitly reset non-default fields to undefined
                  chassisNumber: undefined,
                  brand: undefined,
                  type: undefined,
@@ -152,34 +158,46 @@ export const useAppState = create<AppState>()(
                  owner: undefined,
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                   plateNumber: undefined, // Explicitly reset plateNumber
+                 plateNumber: undefined, // Ensure reset
                  registrationDocument: undefined,
                  labelDocument: undefined,
-                 customerName: undefined, // Step 4
-                 formDate: undefined, // Step 4 date
-                 notes: undefined, // Step 4 notes
-                 controllerName: undefined, // Step 4
-                 authorityName: undefined, // Step 4
-                  projectName: undefined, // step 5
-                  workOrderNumber: undefined, // step 5
-                  workOrderDate: undefined, // step 5
-                  completionDate: undefined, // step 5
-                  detailsOfWork: undefined, // step 5
-                  sparePartsUsed: undefined, // step 5
-                  pricing: undefined, // step 5
-                  vehicleAcceptanceSignature: undefined, // step 5
-                  customerSignature: undefined, // step 5
-                 offerAuthorizedName: undefined, // Step 6
-                 offerCompanyAddress: undefined, // Step 6
-                 offerPhoneNumber: undefined, // Step 6
-                 offerEmailAddress: undefined, // Step 6
-                 offerDate: undefined, // Step 6 date
-                 offerAcceptance: 'accepted', // Reset Step 6 acceptance
+                 additionalPhotos: [], // Ensure reset to empty array
+                 additionalVideos: [], // Ensure reset to empty array
+                 customerName: undefined,
+                 formDate: undefined,
+                 // sequenceNo reset by initialRecordData
+                 // q1-q4 reset by initialRecordData
+                 notes: undefined,
+                 controllerName: undefined,
+                 authorityName: undefined,
+                 // Step 5 reset
+                 projectNo: undefined,
+                 // Step 6 reset
+                 offerAuthorizedName: undefined,
+                 // offerCompanyName reset by initialRecordData
+                 offerCompanyAddress: undefined,
+                 // offerTaxOfficeAndNumber reset by initialRecordData
+                 offerPhoneNumber: undefined,
+                 offerEmailAddress: undefined,
+                 offerDate: undefined,
+                 // offerItems reset by initialRecordData
+                 // offerAcceptance reset by initialRecordData
                  // Reset old fields
                  additionalNotes: undefined,
                  inspectionDate: undefined,
                  inspectorName: undefined,
-             } });
+                 // Reset deprecated fields
+                 plate: undefined,
+                 projectName: undefined,
+                 workOrderNumber: undefined,
+                 workOrderDate: undefined,
+                 completionDate: undefined,
+                 detailsOfWork: undefined,
+                 sparePartsUsed: undefined,
+                 pricing: undefined,
+                 vehicleAcceptanceSignature: undefined,
+                 customerSignature: undefined,
+            } });
         } else {
            set((state) => {
              // Merge new data, prioritizing File objects if newData provides them
@@ -189,7 +207,6 @@ export const useAppState = create<AppState>()(
               if (newData.registrationDocument === undefined && 'registrationDocument' in newData) {
                    delete mergedData.registrationDocument;
               } else if (newData.registrationDocument && !(newData.registrationDocument instanceof File) && state.recordData.registrationDocument instanceof File) {
-                  // If newData provides info but state has File, keep File (unless explicitly cleared)
                    mergedData.registrationDocument = state.recordData.registrationDocument;
               } else if (newData.registrationDocument instanceof File) {
                    mergedData.registrationDocument = newData.registrationDocument;
@@ -209,10 +226,8 @@ export const useAppState = create<AppState>()(
                 if (newData.additionalPhotos) {
                     mergedData.additionalPhotos = mergeFileArrays(state.recordData.additionalPhotos, newData.additionalPhotos);
                 } else if (state.recordData.additionalPhotos && !('additionalPhotos' in newData)) {
-                    // If newData doesn't mention photos, keep the existing ones
                     mergedData.additionalPhotos = state.recordData.additionalPhotos;
                 } else if ('additionalPhotos' in newData && !newData.additionalPhotos) {
-                    // If newData explicitly sets photos to null/undefined, clear it
                     mergedData.additionalPhotos = [];
                 }
 
@@ -244,7 +259,7 @@ export const useAppState = create<AppState>()(
              set({ recordData: {
                  archive: get().recordData.archive,
                  ...initialRecordData,
-                 // Explicitly reset fields not in initialRecordData to undefined if needed
+                  // Explicitly reset non-default fields to undefined
                  chassisNumber: undefined,
                  brand: undefined,
                  type: undefined,
@@ -252,34 +267,45 @@ export const useAppState = create<AppState>()(
                  owner: undefined,
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                 plateNumber: undefined, // Explicitly reset plateNumber
+                 plateNumber: undefined, // Ensure reset
                  registrationDocument: undefined,
                  labelDocument: undefined,
-                 customerName: undefined, // Step 4
-                 formDate: undefined, // Step 4 date
-                 notes: undefined, // Step 4 notes
-                 controllerName: undefined, // Step 4
-                 authorityName: undefined, // Step 4
-                   plate: undefined, // step 5
-                    projectName: undefined, // step 5
-                    workOrderNumber: undefined, // step 5
-                    workOrderDate: undefined, // step 5
-                    completionDate: undefined, // step 5
-                    detailsOfWork: undefined, // step 5
-                    sparePartsUsed: undefined, // step 5
-                    pricing: undefined, // step 5
-                    vehicleAcceptanceSignature: undefined, // step 5
-                    customerSignature: undefined, // step 5
-                 offerAuthorizedName: undefined, // Step 6
-                 offerCompanyAddress: undefined, // Step 6
-                 offerPhoneNumber: undefined, // Step 6
-                 offerEmailAddress: undefined, // Step 6
-                 offerDate: undefined, // Step 6 date
-                 offerAcceptance: 'accepted', // Reset Step 6 acceptance
+                 additionalPhotos: [], // Ensure reset to empty array
+                 additionalVideos: [], // Ensure reset to empty array
+                 customerName: undefined,
+                 formDate: undefined,
+                 // sequenceNo reset by initialRecordData
+                 // q1-q4 reset by initialRecordData
+                 notes: undefined,
+                 controllerName: undefined,
+                 authorityName: undefined,
+                 // Step 5 reset
+                 projectNo: undefined,
+                 // Step 6 reset
+                 offerAuthorizedName: undefined,
+                 // offerCompanyName reset by initialRecordData
+                 offerCompanyAddress: undefined,
+                 // offerTaxOfficeAndNumber reset by initialRecordData
+                 offerPhoneNumber: undefined,
+                 offerEmailAddress: undefined,
+                 offerDate: undefined,
+                 // offerItems reset by initialRecordData
+                 // offerAcceptance reset by initialRecordData
                  // Reset old fields
                  additionalNotes: undefined,
                  inspectionDate: undefined,
                  inspectorName: undefined,
+                 // Reset deprecated fields
+                 plate: undefined,
+                 projectName: undefined,
+                 workOrderNumber: undefined,
+                 workOrderDate: undefined,
+                 completionDate: undefined,
+                 detailsOfWork: undefined,
+                 sparePartsUsed: undefined,
+                 pricing: undefined,
+                 vehicleAcceptanceSignature: undefined,
+                 customerSignature: undefined,
              } });
         },
     }),
@@ -298,7 +324,7 @@ export const useAppState = create<AppState>()(
                  owner: state.recordData.owner,
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
-                    plateNumber: state.recordData.plateNumber, // Persist plateNumber
+                 plateNumber: state.recordData.plateNumber, // Persist plateNumber
                  customerName: state.recordData.customerName, // Step 4
                  formDate: state.recordData.formDate, // Step 4 date
                  sequenceNo: state.recordData.sequenceNo, // Step 4
@@ -310,7 +336,28 @@ export const useAppState = create<AppState>()(
                  controllerName: state.recordData.controllerName, // Step 4
                  authorityName: state.recordData.authorityName, // Step 4
 
-                 // Persist all Step 5 Fields (İş Emri Formu)
+                 // Persist Step 5 Fields (Ara ve Son Kontrol Formu)
+                 projectNo: state.recordData.projectNo,
+                 // Persist checklist statuses if needed
+
+                 // Persist Step 6 Fields (Teklif Formu)
+                 offerAuthorizedName: state.recordData.offerAuthorizedName,
+                 offerCompanyName: state.recordData.offerCompanyName,
+                 offerCompanyAddress: state.recordData.offerCompanyAddress,
+                 offerTaxOfficeAndNumber: state.recordData.offerTaxOfficeAndNumber,
+                 offerPhoneNumber: state.recordData.offerPhoneNumber,
+                 offerEmailAddress: state.recordData.offerEmailAddress,
+                 offerDate: state.recordData.offerDate,
+                 offerItems: state.recordData.offerItems, // Already serializable
+                 offerAcceptance: state.recordData.offerAcceptance,
+
+                 // Persist legacy fields
+                 additionalNotes: state.recordData.additionalNotes,
+                 inspectionDate: state.recordData.inspectionDate,
+                 inspectorName: state.recordData.inspectorName,
+
+                 // Persist deprecated fields (Review if still needed)
+                 plate: state.recordData.plate,
                  projectName: state.recordData.projectName,
                  workOrderNumber: state.recordData.workOrderNumber,
                  workOrderDate: state.recordData.workOrderDate,
@@ -320,23 +367,7 @@ export const useAppState = create<AppState>()(
                  pricing: state.recordData.pricing,
                  vehicleAcceptanceSignature: state.recordData.vehicleAcceptanceSignature,
                  customerSignature: state.recordData.customerSignature,
-                 plate: state.recordData.plate,
-                 // Persist Step 6 Fields
-                 offerAuthorizedName: state.recordData.offerAuthorizedName,
-                 offerCompanyName: state.recordData.offerCompanyName,
-                 offerCompanyAddress: state.recordData.offerCompanyAddress,
-                 offerTaxOfficeAndNumber: state.recordData.offerTaxOfficeAndNumber,
-                 offerPhoneNumber: state.recordData.offerPhoneNumber,
-                 offerEmailAddress: state.recordData.offerEmailAddress,
-                 offerDate: state.recordData.offerDate, // Step 5 Date
-                 offerItems: state.recordData.offerItems, // Step 5 Items (already serializable)
-                 offerAcceptance: state.recordData.offerAcceptance, // Step 5 Acceptance
 
-
-                 // Persist legacy fields
-                 additionalNotes: state.recordData.additionalNotes,
-                 inspectionDate: state.recordData.inspectionDate,
-                 inspectorName: state.recordData.inspectorName,
 
                  // Convert File objects to serializable info before saving
                  registrationDocument: getSerializableFileInfo(state.recordData.registrationDocument),
@@ -426,4 +457,3 @@ function mergeFileArrays(
 
     return Array.from(mergedMap.values());
 }
-

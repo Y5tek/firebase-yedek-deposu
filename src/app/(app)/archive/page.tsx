@@ -50,10 +50,23 @@ interface ArchiveEntry {
   q2_typeApprovalMatch?: 'olumlu' | 'olumsuz';
   q3_scopeExpansion?: 'olumlu' | 'olumsuz';
   q4_unaffectedPartsDefect?: 'olumlu' | 'olumsuz';
-  notes?: string;
+  notes?: string; // Step 4 notes
   controllerName?: string;
   authorityName?: string;
-  // Step 5 Form (Teklif)
+  // Step 5 Form (İş Emri)
+  projectName?: string;
+  workOrderNumber?: string;
+  plate?: string; // Duplicate plate?
+  workOrderDate?: string; // ISO String
+  completionDate?: string; // ISO String
+  detailsOfWork?: string;
+  sparePartsUsed?: string;
+  pricing?: string;
+  vehicleAcceptanceSignature?: string; // Signature placeholder/name
+  customerSignature?: string; // Signature placeholder/name
+  projectNo?: string; // Added from İş Emri
+
+  // Step 6 Form (Teklif)
   offerAuthorizedName?: string;
   offerCompanyName?: string;
   offerCompanyAddress?: string;
@@ -91,8 +104,9 @@ export default function ArchivePage() {
       entry.owner?.toLowerCase().includes(lowerSearchTerm) ||
       entry.branch?.toLowerCase().includes(lowerSearchTerm) ||
       entry.customerName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 4 customer
-      entry.offerCompanyName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 5 company
-      entry.plateNumber?.toLowerCase().includes(lowerSearchTerm)
+      entry.offerCompanyName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 6 company
+      entry.plateNumber?.toLowerCase().includes(lowerSearchTerm) || // Search plateNumber (more common)
+      entry.plate?.toLowerCase().includes(lowerSearchTerm) // Search plate (from iş emri)
     );
   });
 
@@ -175,8 +189,9 @@ export default function ArchivePage() {
    const handleEdit = (entry: ArchiveEntry) => {
        setEditingEntry(entry); // Set the entry to be edited
         toast({
-            title: "Düzenleme Modu (Yakında)",
-            description: `${entry.fileName} için düzenleme özelliği gelecekte eklenebilir.`,
+            title: "Detay Görüntüleme", // Changed title
+            description: `${entry.fileName} için detaylar gösteriliyor. Düzenleme özelliği henüz aktif değil.`,
+            variant: "default" // Use default variant
         });
        // Future: Navigate to a pre-filled form
        // router.push(`/edit-record/${encodeURIComponent(entry.fileName)}`);
@@ -267,11 +282,12 @@ export default function ArchivePage() {
                                 <TableRow key={entry.fileName}>
                                 <TableCell className="font-medium">{entry.fileName}</TableCell>
                                 <TableCell>
-                                    {entry.customerName || entry.offerCompanyName || '-'} {/* Display customer or company */}
+                                    {/* Show customer from step 4 or company from step 6 */}
+                                    {entry.customerName || entry.offerCompanyName || '-'}
                                     {entry.customerName && entry.offerCompanyName && <span className="text-xs text-muted-foreground block">(Form: {entry.customerName} / Teklif: {entry.offerCompanyName})</span>}
                                 </TableCell>
                                 <TableCell>{entry.brand || '-'}</TableCell>
-                                <TableCell>{entry.plateNumber || '-'}</TableCell>
+                                <TableCell>{entry.plateNumber || entry.plate || '-'}</TableCell> {/* Show plate from either source */}
                                 <TableCell>{formatDateSafe(entry.archivedAt)}</TableCell>
                                 <TableCell>
                                     <div className="flex flex-wrap gap-2 items-center">
@@ -352,15 +368,15 @@ export default function ArchivePage() {
                            Bu kaydın arşivlenmiş tüm verilerini aşağıda görebilirsiniz. Düzenleme özelliği henüz aktif değildir.
                        </AlertDialogDescription>
                    </AlertDialogHeader>
-                    {/* Display Archived Data - Tabs for different forms */}
+                    {/* Display Archived Data - Using details for sections */}
                      <div className="mt-4 max-h-[70vh] overflow-auto rounded-md border p-4 bg-secondary/30 text-sm space-y-4">
                          {/* Basic Vehicle Info */}
                          <details className="border rounded p-2" open>
-                            <summary className="cursor-pointer font-medium">Araç Temel Bilgileri</summary>
+                            <summary className="cursor-pointer font-medium">Araç Temel Bilgileri (Adım 1-2)</summary>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2">
                                 <p><strong className="font-medium">Şube:</strong> {editingEntry.branch}</p>
                                 <p><strong className="font-medium">Şasi No:</strong> {editingEntry.chassisNumber || '-'}</p>
-                                <p><strong className="font-medium">Plaka:</strong> {editingEntry.plateNumber || '-'}</p>
+                                <p><strong className="font-medium">Plaka:</strong> {editingEntry.plateNumber || editingEntry.plate || '-'}</p>
                                 <p><strong className="font-medium">Marka:</strong> {editingEntry.brand || '-'}</p>
                                 <p><strong className="font-medium">Tip:</strong> {editingEntry.type || '-'}</p>
                                 <p><strong className="font-medium">Ticari Adı:</strong> {editingEntry.tradeName || '-'}</p>
@@ -370,9 +386,20 @@ export default function ArchivePage() {
                             </div>
                          </details>
 
+                          {/* File Info */}
+                        <details className="border rounded p-2">
+                           <summary className="cursor-pointer font-medium">Yüklenen Dosyalar (Adım 3)</summary>
+                           <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
+                               <p><strong className="font-medium">Ruhsat:</strong> {getFileName(editingEntry.registrationDocument)}</p>
+                               <p><strong className="font-medium">Etiket:</strong> {getFileName(editingEntry.labelDocument)}</p>
+                               <p><strong className="font-medium">Ek Fotoğraflar ({editingEntry.additionalPhotos?.length || 0}):</strong> {editingEntry.additionalPhotos?.map(f => f.name).join(', ') || 'Yok'}</p>
+                               <p><strong className="font-medium">Ek Videolar ({editingEntry.additionalVideos?.length || 0}):</strong> {editingEntry.additionalVideos?.map(f => f.name).join(', ') || 'Yok'}</p>
+                           </div>
+                        </details>
+
                          {/* Seri Tadilat Uygunluk Form Data */}
                          <details className="border rounded p-2">
-                           <summary className="cursor-pointer font-medium">Seri Tadilat Uygunluk Formu</summary>
+                           <summary className="cursor-pointer font-medium">Seri Tadilat Uygunluk Formu (Adım 4)</summary>
                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
                               <p><strong className="font-medium">Müşteri Adı:</strong> {editingEntry.customerName || '-'}</p>
                               <p><strong className="font-medium">Form Tarihi:</strong> {formatDateSafe(editingEntry.formDate, 'dd.MM.yyyy')}</p>
@@ -387,9 +414,25 @@ export default function ArchivePage() {
                            </div>
                         </details>
 
+                         {/* İş Emri Formu Data */}
+                         <details className="border rounded p-2">
+                             <summary className="cursor-pointer font-medium">İş Emri Formu (Adım 5)</summary>
+                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
+                                 <p><strong className="font-medium">Proje Adı:</strong> {editingEntry.projectName || '-'}</p>
+                                 <p><strong className="font-medium">İş Emri No:</strong> {editingEntry.workOrderNumber || '-'}</p>
+                                 <p><strong className="font-medium">İş Emri Tarihi:</strong> {formatDateSafe(editingEntry.workOrderDate, 'dd.MM.yyyy')}</p>
+                                 <p><strong className="font-medium">İşin Bitiş Tarihi:</strong> {formatDateSafe(editingEntry.completionDate, 'dd.MM.yyyy')}</p>
+                                 <p className="col-span-2"><strong className="font-medium">Yapılacak İşler:</strong> {editingEntry.detailsOfWork || '-'}</p>
+                                 <p className="col-span-2"><strong className="font-medium">Kullanılan Yedek Parçalar:</strong> {editingEntry.sparePartsUsed || '-'}</p>
+                                 <p className="col-span-2"><strong className="font-medium">Ücretlendirme:</strong> {editingEntry.pricing || '-'}</p>
+                                 <p><strong className="font-medium">Araç Kabul (İmza):</strong> {editingEntry.vehicleAcceptanceSignature || '-'}</p>
+                                 <p><strong className="font-medium">Müşteri (İmza):</strong> {editingEntry.customerSignature || '-'}</p>
+                             </div>
+                         </details>
+
                          {/* Teklif Formu Data */}
                          <details className="border rounded p-2">
-                            <summary className="cursor-pointer font-medium">Teklif Formu</summary>
+                            <summary className="cursor-pointer font-medium">Teklif Formu (Adım 6)</summary>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
                                 <p><strong className="font-medium">Yetkili Adı:</strong> {editingEntry.offerAuthorizedName || '-'}</p>
                                 <p><strong className="font-medium">Firma Adı:</strong> {editingEntry.offerCompanyName || '-'}</p>
@@ -429,16 +472,6 @@ export default function ArchivePage() {
                               )}
                          </details>
 
-                        {/* File Info */}
-                        <details className="border rounded p-2">
-                           <summary className="cursor-pointer font-medium">Yüklenen Dosyalar</summary>
-                           <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                               <p><strong className="font-medium">Ruhsat:</strong> {getFileName(editingEntry.registrationDocument)}</p>
-                               <p><strong className="font-medium">Etiket:</strong> {getFileName(editingEntry.labelDocument)}</p>
-                               <p><strong className="font-medium">Ek Fotoğraflar ({editingEntry.additionalPhotos?.length || 0}):</strong> {editingEntry.additionalPhotos?.map(f => f.name).join(', ') || 'Yok'}</p>
-                               <p><strong className="font-medium">Ek Videolar ({editingEntry.additionalVideos?.length || 0}):</strong> {editingEntry.additionalVideos?.map(f => f.name).join(', ') || 'Yok'}</p>
-                           </div>
-                        </details>
 
                         {/* Metadata */}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-2 mt-2">
