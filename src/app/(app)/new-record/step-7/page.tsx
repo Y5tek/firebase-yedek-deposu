@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Save, ArrowLeft, ExternalLink, FileText } from 'lucide-react'; // Added ExternalLink
+import { Save, ArrowLeft, ExternalLink, FileText, Loader2 } from 'lucide-react'; // Added Loader2
 import { format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { getSerializableFileInfo } from '@/lib/utils';
@@ -26,8 +26,18 @@ export default function NewRecordStep7() {
    const formatDateSafe = (dateString: string | undefined, formatStr: string = 'dd.MM.yyyy'): string => {
        if (!dateString) return '-';
        try {
+           // Ensure the date string is valid ISO format before parsing
+           if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(dateString)) {
+              // Attempt to parse potentially non-ISO formats if needed, or return default
+              const parsedDate = new Date(dateString);
+              if (isNaN(parsedDate.getTime())) {
+                   return 'Geçersiz Tarih';
+              }
+              return format(parsedDate, formatStr, { locale: tr });
+           }
            return format(parseISO(dateString), formatStr, { locale: tr });
        } catch (error) {
+           console.error("Date formatting error:", error, "Input:", dateString);
            return 'Geçersiz Tarih';
        }
    };
@@ -35,54 +45,65 @@ export default function NewRecordStep7() {
   // Helper to get document URL or handle missing/invalid data
   // TODO: Replace with actual Firebase URL retrieval logic
   const getTypeApprovalDocumentUrl = (): string | null => {
-      // Placeholder: Assuming typeApprovalDocumentUrl is stored somewhere in recordData
-      // or needs to be fetched based on typeApprovalNumber
-      // In a real app, this would involve querying Firestore or similar
-      // based on perhaps recordData.typeApprovalNumber or a saved URL.
-      const docInfo = getSerializableFileInfo(recordData.typeApprovalDocument); // Hypothetical field
+      // Placeholder: Assuming typeApprovalDocument is stored in recordData.
+      const docInfo = getSerializableFileInfo(recordData.typeApprovalDocument);
        if (docInfo) {
-          // Assuming the URL is stored directly or can be constructed
-           return `https://example.com/documents/${docInfo.name}`; // Replace with actual logic
+          // In a real app, you would fetch the URL from Firebase Storage using docInfo.name or a stored path.
+          // Example: return getDownloadURL(ref(storage, `documents/${docInfo.name}`));
+           console.warn("Placeholder URL generation for Type Approval Document.");
+           // Return a dummy URL for now, replace with actual Firebase logic
+           return `https://firebasestorage.googleapis.com/v0/b/your-project-id.appspot.com/o/documents%2F${encodeURIComponent(docInfo.name)}?alt=media`; // Replace with your bucket/path
        }
-      return null; // Return null if no document or URL found
+      return null; // Return null if no document info found
   };
 
   const typeApprovalDocumentUrl = getTypeApprovalDocumentUrl();
 
   const handleArchive = async () => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate saving
 
-    // Use the latest data from the state
-    const finalRecordData = { ...recordData }; // Copy current state
+    try {
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate saving
 
-    const archiveEntry = {
-      // Spread all existing fields from the final state
-      ...finalRecordData,
-      // Ensure file info is serializable
-      registrationDocument: getSerializableFileInfo(finalRecordData.registrationDocument),
-      labelDocument: getSerializableFileInfo(finalRecordData.labelDocument),
-      typeApprovalDocument: getSerializableFileInfo(finalRecordData.typeApprovalDocument), // Hypothetical field
-      additionalPhotos: finalRecordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-      additionalVideos: finalRecordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-      // Add metadata
-      branch: branch,
-      archivedAt: new Date().toISOString(),
-      fileName: `${branch}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}`,
-    };
+        // Use the latest data from the state
+        const finalRecordData = { ...recordData }; // Copy current state
 
-    console.log("Archiving final entry:", archiveEntry);
+        const archiveEntry = {
+          // Spread all existing fields from the final state
+          ...finalRecordData,
+          // Ensure file info is serializable
+          registrationDocument: getSerializableFileInfo(finalRecordData.registrationDocument),
+          labelDocument: getSerializableFileInfo(finalRecordData.labelDocument),
+          typeApprovalDocument: getSerializableFileInfo(finalRecordData.typeApprovalDocument),
+          additionalPhotos: finalRecordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
+          additionalVideos: finalRecordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
+          // Add metadata
+          branch: branch, // Ensure branch is included
+          archivedAt: new Date().toISOString(),
+          fileName: `${branch}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}`
+        };
 
-    const currentArchive = finalRecordData.archive || [];
-    updateRecordData({ archive: [...currentArchive, archiveEntry] });
+        console.log("Archiving final entry:", archiveEntry);
 
-    setIsLoading(false);
-    toast({
-      title: 'Kayıt Tamamlandı ve Arşivlendi',
-      description: 'Tüm bilgiler başarıyla kaydedildi ve arşive eklendi.',
-    });
-    resetRecordData(); // Reset form data after successful archive
-    router.push('/archive'); // Redirect to the archive page
+        const currentArchive = finalRecordData.archive || [];
+        updateRecordData({ archive: [...currentArchive, archiveEntry] });
+
+        toast({
+          title: 'Kayıt Tamamlandı ve Arşivlendi',
+          description: 'Tüm bilgiler başarıyla kaydedildi ve arşive eklendi.',
+        });
+        resetRecordData(); // Reset form data after successful archive
+        router.push('/archive'); // Redirect to the archive page
+    } catch (error) {
+         console.error("Archiving error:", error);
+         toast({
+             title: 'Arşivleme Hatası',
+             description: 'Kayıt arşivlenirken bir hata oluştu. Lütfen tekrar deneyin.',
+             variant: 'destructive',
+         });
+    } finally {
+       setIsLoading(false);
+    }
   };
 
   const goBack = () => {
@@ -104,9 +125,12 @@ export default function NewRecordStep7() {
 
   // Helper component for read-only form rows
   const ReadOnlyRow = ({ label, value }: { label: string; value?: string | number | null }) => (
-    <div className="grid grid-cols-[150px_1fr] items-center border-b py-2">
+    <div className="grid grid-cols-[150px_1fr] items-center border-b py-2 last:border-b-0">
       <span className="font-medium text-sm text-muted-foreground">{label}</span>
-      <Input value={value ?? '-'} readOnly disabled className="bg-secondary/30 border-0" />
+      {/* Use a div instead of Input for better read-only display */}
+      <div className="text-sm bg-secondary/30 px-3 py-2 rounded-md min-h-[40px] flex items-center">
+          {value ?? '-'}
+      </div>
     </div>
   );
 
@@ -126,25 +150,22 @@ export default function NewRecordStep7() {
         </CardHeader>
         <CardContent className="space-y-6">
             {/* Section 1 */}
-            <div className="border rounded-md p-4 space-y-2">
-                <ReadOnlyRow label="SIRA NO" value={recordData.sequenceNo} />
+            <div className="border rounded-md p-4 space-y-0"> {/* Reduced space-y */}
+                <ReadOnlyRow label="SIRA NO" value={recordData.sequenceNo || recordData.workOrderNumber} /> {/* Show sequence or work order */}
                 <ReadOnlyRow label="ŞUBE ADI" value={branch} />
                 <ReadOnlyRow label="PROJE ADI" value={recordData.projectName} />
-                <ReadOnlyRow label="TİP ONAY" value={recordData.typeApprovalType} /> {/* Added field */}
-                <ReadOnlyRow label="tip onay seviye" value={recordData.typeApprovalLevel} /> {/* Added field */}
+                <ReadOnlyRow label="TİP ONAY" value={recordData.typeApprovalType} />
+                <ReadOnlyRow label="TİP ONAY SEVİYE" value={recordData.typeApprovalLevel} />
                 <ReadOnlyRow label="VARYANT" value={recordData.typeAndVariant} />
-                <ReadOnlyRow label="VERSİYON" value={recordData.typeApprovalVersion} /> {/* Added field */}
+                <ReadOnlyRow label="VERSİYON" value={recordData.typeApprovalVersion} />
             </div>
 
             {/* Section 2 */}
-             <div className="border rounded-md p-4 space-y-2">
-                 <div className="grid grid-cols-[150px_1fr] items-center border-b py-2">
-                    <span className="font-medium text-sm text-muted-foreground">TİP ONAY NO</span>
-                    <Input value={recordData.typeApprovalNumber ?? '-'} readOnly disabled className="bg-secondary/30 border-0" />
-                 </div>
+             <div className="border rounded-md p-4 space-y-0">
+                 <ReadOnlyRow label="TİP ONAY NO" value={recordData.typeApprovalNumber} />
                  {/* Document Link */}
                 <div className="grid grid-cols-[150px_1fr] items-center py-2">
-                    <span className="font-medium text-sm text-muted-foreground"></span> {/* Empty label cell */}
+                    <span className="font-medium text-sm text-muted-foreground">TİP ONAY BELGESİ</span>
                      {typeApprovalDocumentUrl ? (
                         <Button
                             variant="link"
@@ -158,21 +179,21 @@ export default function NewRecordStep7() {
                             </a>
                         </Button>
                     ) : (
-                         <span className="text-sm text-muted-foreground italic">(Tip Onay Belgesi bulunamadı)</span>
+                         <span className="text-sm text-muted-foreground italic">(Tip Onay Belgesi Yüklenmedi)</span>
                     )}
                  </div>
             </div>
 
 
             {/* Section 3 */}
-            <div className="border rounded-md p-4 space-y-2">
-                <ReadOnlyRow label="TARİH" value={formatDateSafe(recordData.formDate)} /> {/* Assuming formDate is relevant */}
+            <div className="border rounded-md p-4 space-y-0">
+                <ReadOnlyRow label="TARİH" value={formatDateSafe(recordData.formDate || recordData.workOrderDate || recordData.finalCheckDate)} /> {/* Use any available date */}
                 <ReadOnlyRow label="ŞASİ NO" value={recordData.chassisNumber} />
-                <ReadOnlyRow label="MOTOR NO" value={recordData.engineNumber} /> {/* Added field */}
-                <ReadOnlyRow label="PLAKA" value={recordData.plateNumber} />
+                <ReadOnlyRow label="MOTOR NO" value={recordData.engineNumber} />
+                <ReadOnlyRow label="PLAKA" value={recordData.plateNumber || recordData.plate} /> {/* Show plate from step 1/2 or step 5 */}
                 <ReadOnlyRow label="MÜŞTERİ ADI" value={recordData.customerName} />
                 <ReadOnlyRow label="YAPILACAK İŞLER" value={recordData.detailsOfWork} />
-                <ReadOnlyRow label="PROJE NO" value={recordData.projectNo} /> {/* Added field, assuming projectNo exists */}
+                <ReadOnlyRow label="PROJE NO" value={recordData.projectNo} />
             </div>
 
 

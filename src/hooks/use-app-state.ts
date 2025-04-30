@@ -20,7 +20,7 @@ export interface RecordData {
   type?: string;
   tradeName?: string;
   owner?: string;
-  typeApprovalNumber?: string;
+  typeApprovalNumber?: string; // Added Tip Onay No
   typeAndVariant?: string; // Likely holds "VARYANT"
   plateNumber?: string; // Added plateNumber field
   engineNumber?: string; // Added Motor No
@@ -33,7 +33,7 @@ export interface RecordData {
   additionalVideos?: (File | { name: string; type?: string; size?: number })[];
 
   // Step 4 Form Fields (Seri Tadilat Uygunluk Formu)
-  customerName?: string;
+  customerName?: string; // Relevant for "MÜŞTERİ ADI"
   formDate?: string; // Store as ISO string (Relevant for "TARİH")
   sequenceNo?: string; // Relevant for "SIRA NO"
   q1_suitable?: 'olumlu' | 'olumsuz';
@@ -45,7 +45,8 @@ export interface RecordData {
   authorityName?: string; // Seri Tadilat Uygunluk Formu Authority
 
   // Step 5 Form Fields (İş Emri Formu)
-  projectName?: string; // Relevant for "PROJE ADI" and maybe "PROJE NO"
+  projectName?: string; // Relevant for "PROJE ADI"
+  plate?: string; // Plate from İş Emri Form
   workOrderNumber?: string; // Relevant for "SIRA NO" if different from sequenceNo
   workOrderDate?: string; // ISO String (Could be "TARİH")
   completionDate?: string; // ISO String
@@ -121,6 +122,7 @@ const initialRecordData: RecordData = {
     q3_scopeExpansion: 'olumlu',
     q4_unaffectedPartsDefect: 'olumlu',
     // Step 5 Defaults (İş Emri)
+    // No specific defaults for İş Emri yet, add if needed
     // Step 6 Defaults (Ara ve Son Kontrol)
     check1_exposedParts_ara: true,
     check1_exposedParts_son: true,
@@ -130,6 +132,8 @@ const initialRecordData: RecordData = {
     check3_seatBelts_son: true,
     check4_windowApprovals_ara: true,
     check4_windowApprovals_son: true,
+    // Step 7 Defaults
+    // No specific defaults for Step 7 yet, add if needed
     // Offer Form Defaults (If kept)
     offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK', // Prefill from image
     offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97', // Prefill from image
@@ -142,6 +146,7 @@ const initialRecordData: RecordData = {
     additionalPhotos: [], // Initialize photos array
     additionalVideos: [], // Initialize videos array
     plateNumber: '', // Initialize plateNumber
+    engineNumber: '', // Initialize engineNumber
 };
 
 
@@ -179,6 +184,7 @@ export const useAppState = create<AppState>()(
                  controllerName: undefined,
                  authorityName: undefined,
                  projectName: undefined,
+                 plate: undefined, // Reset plate from İş Emri
                  workOrderNumber: undefined,
                  workOrderDate: undefined,
                  completionDate: undefined,
@@ -189,27 +195,28 @@ export const useAppState = create<AppState>()(
                  customerSignature: undefined,
                  projectNo: undefined,
                  finalCheckDate: undefined,
-                 check1_exposedParts_ara: undefined,
-                 check1_exposedParts_son: undefined,
-                 check2_isofixSeat_ara: undefined,
-                 check2_isofixSeat_son: undefined,
-                 check3_seatBelts_ara: undefined,
-                 check3_seatBelts_son: undefined,
-                 check4_windowApprovals_ara: undefined,
-                 check4_windowApprovals_son: undefined,
+                 // Keep Step 6 defaults from initialRecordData
+                 // check1_exposedParts_ara: undefined,
+                 // check1_exposedParts_son: undefined,
+                 // check2_isofixSeat_ara: undefined,
+                 // check2_isofixSeat_son: undefined,
+                 // check3_seatBelts_ara: undefined,
+                 // check3_seatBelts_son: undefined,
+                 // check4_windowApprovals_ara: undefined,
+                 // check4_windowApprovals_son: undefined,
                  finalControllerName: undefined,
                  typeApprovalType: undefined,
                  typeApprovalLevel: undefined,
                  typeApprovalVersion: undefined,
                  offerAuthorizedName: undefined,
-                 offerCompanyName: undefined,
+                 offerCompanyName: undefined, // Will be reset by initialRecordData spread
                  offerCompanyAddress: undefined,
-                 offerTaxOfficeAndNumber: undefined,
+                 offerTaxOfficeAndNumber: undefined, // Will be reset by initialRecordData spread
                  offerPhoneNumber: undefined,
                  offerEmailAddress: undefined,
                  offerDate: undefined,
-                 offerAcceptance: undefined,
-                 offerItems: [
+                 offerAcceptance: undefined, // Will be reset by initialRecordData spread
+                 offerItems: [ // Reset offer items
                       {...defaultOfferItem, id: Math.random().toString(36).substring(2, 15)}
                   ],
                  // Reset old fields
@@ -304,6 +311,7 @@ export const useAppState = create<AppState>()(
                  controllerName: undefined,
                  authorityName: undefined,
                  projectName: undefined,
+                 plate: undefined, // Reset plate from İş Emri
                  workOrderNumber: undefined,
                  workOrderDate: undefined,
                  completionDate: undefined,
@@ -314,27 +322,28 @@ export const useAppState = create<AppState>()(
                  customerSignature: undefined,
                  projectNo: undefined,
                  finalCheckDate: undefined,
-                 check1_exposedParts_ara: undefined,
-                 check1_exposedParts_son: undefined,
-                 check2_isofixSeat_ara: undefined,
-                 check2_isofixSeat_son: undefined,
-                 check3_seatBelts_ara: undefined,
-                 check3_seatBelts_son: undefined,
-                 check4_windowApprovals_ara: undefined,
-                 check4_windowApprovals_son: undefined,
+                 // Keep Step 6 defaults from initialRecordData
+                 // check1_exposedParts_ara: undefined,
+                 // check1_exposedParts_son: undefined,
+                 // check2_isofixSeat_ara: undefined,
+                 // check2_isofixSeat_son: undefined,
+                 // check3_seatBelts_ara: undefined,
+                 // check3_seatBelts_son: undefined,
+                 // check4_windowApprovals_ara: undefined,
+                 // check4_windowApprovals_son: undefined,
                  finalControllerName: undefined,
                  typeApprovalType: undefined,
                  typeApprovalLevel: undefined,
                  typeApprovalVersion: undefined,
                  offerAuthorizedName: undefined,
-                 offerCompanyName: undefined,
+                 offerCompanyName: undefined, // Will be reset by initialRecordData spread
                  offerCompanyAddress: undefined,
-                 offerTaxOfficeAndNumber: undefined,
+                 offerTaxOfficeAndNumber: undefined, // Will be reset by initialRecordData spread
                  offerPhoneNumber: undefined,
                  offerEmailAddress: undefined,
                  offerDate: undefined,
-                 offerAcceptance: undefined,
-                 offerItems: [
+                 offerAcceptance: undefined, // Will be reset by initialRecordData spread
+                 offerItems: [ // Reset offer items
                       {...defaultOfferItem, id: Math.random().toString(36).substring(2, 15)}
                   ],
                  // Reset old fields
@@ -374,6 +383,7 @@ export const useAppState = create<AppState>()(
 
                  // Persist Step 5 Fields (İş Emri)
                  projectName: state.recordData.projectName,
+                 plate: state.recordData.plate, // Persist İş Emri plate
                  workOrderNumber: state.recordData.workOrderNumber,
                  workOrderDate: state.recordData.workOrderDate,
                  completionDate: state.recordData.completionDate,
@@ -460,6 +470,7 @@ export const useAppState = create<AppState>()(
              mergedRecordData.additionalVideos = mergedRecordData.additionalVideos || [];
              mergedRecordData.offerItems = mergedRecordData.offerItems || [{ ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }];
              mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Ensure plateNumber is initialized
+             mergedRecordData.engineNumber = mergedRecordData.engineNumber || ''; // Ensure engineNumber is initialized
 
 
             const merged: AppState = {
