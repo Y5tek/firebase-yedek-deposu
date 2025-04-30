@@ -42,7 +42,18 @@ export interface RecordData {
   controllerName?: string; // Seri Tadilat Uygunluk Formu Controller
   authorityName?: string; // Seri Tadilat Uygunluk Formu Authority
 
-  // Step 5 Form Fields (Teklif Formu - Offer Form)
+   // Step 5 Form Fields (İş Emri Formu)
+    projectName?: string;
+    workOrderNumber?: string;
+    workOrderDate?: string;
+    completionDate?: string;
+    detailsOfWork?: string;
+    sparePartsUsed?: string;
+    pricing?: string;
+    vehicleAcceptanceSignature?: string;
+    customerSignature?: string;
+
+  // Step 6 Form Fields (Teklif Formu - Offer Form)
   offerAuthorizedName?: string; // Teklif Vermeye Yetkili Kişinin Adı ve Soyadı
   offerCompanyName?: string; // Teklif Firma Adı
   offerCompanyAddress?: string; // Teklif Açık Adresi
@@ -52,6 +63,7 @@ export interface RecordData {
   offerDate?: string; // Teklif Tarihi (Store as ISO string)
   offerItems?: OfferItem[]; // Array for items in the table
   offerAcceptance?: 'accepted' | 'rejected'; // Teklif Kabul Durumu
+  plate?: string;
 
   // Archive specific fields (added during final submission)
   archive?: any[]; // To store completed records temporarily (replace with DB)
@@ -90,6 +102,18 @@ const initialRecordData: RecordData = {
     q3_scopeExpansion: 'olumlu',
     q4_unaffectedPartsDefect: 'olumlu',
     // Step 5 Defaults
+     plate: '',
+        projectName: '',
+        workOrderNumber: '',
+        workOrderDate: '',
+        completionDate: '',
+        detailsOfWork: '',
+        sparePartsUsed: '',
+        pricing: '',
+        vehicleAcceptanceSignature: '',
+        customerSignature: '',
+
+    // Step 6 Defaults
     offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK', // Prefill from image
     offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97', // Prefill from image
     offerItems: [
@@ -128,7 +152,7 @@ export const useAppState = create<AppState>()(
                  owner: undefined,
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                 plateNumber: undefined, // Explicitly reset plateNumber
+                   plateNumber: undefined, // Explicitly reset plateNumber
                  registrationDocument: undefined,
                  labelDocument: undefined,
                  customerName: undefined, // Step 4
@@ -136,17 +160,26 @@ export const useAppState = create<AppState>()(
                  notes: undefined, // Step 4 notes
                  controllerName: undefined, // Step 4
                  authorityName: undefined, // Step 4
-                 offerAuthorizedName: undefined, // Step 5
-                 offerCompanyAddress: undefined, // Step 5
-                 offerPhoneNumber: undefined, // Step 5
-                 offerEmailAddress: undefined, // Step 5
-                 offerDate: undefined, // Step 5 date
-                 offerAcceptance: 'accepted', // Reset Step 5 acceptance
+                  projectName: undefined, // step 5
+                  workOrderNumber: undefined, // step 5
+                  workOrderDate: undefined, // step 5
+                  completionDate: undefined, // step 5
+                  detailsOfWork: undefined, // step 5
+                  sparePartsUsed: undefined, // step 5
+                  pricing: undefined, // step 5
+                  vehicleAcceptanceSignature: undefined, // step 5
+                  customerSignature: undefined, // step 5
+                 offerAuthorizedName: undefined, // Step 6
+                 offerCompanyAddress: undefined, // Step 6
+                 offerPhoneNumber: undefined, // Step 6
+                 offerEmailAddress: undefined, // Step 6
+                 offerDate: undefined, // Step 6 date
+                 offerAcceptance: 'accepted', // Reset Step 6 acceptance
                  // Reset old fields
                  additionalNotes: undefined,
                  inspectionDate: undefined,
                  inspectorName: undefined,
-            } });
+             } });
         } else {
            set((state) => {
              // Merge new data, prioritizing File objects if newData provides them
@@ -227,12 +260,22 @@ export const useAppState = create<AppState>()(
                  notes: undefined, // Step 4 notes
                  controllerName: undefined, // Step 4
                  authorityName: undefined, // Step 4
-                 offerAuthorizedName: undefined, // Step 5
-                 offerCompanyAddress: undefined, // Step 5
-                 offerPhoneNumber: undefined, // Step 5
-                 offerEmailAddress: undefined, // Step 5
-                 offerDate: undefined, // Step 5 date
-                 offerAcceptance: 'accepted', // Reset Step 5 acceptance
+                   plate: undefined, // step 5
+                    projectName: undefined, // step 5
+                    workOrderNumber: undefined, // step 5
+                    workOrderDate: undefined, // step 5
+                    completionDate: undefined, // step 5
+                    detailsOfWork: undefined, // step 5
+                    sparePartsUsed: undefined, // step 5
+                    pricing: undefined, // step 5
+                    vehicleAcceptanceSignature: undefined, // step 5
+                    customerSignature: undefined, // step 5
+                 offerAuthorizedName: undefined, // Step 6
+                 offerCompanyAddress: undefined, // Step 6
+                 offerPhoneNumber: undefined, // Step 6
+                 offerEmailAddress: undefined, // Step 6
+                 offerDate: undefined, // Step 6 date
+                 offerAcceptance: 'accepted', // Reset Step 6 acceptance
                  // Reset old fields
                  additionalNotes: undefined,
                  inspectionDate: undefined,
@@ -255,7 +298,7 @@ export const useAppState = create<AppState>()(
                  owner: state.recordData.owner,
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
-                 plateNumber: state.recordData.plateNumber, // Persist plateNumber
+                    plateNumber: state.recordData.plateNumber, // Persist plateNumber
                  customerName: state.recordData.customerName, // Step 4
                  formDate: state.recordData.formDate, // Step 4 date
                  sequenceNo: state.recordData.sequenceNo, // Step 4
@@ -267,7 +310,18 @@ export const useAppState = create<AppState>()(
                  controllerName: state.recordData.controllerName, // Step 4
                  authorityName: state.recordData.authorityName, // Step 4
 
-                 // Persist Step 5 Fields
+                 // Persist all Step 5 Fields (İş Emri Formu)
+                 projectName: state.recordData.projectName,
+                 workOrderNumber: state.recordData.workOrderNumber,
+                 workOrderDate: state.recordData.workOrderDate,
+                 completionDate: state.recordData.completionDate,
+                 detailsOfWork: state.recordData.detailsOfWork,
+                 sparePartsUsed: state.recordData.sparePartsUsed,
+                 pricing: state.recordData.pricing,
+                 vehicleAcceptanceSignature: state.recordData.vehicleAcceptanceSignature,
+                 customerSignature: state.recordData.customerSignature,
+                 plate: state.recordData.plate,
+                 // Persist Step 6 Fields
                  offerAuthorizedName: state.recordData.offerAuthorizedName,
                  offerCompanyName: state.recordData.offerCompanyName,
                  offerCompanyAddress: state.recordData.offerCompanyAddress,
@@ -277,6 +331,7 @@ export const useAppState = create<AppState>()(
                  offerDate: state.recordData.offerDate, // Step 5 Date
                  offerItems: state.recordData.offerItems, // Step 5 Items (already serializable)
                  offerAcceptance: state.recordData.offerAcceptance, // Step 5 Acceptance
+
 
                  // Persist legacy fields
                  additionalNotes: state.recordData.additionalNotes,
@@ -371,3 +426,4 @@ function mergeFileArrays(
 
     return Array.from(mergedMap.values());
 }
+
