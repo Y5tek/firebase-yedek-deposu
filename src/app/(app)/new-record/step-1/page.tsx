@@ -66,7 +66,7 @@ export default function NewRecordStep1() {
     const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen bir yapay zeka hatası oluştu.';
 
     // Check for specific AI Service Unavailable error
-    if (errorMessage.includes('AI Service Unavailable')) {
+    if (errorMessage.includes('AI Service Unavailable') || errorMessage.includes('503')) {
       setOcrError('Yapay zeka servisi şu anda yoğun veya kullanılamıyor. Lütfen birkaç dakika sonra tekrar deneyin veya bilgileri manuel girin.');
       toast({
         title: 'Servis Kullanılamıyor',
@@ -75,14 +75,15 @@ export default function NewRecordStep1() {
         duration: 7000, // Longer duration for service errors
       });
     } else {
-      // Handle other generic errors
-      setOcrError(`Belge okunurken bir hata oluştu (Adım ${step}). Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin. Hata: ${errorMessage}`);
-      toast({
-        title: `OCR Hatası (Adım ${step})`,
-        description: `Belge taranırken bir hata oluştu. Bilgileri kontrol edin. ${errorMessage}`,
-        variant: 'destructive',
-        duration: 5000,
-      });
+      // Handle other generic errors (like 500 Internal Server Error)
+       const userFriendlyMessage = `Belge okunurken bir hata oluştu (Adım ${step}). Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin.`;
+       setOcrError(userFriendlyMessage + (errorMessage.includes('AI prompt error:') ? '' : ` Detay: ${errorMessage}`)); // Show technical details only if not already prefixed
+       toast({
+         title: `Yapay Zeka Hatası (Adım ${step})`,
+         description: userFriendlyMessage,
+         variant: 'destructive',
+         duration: 5000,
+       });
     }
     setIsLoading(false); // Ensure loading state is reset on error
   };
@@ -539,7 +540,7 @@ export default function NewRecordStep1() {
                         {ocrError && !isLoading && (
                           <Alert variant="destructive" className="mt-4">
                             <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>OCR/AI Hatası</AlertTitle>
+                            <AlertTitle>Yapay Zeka/OCR Hatası</AlertTitle>
                             <AlertDescription>{ocrError}</AlertDescription>
                           </Alert>
                         )}
@@ -644,4 +645,3 @@ export default function NewRecordStep1() {
     </div>
   );
 }
-

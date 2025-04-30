@@ -30,6 +30,7 @@ const FormSchema = z.object({
   typeAndVariant: z.string().optional(),
   labelDocument: z.any().optional(),
   brand: z.string().optional(), // Add brand field
+  plateNumber: z.string().optional(), // Added plateNumber for consistency
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -53,6 +54,7 @@ export default function NewRecordStep2() {
       typeAndVariant: recordData.typeAndVariant || '',
       labelDocument: recordData.labelDocument || null,
       brand: recordData.brand || '', // Pre-fill brand
+      plateNumber: recordData.plateNumber || '', // Pre-fill plateNumber
     },
   });
 
@@ -64,7 +66,7 @@ export default function NewRecordStep2() {
         const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen bir yapay zeka hatası oluştu.';
 
         // Check for specific AI Service Unavailable error
-        if (errorMessage.includes('AI Service Unavailable')) {
+        if (errorMessage.includes('AI Service Unavailable') || errorMessage.includes('503')) {
             setOcrError('Yapay zeka servisi şu anda yoğun veya kullanılamıyor. Lütfen birkaç dakika sonra tekrar deneyin veya bilgileri manuel girin.');
             toast({
                 title: 'Servis Kullanılamıyor',
@@ -73,13 +75,14 @@ export default function NewRecordStep2() {
                 duration: 7000, // Longer duration for service errors
             });
         } else {
-            // Handle other generic errors
-            setOcrError(`Etiket okunurken bir hata oluştu (Adım ${step}). Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin. Hata: ${errorMessage}`);
+            // Handle other generic errors (like 500 Internal Server Error)
+            const userFriendlyMessage = `Etiket okunurken bir hata oluştu (Adım ${step}). Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin.`;
+            setOcrError(userFriendlyMessage + (errorMessage.includes('AI prompt error:') ? '' : ` Detay: ${errorMessage}`)); // Show technical details only if not already prefixed
             toast({
-                title: `OCR Hatası (Adım ${step})`,
-                description: `Etiket taranırken bir hata oluştu. Bilgileri kontrol edin. ${errorMessage}`,
-                variant: 'destructive',
-                duration: 5000,
+              title: `Yapay Zeka Hatası (Adım ${step})`,
+              description: userFriendlyMessage,
+              variant: 'destructive',
+              duration: 5000,
             });
         }
         setIsLoading(false); // Reset loading state on error
@@ -136,6 +139,7 @@ export default function NewRecordStep2() {
              type: recordData.type,
              tradeName: recordData.tradeName,
              owner: recordData.owner,
+             plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Added plateNumber
              typeApprovalNumber: form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber, // Use form value first
              typeAndVariant: form.getValues('typeAndVariant') || recordData.typeAndVariant, // Use form value first
          };
@@ -148,6 +152,7 @@ export default function NewRecordStep2() {
            type: ocrData.type,
            tradeName: ocrData.tradeName,
            owner: ocrData.owner,
+           plateNumber: ocrData.plateNumber, // Added plateNumber
            typeApprovalNumber: ocrData.typeApprovalNumber,
            typeAndVariant: ocrData.typeAndVariant,
          };
@@ -222,6 +227,15 @@ export default function NewRecordStep2() {
              console.log("Not overriding typeAndVariant. Override:", override.typeAndVariant, "OCR Data:", ocrData.typeAndVariant);
          }
 
+         // Plate Number
+          if (shouldUpdate('plateNumber')) {
+              console.log("Updating plateNumber field with label OCR data:", ocrData.plateNumber);
+              form.setValue('plateNumber', ocrData.plateNumber!);
+              updates.plateNumber = ocrData.plateNumber;
+          } else {
+              console.log("Not overriding plateNumber (Step 2). Override:", override.plateNumber, "OCR Data:", ocrData.plateNumber);
+          }
+
 
          // Update potentially other fields in the global state based on label OCR decision
          // These might override Step 1 data if deemed more accurate by the AI
@@ -268,6 +282,10 @@ export default function NewRecordStep2() {
                     form.setValue('brand', ocrDataFallback.brand);
                     updates.brand = ocrDataFallback.brand;
                  }
+                 if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) { // Fallback for plate number
+                     form.setValue('plateNumber', ocrDataFallback.plateNumber);
+                     updates.plateNumber = ocrDataFallback.plateNumber;
+                 }
                 // Update global state for potential future use even without decision
                 updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
                 updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
@@ -277,6 +295,7 @@ export default function NewRecordStep2() {
                  if (!recordData.type && ocrDataFallback.type) updates.type = ocrDataFallback.type;
                  if (!recordData.tradeName && ocrDataFallback.tradeName) updates.tradeName = ocrDataFallback.tradeName;
                  if (!recordData.owner && ocrDataFallback.owner) updates.owner = ocrDataFallback.owner;
+                 if (!recordData.plateNumber && ocrDataFallback.plateNumber) updates.plateNumber = ocrDataFallback.plateNumber; // Fallback for plateNumber
 
              }
        } finally {
@@ -392,6 +411,7 @@ export default function NewRecordStep2() {
     updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve potentially updated chassis no
         brand: data.brand, // Update brand from form
+        plateNumber: data.plateNumber, // Update plateNumber from form
         type: recordData.type, // Preserve potentially updated type
         tradeName: recordData.tradeName, // Preserve potentially updated tradeName
         owner: recordData.owner, // Preserve potentially updated owner
@@ -407,6 +427,7 @@ export default function NewRecordStep2() {
      updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve
         brand: form.getValues('brand'), // Save brand
+        plateNumber: form.getValues('plateNumber'), // Save plate number
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
         labelDocument: currentFile || recordData.labelDocument // Save current file/info
@@ -423,6 +444,7 @@ export default function NewRecordStep2() {
      form.reset({
         chassisNumber: recordData.chassisNumber || '',
         brand: recordData.brand || '', // Sync brand
+        plateNumber: recordData.plateNumber || '', // Sync plate number
         typeApprovalNumber: recordData.typeApprovalNumber || '',
         typeAndVariant: recordData.typeAndVariant || '',
         labelDocument: recordData.labelDocument || null
@@ -540,7 +562,7 @@ export default function NewRecordStep2() {
                            {ocrError && !isLoading && (
                                 <Alert variant="destructive" className="mt-4">
                                 <AlertCircle className="h-4 w-4" />
-                                <AlertTitle>OCR/AI Hatası</AlertTitle>
+                                <AlertTitle>Yapay Zeka/OCR Hatası</AlertTitle>
                                 <AlertDescription>{ocrError}</AlertDescription>
                                 </Alert>
                              )}
@@ -565,6 +587,19 @@ export default function NewRecordStep2() {
                             <Input placeholder="Ruhsattan/Etiketten alınacak..." {...field} disabled />
                             </FormControl>
                             {/* No FormMessage needed for disabled display field */}
+                        </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="plateNumber"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Plaka</FormLabel>
+                            <FormControl>
+                            <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
+                            </FormControl>
+                            <FormMessage />
                         </FormItem>
                         )}
                     />
