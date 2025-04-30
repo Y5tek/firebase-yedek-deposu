@@ -30,7 +30,6 @@ const FormSchema = z.object({
   typeAndVariant: z.string().optional(),
   labelDocument: z.any().optional(),
   brand: z.string().optional(), // Add brand field
-  plateNumber: z.string().optional(), // Add plate number field for display/update
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -54,7 +53,6 @@ export default function NewRecordStep2() {
       typeAndVariant: recordData.typeAndVariant || '',
       labelDocument: recordData.labelDocument || null,
       brand: recordData.brand || '', // Pre-fill brand
-      plateNumber: recordData.plateNumber || '', // Pre-fill plate number
     },
   });
 
@@ -138,7 +136,6 @@ export default function NewRecordStep2() {
              type: recordData.type,
              tradeName: recordData.tradeName,
              owner: recordData.owner,
-             plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Use form value first
              typeApprovalNumber: form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber, // Use form value first
              typeAndVariant: form.getValues('typeAndVariant') || recordData.typeAndVariant, // Use form value first
          };
@@ -151,7 +148,6 @@ export default function NewRecordStep2() {
            type: ocrData.type,
            tradeName: ocrData.tradeName,
            owner: ocrData.owner,
-           plateNumber: ocrData.plateNumber,
            typeApprovalNumber: ocrData.typeApprovalNumber,
            typeAndVariant: ocrData.typeAndVariant,
          };
@@ -226,15 +222,6 @@ export default function NewRecordStep2() {
              console.log("Not overriding typeAndVariant. Override:", override.typeAndVariant, "OCR Data:", ocrData.typeAndVariant);
          }
 
-         // Plate Number
-          if (shouldUpdate('plateNumber')) {
-              console.log("Updating plateNumber field with label OCR data:", ocrData.plateNumber);
-              form.setValue('plateNumber', ocrData.plateNumber!);
-              updates.plateNumber = ocrData.plateNumber;
-          } else {
-              console.log("Not overriding plateNumber (Step 2). Override:", override.plateNumber, "OCR Data:", ocrData.plateNumber);
-          }
-
 
          // Update potentially other fields in the global state based on label OCR decision
          // These might override Step 1 data if deemed more accurate by the AI
@@ -280,10 +267,6 @@ export default function NewRecordStep2() {
                 if (!form.getValues('brand') && ocrDataFallback.brand) { // Fallback for brand
                     form.setValue('brand', ocrDataFallback.brand);
                     updates.brand = ocrDataFallback.brand;
-                }
-                 if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) { // Fallback for plate number
-                     form.setValue('plateNumber', ocrDataFallback.plateNumber);
-                     updates.plateNumber = ocrDataFallback.plateNumber;
                  }
                 // Update global state for potential future use even without decision
                 updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
@@ -294,7 +277,6 @@ export default function NewRecordStep2() {
                  if (!recordData.type && ocrDataFallback.type) updates.type = ocrDataFallback.type;
                  if (!recordData.tradeName && ocrDataFallback.tradeName) updates.tradeName = ocrDataFallback.tradeName;
                  if (!recordData.owner && ocrDataFallback.owner) updates.owner = ocrDataFallback.owner;
-                 if (!recordData.plateNumber && ocrDataFallback.plateNumber) updates.plateNumber = ocrDataFallback.plateNumber; // Fallback for plateNumber
 
              }
        } finally {
@@ -413,7 +395,6 @@ export default function NewRecordStep2() {
         type: recordData.type, // Preserve potentially updated type
         tradeName: recordData.tradeName, // Preserve potentially updated tradeName
         owner: recordData.owner, // Preserve potentially updated owner
-        plateNumber: data.plateNumber, // Update plateNumber from form
         typeApprovalNumber: data.typeApprovalNumber,
         typeAndVariant: data.typeAndVariant,
         labelDocument: documentToSave // This will be the File or the info object
@@ -426,7 +407,6 @@ export default function NewRecordStep2() {
      updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve
         brand: form.getValues('brand'), // Save brand
-        plateNumber: form.getValues('plateNumber'), // Save plate number
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
         labelDocument: currentFile || recordData.labelDocument // Save current file/info
@@ -443,7 +423,6 @@ export default function NewRecordStep2() {
      form.reset({
         chassisNumber: recordData.chassisNumber || '',
         brand: recordData.brand || '', // Sync brand
-        plateNumber: recordData.plateNumber || '', // Sync plate number
         typeApprovalNumber: recordData.typeApprovalNumber || '',
         typeAndVariant: recordData.typeAndVariant || '',
         labelDocument: recordData.labelDocument || null
@@ -586,19 +565,6 @@ export default function NewRecordStep2() {
                             <Input placeholder="Ruhsattan/Etiketten alınacak..." {...field} disabled />
                             </FormControl>
                             {/* No FormMessage needed for disabled display field */}
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="plateNumber"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Plaka</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
-                            </FormControl>
-                            <FormMessage />
                         </FormItem>
                         )}
                     />
