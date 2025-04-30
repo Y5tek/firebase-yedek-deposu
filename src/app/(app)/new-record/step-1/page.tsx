@@ -40,7 +40,7 @@ export default function NewRecordStep1() {
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [progress] = React.useState(20); // Step 1 of 5
+  const [progress] = React.useState(16); // Step 1 of 6 (approx 16.67%)
   const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null); // State for image preview
   const [ocrError, setOcrError] = React.useState<string | null>(null); // State for OCR errors
   const [currentFile, setCurrentFile] = React.useState<File | null>(null); // Keep track of the current File object

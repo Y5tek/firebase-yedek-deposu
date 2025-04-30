@@ -45,25 +45,40 @@ export interface RecordData {
    // Step 5 Form Fields (İş Emri Formu)
     projectName?: string;
     workOrderNumber?: string;
-    workOrderDate?: string;
-    completionDate?: string;
+    workOrderDate?: string; // ISO String
+    completionDate?: string; // ISO String
     detailsOfWork?: string;
     sparePartsUsed?: string;
+    // notes field from Step 4 is reused/overwritten here if needed, or use a specific one like workOrderNotes
     pricing?: string;
-    vehicleAcceptanceSignature?: string;
-    customerSignature?: string;
+    vehicleAcceptanceSignature?: string; // Placeholder
+    customerSignature?: string; // Placeholder
+    plate?: string; // Already covered by plateNumber, maybe remove this duplicate? Let's keep plateNumber for consistency.
 
-  // Step 6 Form Fields (Teklif Formu - Offer Form)
-  offerAuthorizedName?: string; // Teklif Vermeye Yetkili Kişinin Adı ve Soyadı
-  offerCompanyName?: string; // Teklif Firma Adı
-  offerCompanyAddress?: string; // Teklif Açık Adresi
-  offerTaxOfficeAndNumber?: string; // Teklif Vergi Dairesi ve Vergi Numarası
-  offerPhoneNumber?: string; // Teklif Telefon Numarası
-  offerEmailAddress?: string; // Teklif Elektronik Posta Adresi
-  offerDate?: string; // Teklif Tarihi (Store as ISO string)
-  offerItems?: OfferItem[]; // Array for items in the table
-  offerAcceptance?: 'accepted' | 'rejected'; // Teklif Kabul Durumu
-  plate?: string;
+  // Step 6 Form Fields (Ara ve Son Kontrol Formu)
+  finalCheckDate?: string; // ISO String
+  check1_exposedParts_ara?: boolean;
+  check1_exposedParts_son?: boolean;
+  check2_isofixSeat_ara?: boolean;
+  check2_isofixSeat_son?: boolean;
+  check3_seatBelts_ara?: boolean;
+  check3_seatBelts_son?: boolean;
+  check4_windowApprovals_ara?: boolean;
+  check4_windowApprovals_son?: boolean;
+  finalControllerName?: string; // KONTROL EDEN Adı-Soyadı for Step 6
+
+  // Offer Form Fields (Moved conceptually after Step 6, maybe rename step numbers?)
+  // Let's assume Offer Form data is not part of this app for now based on image provided for step 6
+  offerAuthorizedName?: string;
+  offerCompanyName?: string;
+  offerCompanyAddress?: string;
+  offerTaxOfficeAndNumber?: string;
+  offerPhoneNumber?: string;
+  offerEmailAddress?: string;
+  offerDate?: string; // ISO String
+  offerItems?: OfferItem[];
+  offerAcceptance?: 'accepted' | 'rejected';
+
 
   // Archive specific fields (added during final submission)
   archive?: any[]; // To store completed records temporarily (replace with DB)
@@ -101,19 +116,18 @@ const initialRecordData: RecordData = {
     q2_typeApprovalMatch: 'olumlu',
     q3_scopeExpansion: 'olumlu',
     q4_unaffectedPartsDefect: 'olumlu',
-    // Step 5 Defaults
-     plate: '',
-        projectName: '',
-        workOrderNumber: '',
-        workOrderDate: '',
-        completionDate: '',
-        detailsOfWork: '',
-        sparePartsUsed: '',
-        pricing: '',
-        vehicleAcceptanceSignature: '',
-        customerSignature: '',
-
-    // Step 6 Defaults
+    // Step 5 Defaults (İş Emri)
+    workOrderNumber: '3', // Default İş Emri No
+    // Step 6 Defaults (Ara ve Son Kontrol)
+    check1_exposedParts_ara: true,
+    check1_exposedParts_son: true,
+    check2_isofixSeat_ara: true,
+    check2_isofixSeat_son: true,
+    check3_seatBelts_ara: true,
+    check3_seatBelts_son: true,
+    check4_windowApprovals_ara: true,
+    check4_windowApprovals_son: true,
+    // Offer Form Defaults (If kept)
     offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK', // Prefill from image
     offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97', // Prefill from image
     offerItems: [
@@ -152,7 +166,7 @@ export const useAppState = create<AppState>()(
                  owner: undefined,
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                   plateNumber: undefined, // Explicitly reset plateNumber
+                 plateNumber: undefined, // Explicitly reset plateNumber
                  registrationDocument: undefined,
                  labelDocument: undefined,
                  customerName: undefined, // Step 4
@@ -169,12 +183,23 @@ export const useAppState = create<AppState>()(
                   pricing: undefined, // step 5
                   vehicleAcceptanceSignature: undefined, // step 5
                   customerSignature: undefined, // step 5
-                 offerAuthorizedName: undefined, // Step 6
-                 offerCompanyAddress: undefined, // Step 6
-                 offerPhoneNumber: undefined, // Step 6
-                 offerEmailAddress: undefined, // Step 6
-                 offerDate: undefined, // Step 6 date
-                 offerAcceptance: 'accepted', // Reset Step 6 acceptance
+                  plate: undefined, // step 5 duplicate?
+                  finalCheckDate: undefined, // Step 6
+                  check1_exposedParts_ara: true, // Step 6 defaults
+                  check1_exposedParts_son: true,
+                  check2_isofixSeat_ara: true,
+                  check2_isofixSeat_son: true,
+                  check3_seatBelts_ara: true,
+                  check3_seatBelts_son: true,
+                  check4_windowApprovals_ara: true,
+                  check4_windowApprovals_son: true,
+                  finalControllerName: undefined, // Step 6
+                 offerAuthorizedName: undefined, // Offer Form
+                 offerCompanyAddress: undefined, // Offer Form
+                 offerPhoneNumber: undefined, // Offer Form
+                 offerEmailAddress: undefined, // Offer Form
+                 offerDate: undefined, // Offer Form date
+                 offerAcceptance: 'accepted', // Reset Offer Form acceptance
                  // Reset old fields
                  additionalNotes: undefined,
                  inspectionDate: undefined,
@@ -260,7 +285,7 @@ export const useAppState = create<AppState>()(
                  notes: undefined, // Step 4 notes
                  controllerName: undefined, // Step 4
                  authorityName: undefined, // Step 4
-                   plate: undefined, // step 5
+                   plate: undefined, // step 5 duplicate?
                     projectName: undefined, // step 5
                     workOrderNumber: undefined, // step 5
                     workOrderDate: undefined, // step 5
@@ -270,12 +295,22 @@ export const useAppState = create<AppState>()(
                     pricing: undefined, // step 5
                     vehicleAcceptanceSignature: undefined, // step 5
                     customerSignature: undefined, // step 5
-                 offerAuthorizedName: undefined, // Step 6
-                 offerCompanyAddress: undefined, // Step 6
-                 offerPhoneNumber: undefined, // Step 6
-                 offerEmailAddress: undefined, // Step 6
-                 offerDate: undefined, // Step 6 date
-                 offerAcceptance: 'accepted', // Reset Step 6 acceptance
+                    finalCheckDate: undefined, // Step 6
+                    check1_exposedParts_ara: true, // Step 6 defaults
+                    check1_exposedParts_son: true,
+                    check2_isofixSeat_ara: true,
+                    check2_isofixSeat_son: true,
+                    check3_seatBelts_ara: true,
+                    check3_seatBelts_son: true,
+                    check4_windowApprovals_ara: true,
+                    check4_windowApprovals_son: true,
+                    finalControllerName: undefined, // Step 6
+                 offerAuthorizedName: undefined, // Offer Form
+                 offerCompanyAddress: undefined, // Offer Form
+                 offerPhoneNumber: undefined, // Offer Form
+                 offerEmailAddress: undefined, // Offer Form
+                 offerDate: undefined, // Offer Form date
+                 offerAcceptance: 'accepted', // Reset Offer Form acceptance
                  // Reset old fields
                  additionalNotes: undefined,
                  inspectionDate: undefined,
@@ -298,7 +333,7 @@ export const useAppState = create<AppState>()(
                  owner: state.recordData.owner,
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
-                    plateNumber: state.recordData.plateNumber, // Persist plateNumber
+                 plateNumber: state.recordData.plateNumber, // Persist plateNumber
                  customerName: state.recordData.customerName, // Step 4
                  formDate: state.recordData.formDate, // Step 4 date
                  sequenceNo: state.recordData.sequenceNo, // Step 4
@@ -306,7 +341,7 @@ export const useAppState = create<AppState>()(
                  q2_typeApprovalMatch: state.recordData.q2_typeApprovalMatch, // Step 4
                  q3_scopeExpansion: state.recordData.q3_scopeExpansion, // Step 4
                  q4_unaffectedPartsDefect: state.recordData.q4_unaffectedPartsDefect, // Step 4
-                 notes: state.recordData.notes, // Step 4 notes
+                 notes: state.recordData.notes, // Step 4 notes (or overwritten by Step 5/6?)
                  controllerName: state.recordData.controllerName, // Step 4
                  authorityName: state.recordData.authorityName, // Step 4
 
@@ -321,17 +356,29 @@ export const useAppState = create<AppState>()(
                  vehicleAcceptanceSignature: state.recordData.vehicleAcceptanceSignature,
                  customerSignature: state.recordData.customerSignature,
                  plate: state.recordData.plate,
-                 // Persist Step 6 Fields
+
+                 // Persist Step 6 Fields (Ara ve Son Kontrol Formu)
+                 finalCheckDate: state.recordData.finalCheckDate,
+                 check1_exposedParts_ara: state.recordData.check1_exposedParts_ara,
+                 check1_exposedParts_son: state.recordData.check1_exposedParts_son,
+                 check2_isofixSeat_ara: state.recordData.check2_isofixSeat_ara,
+                 check2_isofixSeat_son: state.recordData.check2_isofixSeat_son,
+                 check3_seatBelts_ara: state.recordData.check3_seatBelts_ara,
+                 check3_seatBelts_son: state.recordData.check3_seatBelts_son,
+                 check4_windowApprovals_ara: state.recordData.check4_windowApprovals_ara,
+                 check4_windowApprovals_son: state.recordData.check4_windowApprovals_son,
+                 finalControllerName: state.recordData.finalControllerName,
+
+                 // Persist Offer Form Fields
                  offerAuthorizedName: state.recordData.offerAuthorizedName,
                  offerCompanyName: state.recordData.offerCompanyName,
                  offerCompanyAddress: state.recordData.offerCompanyAddress,
                  offerTaxOfficeAndNumber: state.recordData.offerTaxOfficeAndNumber,
                  offerPhoneNumber: state.recordData.offerPhoneNumber,
                  offerEmailAddress: state.recordData.offerEmailAddress,
-                 offerDate: state.recordData.offerDate, // Step 5 Date
-                 offerItems: state.recordData.offerItems, // Step 5 Items (already serializable)
-                 offerAcceptance: state.recordData.offerAcceptance, // Step 5 Acceptance
-
+                 offerDate: state.recordData.offerDate,
+                 offerItems: state.recordData.offerItems,
+                 offerAcceptance: state.recordData.offerAcceptance,
 
                  // Persist legacy fields
                  additionalNotes: state.recordData.additionalNotes,
@@ -426,4 +473,3 @@ function mergeFileArrays(
 
     return Array.from(mergedMap.values());
 }
-
