@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { getSerializableFileInfo } from '@/lib/utils'; // Import helper
@@ -20,19 +21,21 @@ export interface RecordData {
   tradeName?: string;
   owner?: string;
   typeApprovalNumber?: string;
-  typeAndVariant?: string;
+  typeAndVariant?: string; // Likely holds "VARYANT"
   plateNumber?: string; // Added plateNumber field
+  engineNumber?: string; // Added Motor No
 
   // Step 3 Files
   registrationDocument?: File | { name: string; type?: string; size?: number };
   labelDocument?: File | { name: string; type?: string; size?: number };
+  typeApprovalDocument?: File | { name: string; type?: string; size?: number }; // Added for "Tip Onay Belgesi"
   additionalPhotos?: (File | { name: string; type?: string; size?: number })[];
   additionalVideos?: (File | { name: string; type?: string; size?: number })[];
 
   // Step 4 Form Fields (Seri Tadilat Uygunluk Formu)
   customerName?: string;
-  formDate?: string; // Store as ISO string (Seri Tadilat Uygunluk Formu Date)
-  sequenceNo?: string; // Seri Tadilat Uygunluk Formu Sequence No
+  formDate?: string; // Store as ISO string (Relevant for "TARİH")
+  sequenceNo?: string; // Relevant for "SIRA NO"
   q1_suitable?: 'olumlu' | 'olumsuz';
   q2_typeApprovalMatch?: 'olumlu' | 'olumsuz';
   q3_scopeExpansion?: 'olumlu' | 'olumsuz';
@@ -42,18 +45,19 @@ export interface RecordData {
   authorityName?: string; // Seri Tadilat Uygunluk Formu Authority
 
   // Step 5 Form Fields (İş Emri Formu)
-  projectName?: string;
-  workOrderNumber?: string;
-  workOrderDate?: string; // ISO String
+  projectName?: string; // Relevant for "PROJE ADI" and maybe "PROJE NO"
+  workOrderNumber?: string; // Relevant for "SIRA NO" if different from sequenceNo
+  workOrderDate?: string; // ISO String (Could be "TARİH")
   completionDate?: string; // ISO String
-  detailsOfWork?: string;
+  detailsOfWork?: string; // Relevant for "YAPILACAK İŞLER"
   sparePartsUsed?: string;
   pricing?: string;
   vehicleAcceptanceSignature?: string; // Placeholder
   customerSignature?: string; // Placeholder
+  projectNo?: string; // Explicit field for "PROJE NO"
 
   // Step 6 Form Fields (Ara ve Son Kontrol Formu)
-  finalCheckDate?: string; // ISO String
+  finalCheckDate?: string; // ISO String (Could be "TARİH")
   check1_exposedParts_ara?: boolean;
   check1_exposedParts_son?: boolean;
   check2_isofixSeat_ara?: boolean;
@@ -64,7 +68,12 @@ export interface RecordData {
   check4_windowApprovals_son?: boolean;
   finalControllerName?: string; // KONTROL EDEN Adı-Soyadı for Step 6
 
-  // Offer Form Fields (Conceptually after Step 6 - Keeping for data structure)
+  // Step 7 Summary Form Specific Fields (if not covered above)
+  typeApprovalType?: string; // Added for "TİP ONAY"
+  typeApprovalLevel?: string; // Added for "tip onay seviye"
+  typeApprovalVersion?: string; // Added for "VERSİYON"
+
+  // Offer Form Fields (Conceptually after Step 7 - Keeping for data structure completeness)
   offerAuthorizedName?: string;
   offerCompanyName?: string;
   offerCompanyAddress?: string;
@@ -82,13 +91,13 @@ export interface RecordData {
 
   // Keep old additional fields if they are still relevant from previous versions
   additionalNotes?: string; // Might be replaced by 'notes' field
-  inspectionDate?: string; // Might be replaced by 'formDate'
-  inspectorName?: string; // Might be replaced by 'controllerName' or 'authorityName'
+  inspectionDate?: string; // Might be replaced by 'formDate' or 'workOrderDate'
+  inspectorName?: string; // Might be replaced by 'controllerName' or 'authorityName' or 'finalControllerName'
 }
 
 // Define the state structure
 interface AppState {
-  branch: string | null;
+  branch: string | null; // Still relevant for "ŞUBE ADI"
   recordData: RecordData;
   setBranch: (branch: string | null) => void;
   updateRecordData: (newData: Partial<RecordData>, reset?: boolean) => void; // Add reset flag
@@ -112,7 +121,6 @@ const initialRecordData: RecordData = {
     q3_scopeExpansion: 'olumlu',
     q4_unaffectedPartsDefect: 'olumlu',
     // Step 5 Defaults (İş Emri)
-    workOrderNumber: '3', // Default İş Emri No
     // Step 6 Defaults (Ara ve Son Kontrol)
     check1_exposedParts_ara: true,
     check1_exposedParts_son: true,
@@ -161,8 +169,10 @@ export const useAppState = create<AppState>()(
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
                  plateNumber: undefined, // Explicitly reset plateNumber
+                 engineNumber: undefined,
                  registrationDocument: undefined,
                  labelDocument: undefined,
+                 typeApprovalDocument: undefined,
                  customerName: undefined,
                  formDate: undefined,
                  notes: undefined,
@@ -177,6 +187,7 @@ export const useAppState = create<AppState>()(
                  pricing: undefined,
                  vehicleAcceptanceSignature: undefined,
                  customerSignature: undefined,
+                 projectNo: undefined,
                  finalCheckDate: undefined,
                  check1_exposedParts_ara: undefined,
                  check1_exposedParts_son: undefined,
@@ -187,6 +198,9 @@ export const useAppState = create<AppState>()(
                  check4_windowApprovals_ara: undefined,
                  check4_windowApprovals_son: undefined,
                  finalControllerName: undefined,
+                 typeApprovalType: undefined,
+                 typeApprovalLevel: undefined,
+                 typeApprovalVersion: undefined,
                  offerAuthorizedName: undefined,
                  offerCompanyName: undefined,
                  offerCompanyAddress: undefined,
@@ -224,6 +238,14 @@ export const useAppState = create<AppState>()(
                    mergedData.labelDocument = state.recordData.labelDocument;
               } else if (newData.labelDocument instanceof File) {
                     mergedData.labelDocument = newData.labelDocument;
+              }
+
+               if (newData.typeApprovalDocument === undefined && 'typeApprovalDocument' in newData) {
+                   delete mergedData.typeApprovalDocument;
+              } else if (newData.typeApprovalDocument && !(newData.typeApprovalDocument instanceof File) && state.recordData.typeApprovalDocument instanceof File) {
+                   mergedData.typeApprovalDocument = state.recordData.typeApprovalDocument;
+              } else if (newData.typeApprovalDocument instanceof File) {
+                    mergedData.typeApprovalDocument = newData.typeApprovalDocument;
               }
 
 
@@ -272,8 +294,10 @@ export const useAppState = create<AppState>()(
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
                  plateNumber: undefined, // Ensure reset
+                 engineNumber: undefined,
                  registrationDocument: undefined,
                  labelDocument: undefined,
+                 typeApprovalDocument: undefined,
                  customerName: undefined,
                  formDate: undefined,
                  notes: undefined,
@@ -288,6 +312,7 @@ export const useAppState = create<AppState>()(
                  pricing: undefined,
                  vehicleAcceptanceSignature: undefined,
                  customerSignature: undefined,
+                 projectNo: undefined,
                  finalCheckDate: undefined,
                  check1_exposedParts_ara: undefined,
                  check1_exposedParts_son: undefined,
@@ -298,6 +323,9 @@ export const useAppState = create<AppState>()(
                  check4_windowApprovals_ara: undefined,
                  check4_windowApprovals_son: undefined,
                  finalControllerName: undefined,
+                 typeApprovalType: undefined,
+                 typeApprovalLevel: undefined,
+                 typeApprovalVersion: undefined,
                  offerAuthorizedName: undefined,
                  offerCompanyName: undefined,
                  offerCompanyAddress: undefined,
@@ -332,6 +360,7 @@ export const useAppState = create<AppState>()(
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
                  plateNumber: state.recordData.plateNumber, // Persist plateNumber
+                 engineNumber: state.recordData.engineNumber,
                  customerName: state.recordData.customerName,
                  formDate: state.recordData.formDate,
                  sequenceNo: state.recordData.sequenceNo,
@@ -353,6 +382,7 @@ export const useAppState = create<AppState>()(
                  pricing: state.recordData.pricing,
                  vehicleAcceptanceSignature: state.recordData.vehicleAcceptanceSignature,
                  customerSignature: state.recordData.customerSignature,
+                 projectNo: state.recordData.projectNo,
 
                   // Persist Step 6 Fields (Ara ve Son Kontrol Formu)
                   finalCheckDate: state.recordData.finalCheckDate,
@@ -365,6 +395,11 @@ export const useAppState = create<AppState>()(
                   check4_windowApprovals_ara: state.recordData.check4_windowApprovals_ara,
                   check4_windowApprovals_son: state.recordData.check4_windowApprovals_son,
                   finalControllerName: state.recordData.finalControllerName,
+
+                 // Persist Step 7 Summary fields
+                 typeApprovalType: state.recordData.typeApprovalType,
+                 typeApprovalLevel: state.recordData.typeApprovalLevel,
+                 typeApprovalVersion: state.recordData.typeApprovalVersion,
 
                  // Persist Offer Form Fields (if still required)
                  offerAuthorizedName: state.recordData.offerAuthorizedName,
@@ -385,6 +420,7 @@ export const useAppState = create<AppState>()(
                  // Convert File objects to serializable info before saving
                  registrationDocument: getSerializableFileInfo(state.recordData.registrationDocument),
                  labelDocument: getSerializableFileInfo(state.recordData.labelDocument),
+                 typeApprovalDocument: getSerializableFileInfo(state.recordData.typeApprovalDocument),
                  additionalPhotos: state.recordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined, // Ensure array is correctly typed
                  additionalVideos: state.recordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined, // Ensure array is correctly typed
                  archive: state.recordData.archive // Persist archive
@@ -406,6 +442,9 @@ export const useAppState = create<AppState>()(
                   labelDocument: currentState.recordData.labelDocument instanceof File
                       ? currentState.recordData.labelDocument
                       : typedPersistedState.recordData?.labelDocument, // Use persisted info if no File exists
+                   typeApprovalDocument: currentState.recordData.typeApprovalDocument instanceof File
+                      ? currentState.recordData.typeApprovalDocument
+                      : typedPersistedState.recordData?.typeApprovalDocument, // Use persisted info if no File exists
 
                   // Restore File arrays - merge current File objects with persisted info
                   additionalPhotos: mergeFileArrays(currentState.recordData.additionalPhotos, typedPersistedState.recordData?.additionalPhotos),

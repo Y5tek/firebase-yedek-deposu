@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -8,7 +9,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { CalendarIcon, FileCheck2, Loader2, Save } from 'lucide-react';
+import { CalendarIcon, FileCheck2, Loader2, Save, ChevronRight } from 'lucide-react'; // Adjusted icons
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -42,7 +43,7 @@ export default function NewRecordStep6() {
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [progress] = React.useState(83); // Step 5 of 6 (83%)
+  const [progress] = React.useState(86); // Step 6 of 7
 
   const form = useForm<FormData>({
     resolver: zodResolver(FormSchema),
@@ -67,9 +68,8 @@ export default function NewRecordStep6() {
     { idBase: 'check4_windowApprovals', label: '4- CAMLARIN ONAYLARINI KONTROL ET' },
   ];
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = (data: FormData) => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
 
     updateRecordData({
       finalCheckDate: data.finalCheckDate?.toISOString(),
@@ -84,67 +84,10 @@ export default function NewRecordStep6() {
       finalControllerName: data.finalControllerName,
     });
 
-    const finalRecordData = useAppState.getState().recordData;
-
-    const archiveEntry = {
-      branch: branch,
-      chassisNumber: finalRecordData.chassisNumber,
-      brand: finalRecordData.brand,
-      type: finalRecordData.type,
-      tradeName: finalRecordData.tradeName,
-      owner: finalRecordData.owner,
-      typeApprovalNumber: finalRecordData.typeApprovalNumber,
-      typeAndVariant: finalRecordData.typeAndVariant,
-      plateNumber: finalRecordData.plateNumber,
-      registrationDocument: getSerializableFileInfo(finalRecordData.registrationDocument),
-      labelDocument: getSerializableFileInfo(finalRecordData.labelDocument),
-      additionalPhotos: finalRecordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-      additionalVideos: finalRecordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-      customerName: finalRecordData.customerName,
-      formDate: finalRecordData.formDate,
-      sequenceNo: finalRecordData.sequenceNo,
-      q1_suitable: finalRecordData.q1_suitable,
-      q2_typeApprovalMatch: finalRecordData.q2_typeApprovalMatch,
-      q3_scopeExpansion: finalRecordData.q3_scopeExpansion,
-      q4_unaffectedPartsDefect: finalRecordData.q4_unaffectedPartsDefect,
-      notes: finalRecordData.notes,
-      controllerName: finalRecordData.controllerName,
-      authorityName: finalRecordData.authorityName,
-      projectName: finalRecordData.projectName,
-      workOrderNumber: finalRecordData.workOrderNumber,
-      workOrderDate: finalRecordData.workOrderDate,
-      completionDate: finalRecordData.completionDate,
-      detailsOfWork: finalRecordData.detailsOfWork,
-      sparePartsUsed: finalRecordData.sparePartsUsed,
-      pricing: finalRecordData.pricing,
-      vehicleAcceptanceSignature: finalRecordData.vehicleAcceptanceSignature,
-      customerSignature: finalRecordData.customerSignature,
-      finalCheckDate: data.finalCheckDate?.toISOString(),
-      check1_exposedParts_ara: data.check1_exposedParts_ara,
-      check1_exposedParts_son: data.check1_exposedParts_son,
-      check2_isofixSeat_ara: data.check2_isofixSeat_ara,
-      check2_isofixSeat_son: data.check2_isofixSeat_son,
-      check3_seatBelts_ara: data.check3_seatBelts_ara,
-      check3_seatBelts_son: data.check3_seatBelts_son,
-      check4_windowApprovals_ara: data.check4_windowApprovals_ara,
-      check4_windowApprovals_son: data.check4_windowApprovals_son,
-      finalControllerName: data.finalControllerName,
-      archivedAt: new Date().toISOString(),
-      fileName: `${branch}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}`
-    };
-
-    console.log("Archiving final entry:", archiveEntry);
-
-    const currentArchive = finalRecordData.archive || [];
-    updateRecordData({ archive: [...currentArchive, archiveEntry] });
+    console.log("Submitting Step 6 Data, navigating to Step 7:", data);
 
     setIsLoading(false);
-    toast({
-      title: 'Yedekleme Tamamlandı',
-      description: 'Tüm kayıt yedekleme işlemi başarıyla tamamlandı ve arşivlendi.',
-    });
-    updateRecordData({}, true);
-    router.push('/archive');
+    router.push('/new-record/step-7'); // Navigate to the new final summary step
   };
 
   const goBack = () => {
@@ -195,7 +138,9 @@ export default function NewRecordStep6() {
       <Card className="w-full max-w-4xl shadow-lg">
         <CardHeader>
           <div className="flex justify-between items-start mb-4">
-            <CardTitle className="text-2xl font-bold text-center flex-1 ml-40">
+             {/* Left Side: Logo Placeholder - Removed for cleaner look */}
+             <div className="w-24 h-12"></div>
+            <CardTitle className="text-2xl font-bold text-center flex-1">
               ARA VE SON KONTROL FORMU
             </CardTitle>
             <div className="text-xs border p-2 rounded-md space-y-1 w-40">
@@ -206,13 +151,14 @@ export default function NewRecordStep6() {
             </div>
           </div>
           <CardDescription>
-            Lütfen son kontrol formunu doldurun ve kaydı tamamlayın.
+            Lütfen son kontrol formunu doldurun ve devam edin.
             (Şube: {branch}, Şase: {recordData.chassisNumber})
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Top Info Boxes */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-md">
                 <FormItem>
                   <FormLabel>Müşteri Adı</FormLabel>
@@ -257,7 +203,7 @@ export default function NewRecordStep6() {
 
                 <FormItem>
                   <FormLabel>Proje No</FormLabel>
-                  <Input value={recordData.projectName || 'N/A'} disabled />
+                  <Input value={recordData.projectName || 'N/A'} disabled /> {/* Assuming projectName holds Proje No */}
                   <FormDescription>İş Emri Formundan</FormDescription>
                 </FormItem>
 
@@ -274,58 +220,64 @@ export default function NewRecordStep6() {
                 </FormItem>
               </div>
 
-              <div className="border p-4 rounded-md space-y-4">
-                <div className="grid grid-cols-[1fr_80px_80px] items-center font-medium mb-2">
-                  <span></span>
-                  <span className="text-center px-2">ARA</span>
-                  <span className="text-center px-2">SON</span>
-                </div>
-                {checklistItems.map((item) => (
-                  <div key={item.idBase} className="grid grid-cols-[1fr_80px_80px] items-center gap-x-2 py-3 border-t last:border-b-0">
-                    <FormLabel className="col-start-1 block self-center text-sm">{item.label}</FormLabel>
-                    <div className="flex items-center space-x-2">
-                      <div>
-                        <FormLabel htmlFor={`${item.idBase}_ara`} className="text-right pr-1">Oluumlu</FormLabel>
-                        <FormField
-                          control={form.control}
-                          name={`${item.idBase}_ara` as keyof FormData}
-                          render={({ field }) => (
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                                id={`${item.idBase}_ara`}
-                                disabled={isLoading}
-                              />
-                            </FormControl>
-                          )}
-                        />
-                      </div>
-                      <div>
-                        <FormLabel htmlFor={`${item.idBase}_son`} className="text-right pr-1">Son</FormLabel>
-                        <FormField
-                          control={form.control}
-                          name={`${item.idBase}_son` as keyof FormData}
-                          render={({ field }) => (
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                                id={`${item.idBase}_son`}
-                                disabled={isLoading}
-                              />
-                            </FormControl>
-                          )}
-                        />
-                      </div>
+                {/* Checklist Section */}
+                <div className="border p-4 rounded-md space-y-4">
+                    <div className="grid grid-cols-[1fr_80px_80px] items-center font-medium mb-2">
+                        <span className="font-semibold">Kontrol Edilecek Hususlar</span>
+                        <span className="text-center px-2 font-semibold">ARA</span>
+                        <span className="text-center px-2 font-semibold">SON</span>
                     </div>
-                  </div>
-                ))}
-              </div>
+                    {checklistItems.map((item) => (
+                        <div key={item.idBase} className="grid grid-cols-[1fr_80px_80px] items-center gap-x-2 py-3 border-t">
+                            <FormLabel className="col-start-1 block self-center text-sm">{item.label}</FormLabel>
+                            {/* ARA Checkbox */}
+                            <div className="flex items-center justify-center space-x-1">
+                                <FormLabel htmlFor={`${item.idBase}_ara_olumlu`} className="text-xs">Oluumlu</FormLabel>
+                                <FormField
+                                    control={form.control}
+                                    name={`${item.idBase}_ara` as keyof FormData}
+                                    render={({ field }) => (
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value === true} // Explicitly check for true
+                                                onCheckedChange={(checked) => field.onChange(checked === true)} // Set true/false
+                                                id={`${item.idBase}_ara_olumlu`}
+                                                disabled={isLoading}
+                                            />
+                                        </FormControl>
+                                    )}
+                                />
+                                {/* Add Olumsuz checkbox if needed, currently assuming olumlu */}
+                            </div>
+                             {/* SON Checkbox */}
+                             <div className="flex items-center justify-center space-x-1">
+                                <FormLabel htmlFor={`${item.idBase}_son_olumlu`} className="text-xs">Oluumlu</FormLabel>
+                                <FormField
+                                    control={form.control}
+                                    name={`${item.idBase}_son` as keyof FormData}
+                                    render={({ field }) => (
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value === true} // Explicitly check for true
+                                                onCheckedChange={(checked) => field.onChange(checked === true)} // Set true/false
+                                                id={`${item.idBase}_son_olumlu`}
+                                                disabled={isLoading}
+                                            />
+                                        </FormControl>
+                                    )}
+                                />
+                                {/* Add Olumsuz checkbox if needed */}
+                            </div>
+                        </div>
+                    ))}
+                </div>
 
 
+              {/* Approval Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-md">
+                {/* Empty div for spacing */}
                 <div></div>
+                {/* Kontrol Eden */}
                 <div className="space-y-2">
                   <h4 className="font-medium text-center">KONTROL EDEN</h4>
                   <FormField
@@ -355,8 +307,8 @@ export default function NewRecordStep6() {
                   Geri
                 </Button>
                 <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
-                  Kaydı Tamamla ve Arşivle
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChevronRight className="mr-2 h-4 w-4" />}
+                  Devam Et (Özet)
                 </Button>
               </div>
             </form>

@@ -15,8 +15,11 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton
 } from '@/components/ui/sidebar';
-import { Home, FilePlus, Archive, Building, ClipboardList, FileText } from 'lucide-react'; // Added FileText for Step 5
+import { Home, FilePlus, Archive, Building, ClipboardList, FileText, Truck, FileCheck2, FileSignature } from 'lucide-react'; // Added icons
 import { Button } from '@/components/ui/button';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -101,36 +104,46 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <span>Yeni Kayıt</span>
                 </Link>
               </SidebarMenuButton>
-              {/* Optional: Add sub-menu for steps if needed later */}
-              {/* {isActive('/new-record', false) && (
+              {/* Add sub-menu for steps */}
+              {isActive('/new-record', false) && (
                  <SidebarMenuSub>
                      <SidebarMenuSubItem>
                         <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-1')}>
-                             <Link href="/new-record/step-1">Adım 1: Ruhsat</Link>
+                             <Link href="/new-record/step-1"><FileText className="mr-2 h-3 w-3"/>Adım 1: Ruhsat</Link>
                          </SidebarMenuSubButton>
                      </SidebarMenuSubItem>
                      <SidebarMenuSubItem>
                         <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-2')}>
-                             <Link href="/new-record/step-2">Adım 2: Etiket</Link>
+                             <Link href="/new-record/step-2"><Truck className="mr-2 h-3 w-3"/>Adım 2: Etiket</Link>
                          </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                      <SidebarMenuSubItem>
                         <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-3')}>
-                             <Link href="/new-record/step-3">Adım 3: Ek Dosya</Link>
+                             <Link href="/new-record/step-3"><FilePlus className="mr-2 h-3 w-3"/>Adım 3: Ek Dosya</Link>
                          </SidebarMenuSubButton>
                      </SidebarMenuSubItem>
                      <SidebarMenuSubItem>
                          <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-4')}>
-                             <Link href="/new-record/step-4">Adım 4: Form</Link>
+                             <Link href="/new-record/step-4"><FileSignature className="mr-2 h-3 w-3"/>Adım 4: Seri Tadilat</Link>
                          </SidebarMenuSubButton>
                      </SidebarMenuSubItem>
-                     <SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
                          <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-5')}>
-                             <Link href="/new-record/step-5">Adım 5: Teklif</Link>
+                             <Link href="/new-record/step-5"><ClipboardList className="mr-2 h-3 w-3"/>Adım 5: İş Emri</Link>
+                         </SidebarMenuSubButton>
+                     </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-6')}>
+                             <Link href="/new-record/step-6"><FileCheck2 className="mr-2 h-3 w-3"/>Adım 6: Son Kontrol</Link>
+                         </SidebarMenuSubButton>
+                     </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-7')}>
+                             <Link href="/new-record/step-7"><Archive className="mr-2 h-3 w-3"/>Adım 7: Özet & Arşiv</Link>
                          </SidebarMenuSubButton>
                      </SidebarMenuSubItem>
                  </SidebarMenuSub>
-              )} */}
+              )}
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
