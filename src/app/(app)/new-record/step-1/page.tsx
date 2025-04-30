@@ -169,6 +169,7 @@ export default function NewRecordStep1() {
       // Function to decide if a field should be updated
       const shouldUpdate = (fieldName: keyof typeof override): boolean => {
         const ocrValue = ocrData[fieldName as keyof typeof ocrData];
+        // Update if override is true AND OCR found a value for the field.
         return !!(override[fieldName] && ocrValue);
       };
 
@@ -181,6 +182,7 @@ export default function NewRecordStep1() {
           console.log("Not overriding chassisNumber. Override:", override.chassisNumber, "OCR Data:", ocrData.chassisNumber);
       }
 
+      // Update brand field specifically based on override decision and OCR result
       if (shouldUpdate('brand')) {
           console.log("Updating brand field with OCR data:", ocrData.brand);
           form.setValue('brand', ocrData.brand!);
@@ -253,6 +255,7 @@ export default function NewRecordStep1() {
                 form.setValue('chassisNumber', ocrDataFallback.chassisNumber);
                 updates.chassisNumber = ocrDataFallback.chassisNumber;
             }
+            // Fallback for brand field
             if (!form.getValues('brand') && ocrDataFallback.brand) {
                 form.setValue('brand', ocrDataFallback.brand);
                  updates.brand = ocrDataFallback.brand;
@@ -573,6 +576,7 @@ export default function NewRecordStep1() {
                       </FormItem>
                     )}
                   />
+                {/* Brand field */}
                 <FormField
                   control={form.control}
                   name="brand"

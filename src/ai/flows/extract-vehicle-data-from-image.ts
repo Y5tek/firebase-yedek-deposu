@@ -56,7 +56,7 @@ const extractDataPrompt = ai.definePrompt({
 
 *   Chassis Number (Şasi No / Araç Kimlik No)
 *   License Plate Number (Plaka) - Usually on registration documents
-*   Brand (Markası)
+*   Brand (Markası) <-- Extract this value for the 'brand' field.
 *   Type (Tipi)
 *   Trade Name (Ticari Adı)
 *   Owner (Sahibi) - Usually only on registration documents
@@ -91,7 +91,7 @@ const extractVehicleDataFlow = ai.defineFlow<
     try {
         // Call the AI prompt with the image data URI and destructure the output
         const { output } = await extractDataPrompt(input);
-        extractedData = output;
+        extractedData = output; // Output directly matches OcrDataSchema
 
     } catch (error) {
         console.error("Error calling extractDataPrompt:", error);
