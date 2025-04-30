@@ -173,7 +173,7 @@ export default function NewRecordStep1() {
         return !!(override[fieldName] && ocrValue);
       };
 
-      // Update fields based on decision
+      // Update chassisNumber field
       if (shouldUpdate('chassisNumber')) {
         console.log("Updating chassisNumber field with OCR data:", ocrData.chassisNumber);
         form.setValue('chassisNumber', ocrData.chassisNumber!);
@@ -182,7 +182,7 @@ export default function NewRecordStep1() {
           console.log("Not overriding chassisNumber. Override:", override.chassisNumber, "OCR Data:", ocrData.chassisNumber);
       }
 
-      // Update brand field specifically based on override decision and OCR result
+      // Update brand field
       if (shouldUpdate('brand')) {
           console.log("Updating brand field with OCR data:", ocrData.brand);
           form.setValue('brand', ocrData.brand!);
@@ -191,6 +191,7 @@ export default function NewRecordStep1() {
           console.log("Not overriding brand. Override:", override.brand, "OCR Data:", ocrData.brand);
       }
 
+      // Update type field
       if (shouldUpdate('type')) {
           console.log("Updating type field with OCR data:", ocrData.type);
           form.setValue('type', ocrData.type!);
@@ -199,6 +200,7 @@ export default function NewRecordStep1() {
           console.log("Not overriding type. Override:", override.type, "OCR Data:", ocrData.type);
       }
 
+      // Update tradeName field
       if (shouldUpdate('tradeName')) {
           console.log("Updating tradeName field with OCR data:", ocrData.tradeName);
           form.setValue('tradeName', ocrData.tradeName!);
@@ -207,6 +209,7 @@ export default function NewRecordStep1() {
            console.log("Not overriding tradeName. Override:", override.tradeName, "OCR Data:", ocrData.tradeName);
       }
 
+      // Update owner field
       if (shouldUpdate('owner')) {
           console.log("Updating owner field with OCR data:", ocrData.owner);
           form.setValue('owner', ocrData.owner!);
@@ -215,6 +218,7 @@ export default function NewRecordStep1() {
           console.log("Not overriding owner. Override:", override.owner, "OCR Data:", ocrData.owner);
       }
 
+      // Update plateNumber field
        if (shouldUpdate('plateNumber')) {
            console.log("Updating plateNumber field with OCR data:", ocrData.plateNumber);
            form.setValue('plateNumber', ocrData.plateNumber!);
@@ -251,11 +255,11 @@ export default function NewRecordStep1() {
        if (ocrResult && ocrResult.ocrData && !overrideDecision) {
             console.warn("Override decision failed, populating empty fields with OCR data as fallback.");
             const ocrDataFallback = ocrResult.ocrData;
+            // Fallback logic for each field
             if (!form.getValues('chassisNumber') && ocrDataFallback.chassisNumber) {
                 form.setValue('chassisNumber', ocrDataFallback.chassisNumber);
                 updates.chassisNumber = ocrDataFallback.chassisNumber;
             }
-            // Fallback for brand field
             if (!form.getValues('brand') && ocrDataFallback.brand) {
                 form.setValue('brand', ocrDataFallback.brand);
                  updates.brand = ocrDataFallback.brand;
@@ -272,12 +276,11 @@ export default function NewRecordStep1() {
                  form.setValue('owner', ocrDataFallback.owner);
                  updates.owner = ocrDataFallback.owner;
             }
-             if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) { // Fallback for plateNumber
+             if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) {
                  form.setValue('plateNumber', ocrDataFallback.plateNumber);
                  updates.plateNumber = ocrDataFallback.plateNumber;
              }
-
-            // Update global state for potential future use even without decision
+             // Fallback for global state fields
              updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
              updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
        }
@@ -641,3 +644,4 @@ export default function NewRecordStep1() {
     </div>
   );
 }
+
