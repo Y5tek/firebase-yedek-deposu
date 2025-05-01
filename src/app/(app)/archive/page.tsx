@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
+import { getSerializableFileInfo } from '@/lib/utils'; // Import helper
 
 // Update ArchiveEntry to include all fields from RecordData + metadata
 // Use RecordData as base and add archive-specific metadata
@@ -53,13 +54,20 @@ export default function ArchivePage() {
 
   const archive: ArchiveEntry[] = React.useMemo(() => {
     const data = recordData?.archive || [];
-    console.log('ArchivePage: Memoized archive data:', data);
+    // Sort the entire archive by archivedAt date, newest first
+    data.sort((a, b) => {
+      const timeA = a.archivedAt ? parseISO(a.archivedAt).getTime() : 0;
+      const timeB = b.archivedAt ? parseISO(b.archivedAt).getTime() : 0;
+      return timeB - timeA; // Descending order
+    });
+    console.log('ArchivePage: Memoized and sorted archive data:', data);
     return data;
   }, [recordData?.archive]);
 
 
   const filteredArchive = React.useMemo(() => {
      const lowerSearchTerm = searchTerm.toLowerCase();
+     // Filter the already sorted archive
      const filtered = archive.filter((entry: ArchiveEntry) => {
        // Ensure fields exist before calling toLowerCase()
        return (
@@ -85,11 +93,16 @@ export default function ArchivePage() {
             // Ensure archivedAt exists and is a valid string before parsing
              if (!entry.archivedAt || typeof entry.archivedAt !== 'string') {
                 console.warn("Skipping entry due to invalid or missing archivedAt date:", entry);
+                // Place items with invalid dates in a separate "Geçersiz Tarih" group
+                 const invalidDateKey = "Geçersiz Tarihli Kayıtlar";
+                 if (!acc[invalidDateKey]) {
+                     acc[invalidDateKey] = [];
+                 }
+                 acc[invalidDateKey].push(entry);
                 return acc; // Skip this entry if the date is invalid
              }
             const date = parseISO(entry.archivedAt);
             const year = getYear(date);
-            // const month = getMonth(date); // 0-indexed month (unused)
             const monthName = format(date, 'LLLL', { locale: tr }); // Full month name in Turkish
             const key = `${year}-${monthName}`;
 
@@ -97,18 +110,11 @@ export default function ArchivePage() {
             acc[key] = [];
             }
             acc[key].push(entry);
-            // Sort entries within the month by date, newest first
-            acc[key].sort((a, b) => {
-                 // Handle potentially missing archivedAt during sorting
-                 const timeA = a.archivedAt ? parseISO(a.archivedAt).getTime() : 0;
-                 const timeB = b.archivedAt ? parseISO(b.archivedAt).getTime() : 0;
-                 return timeB - timeA;
-             });
-
+            // Entries are already sorted by date due to pre-sorting `archive`
             return acc;
           } catch (error) {
              console.error("Error processing date for entry:", entry, error);
-             // Group entries with errors under "Hatalı Kayıtlar" or similar
+             // Group entries with processing errors under "Hatalı Kayıtlar"
              const errorKey = "Hatalı Kayıtlar";
              if (!acc[errorKey]) {
                  acc[errorKey] = [];
@@ -124,15 +130,27 @@ export default function ArchivePage() {
   const sortedGroupKeys = React.useMemo(() => {
       const keys = Object.keys(groupedArchive);
        keys.sort((a, b) => {
-          if (a === "Hatalı Kayıtlar") return 1; // Put errors last
+          // Handle special keys first
+          if (a === "Hatalı Kayıtlar") return 1;
           if (b === "Hatalı Kayıtlar") return -1;
+          if (a === "Geçersiz Tarihli Kayıtlar") return 1;
+          if (b === "Geçersiz Tarihli Kayıtlar") return -1;
 
-          // Assuming format YYYY-MonthName (Turkish)
+          // Assuming format YYYY-MonthName (Turkish) for regular keys
           const [yearAStr, monthNameA] = a.split('-');
           const [yearBStr, monthNameB] = b.split('-');
 
+           // Basic check if split worked, otherwise treat as invalid for sorting
+           if (!yearAStr || !monthNameA) return 1;
+           if (!yearBStr || !monthNameB) return -1;
+
+
           const yearA = parseInt(yearAStr);
           const yearB = parseInt(yearBStr);
+
+           // Handle potential NaN from parseInt
+           if (isNaN(yearA)) return 1;
+           if (isNaN(yearB)) return -1;
 
           if (yearA !== yearB) {
               return yearB - yearA; // Sort years descending
@@ -143,7 +161,7 @@ export default function ArchivePage() {
            const monthIndexA = monthOrder.indexOf(monthNameA);
            const monthIndexB = monthOrder.indexOf(monthNameB);
 
-           // Handle cases where month name might be invalid (shouldn't happen often with current logic)
+           // Handle cases where month name might be invalid
             if (monthIndexA === -1) return 1;
             if (monthIndexB === -1) return -1;
 
@@ -156,7 +174,8 @@ export default function ArchivePage() {
 
   const handleDelete = (fileNameToDelete: string) => {
      // Filter based on the ArchiveEntry type which is the type of elements in `archive`
-     const updatedArchive = archive.filter((entry: ArchiveEntry) => entry.fileName !== fileNameToDelete);
+     // Use the full recordData.archive for filtering to ensure correct state update
+     const updatedArchive = (recordData.archive || []).filter((entry: ArchiveEntry) => entry.fileName !== fileNameToDelete);
      updateRecordData({ archive: updatedArchive }); // Update the state with the filtered array
      toast({
         title: "Kayıt Silindi",
@@ -258,15 +277,16 @@ export default function ArchivePage() {
                         <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
-                            <TableRow>
-                                <TableHead>Dosya Adı (Şube/Şase)</TableHead>
-                                <TableHead>Müşteri/Firma</TableHead> {/* Combined customer/company */}
-                                <TableHead>Marka</TableHead>
-                                <TableHead>Plaka</TableHead>
-                                <TableHead>Arşivlenme Tarihi</TableHead>
-                                <TableHead>Belgeler</TableHead>
-                                <TableHead className="text-right">İşlemler</TableHead>
-                            </TableRow>
+                                {/* Remove whitespace inside this TableRow */}
+                                <TableRow>
+                                    <TableHead>Dosya Adı (Şube/Şase)</TableHead>
+                                    <TableHead>Müşteri/Firma</TableHead>
+                                    <TableHead>Marka</TableHead>
+                                    <TableHead>Plaka</TableHead>
+                                    <TableHead>Arşivlenme Tarihi</TableHead>
+                                    <TableHead>Belgeler</TableHead>
+                                    <TableHead className="text-right">İşlemler</TableHead>
+                                </TableRow>
                             </TableHeader>
                             <TableBody>
                             {groupedArchive[groupKey].map((entry) => (
