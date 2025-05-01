@@ -59,7 +59,7 @@ const extractDataPrompt = ai.definePrompt({
 *   Brand (Markası) - **CRITICAL: Locate the exact label "Markası" and extract the value immediately following it (often after a colon ':'). Be very precise. Example: If it says "Markası : FIAT", extract "FIAT". Do NOT confuse this with "Ticari Adı".**
 *   Type (Tipi)
 *   Trade Name (Ticari Adı) - This is different from "Markası".
-*   Owner (Adı Soyadı) - **Extract the full name from the "Adı Soyadı" field**. Usually only on registration documents. Example: "AHMET YILMAZ"
+*   Owner (Adı Soyadı) - **CRITICAL: Locate the exact label "Adı Soyadı" and extract the FULL name following it. Example: If it says "Adı Soyadı YILMAZ AHMET", extract "YILMAZ AHMET".** Usually only on registration documents.
 *   Type Approval Number (Tip Onay No / AT Uygunluk Belge No) - Usually on labels or newer documents
 *   Type and Variant (Tip ve Varyant) - Usually on labels or newer documents
 
@@ -120,3 +120,4 @@ const extractVehicleDataFlow = ai.defineFlow<
     };
   }
 );
+

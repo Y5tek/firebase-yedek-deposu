@@ -130,6 +130,8 @@ export default function NewRecordStep1() {
       ocrResult = await extractVehicleData({ imageBase64: base64String });
       console.log("OCR Result (Step 1):", ocrResult?.ocrData); // Use optional chaining
       console.log("OCR Extracted Brand (Step 1) - Raw:", ocrResult?.ocrData?.brand); // Log brand specifically
+      console.log("OCR Extracted Owner (Step 1) - Raw:", ocrResult?.ocrData?.owner); // Log owner specifically
+
 
       // Proceed only if OCR data is available
       if (!ocrResult || !ocrResult.ocrData) {
@@ -155,12 +157,14 @@ export default function NewRecordStep1() {
       };
       console.log("Current Data for Override Decision (Step 1):", currentDataForDecision);
       console.log("Current Brand Value for Override Decision (Step 1):", currentDataForDecision.brand);
+      console.log("Current Owner Value for Override Decision (Step 1):", currentDataForDecision.owner); // Log current owner
 
       const ocrDataForDecision = {
         ...ocrData,
       };
       console.log("OCR Data for Override Decision (Step 1):", ocrDataForDecision);
       console.log("OCR Brand for Override Decision (Step 1):", ocrDataForDecision.brand);
+      console.log("OCR Owner for Override Decision (Step 1):", ocrDataForDecision.owner); // Log OCR owner
 
       console.log("Calling decideOcrOverride flow...");
       overrideDecision = await decideOcrOverride({
@@ -733,3 +737,4 @@ export default function NewRecordStep1() {
     </div>
   );
 }
+
