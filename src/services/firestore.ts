@@ -12,6 +12,8 @@ import {
     QuerySnapshot,
     writeBatch, // Import writeBatch
     doc,        // Import doc
+    updateDoc,  // Import updateDoc
+    deleteDoc,  // Import deleteDoc
 } from 'firebase/firestore';
 import type { TypeApprovalRecord } from '@/types'; // Import the new type
 
@@ -95,6 +97,44 @@ export const addTypeApprovalRecord = async (record: Omit<TypeApprovalRecord, 'id
         throw new Error("Failed to add type approval record to Firestore.");
     }
 };
+
+/**
+ * Updates an existing type approval record in the 'tip_onay_kayitlari' collection.
+ * @param id - The ID of the document to update.
+ * @param record - An object containing the fields to update.
+ * @returns A promise that resolves when the document is updated.
+ */
+export const updateTypeApprovalRecord = async (id: string, record: Partial<Omit<TypeApprovalRecord, 'id'>>): Promise<void> => {
+    if (!db) throw new Error("Firestore is not initialized.");
+    if (!id) throw new Error("Document ID is required for update.");
+    try {
+        const docRef = doc(db, 'tip_onay_kayitlari', id);
+        await updateDoc(docRef, record);
+        console.log("Document successfully updated!");
+    } catch (error) {
+        console.error("Error updating document: ", error);
+        throw new Error("Failed to update type approval record in Firestore.");
+    }
+};
+
+/**
+ * Deletes a type approval record from the 'tip_onay_kayitlari' collection.
+ * @param id - The ID of the document to delete.
+ * @returns A promise that resolves when the document is deleted.
+ */
+export const deleteTypeApprovalRecord = async (id: string): Promise<void> => {
+    if (!db) throw new Error("Firestore is not initialized.");
+    if (!id) throw new Error("Document ID is required for deletion.");
+    try {
+        const docRef = doc(db, 'tip_onay_kayitlari', id);
+        await deleteDoc(docRef);
+        console.log("Document successfully deleted!");
+    } catch (error) {
+        console.error("Error deleting document: ", error);
+        throw new Error("Failed to delete type approval record from Firestore.");
+    }
+};
+
 
 /**
  * Adds multiple type approval records to the 'tip_onay_kayitlari' collection using a batch write.

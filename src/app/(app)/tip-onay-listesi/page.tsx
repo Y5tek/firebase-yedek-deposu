@@ -11,13 +11,14 @@ import {
     useReactTable,
     SortingState,
     getSortedRowModel,
+    Row, // Import Row type
 } from '@tanstack/react-table';
 import * as XLSX from 'xlsx'; // Import xlsx library
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { getTypeApprovalRecords, addMultipleTypeApprovalRecords, addTypeApprovalRecord } from '@/services/firestore';
+import { getTypeApprovalRecords, addMultipleTypeApprovalRecords, addTypeApprovalRecord, updateTypeApprovalRecord, deleteTypeApprovalRecord } from '@/services/firestore'; // Import update/delete
 import type { TypeApprovalRecord } from '@/types'; // Import the type
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,13 +41,24 @@ import {
     DialogTrigger,
     DialogClose,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { ListChecks, Upload, Loader2, ArrowUpDown, Download, PlusCircle } from 'lucide-react'; // Added PlusCircle
+import { ListChecks, Upload, Loader2, ArrowUpDown, Download, PlusCircle, Pencil, Trash2 } from 'lucide-react'; // Added icons
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-// Schema for the manual entry form
-const ManualEntrySchema = z.object({
+// Schema for the manual entry/edit form (same schema)
+const RecordSchema = z.object({
   sube_adi: z.string().optional(),
   proje_adi: z.string().optional(),
   tip_onay: z.string().optional(),
@@ -56,57 +68,8 @@ const ManualEntrySchema = z.object({
   tip_onay_no: z.string().min(1, "Tip Onay No zorunludur."), // Required
 });
 
-type ManualEntryFormData = z.infer<typeof ManualEntrySchema>;
+type RecordFormData = z.infer<typeof RecordSchema>;
 
-
-// Define columns for the React Table
-const columns: ColumnDef<TypeApprovalRecord>[] = [
-    {
-        accessorKey: 'sube_adi',
-        header: ({ column }) => (
-            <Button
-                variant="ghost"
-                onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            >
-                Şube Adı
-                <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-        ),
-    },
-    {
-        accessorKey: 'proje_adi',
-        header: 'Proje Adı',
-    },
-    {
-        accessorKey: 'tip_onay',
-        header: 'Tip Onay',
-    },
-    {
-        accessorKey: 'tip_onay_seviye',
-        header: 'Onay Seviye',
-    },
-    {
-        accessorKey: 'varyant',
-        header: 'Varyant',
-    },
-    {
-        accessorKey: 'versiyon',
-        header: 'Versiyon',
-    },
-    {
-        accessorKey: 'tip_onay_no',
-        header: ({ column }) => (
-             <Button
-                 variant="ghost"
-                 onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-             >
-                 Tip Onay No
-                 <ArrowUpDown className="ml-2 h-4 w-4" />
-             </Button>
-         ),
-    },
-    // Removed belge_url column based on request
-];
 
 // Define the required headers for the template and mapping
 const templateHeaders = ['ŞUBE ADI', 'PROJE ADI', 'TİP ONAY', 'tip onay seviye', 'VARYANT', 'VERSİYON', 'TİP ONAY NO'];
@@ -120,6 +83,104 @@ const excelHeaderMapping: { [key: string]: keyof Omit<TypeApprovalRecord, 'id'> 
     'tip onay no': 'tip_onay_no',
 };
 
+
+// --- Edit Dialog Component ---
+interface EditRecordDialogProps {
+    record: TypeApprovalRecord;
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+}
+
+function EditRecordDialog({ record, isOpen, onOpenChange }: EditRecordDialogProps) {
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+
+    const form = useForm<RecordFormData>({
+        resolver: zodResolver(RecordSchema),
+        defaultValues: {
+            sube_adi: record.sube_adi || '',
+            proje_adi: record.proje_adi || '',
+            tip_onay: record.tip_onay || '',
+            tip_onay_seviye: record.tip_onay_seviye || '',
+            varyant: record.varyant || '',
+            versiyon: record.versiyon || '',
+            tip_onay_no: record.tip_onay_no || '',
+        },
+    });
+
+    const updateMutation = useMutation<void, Error, { id: string; data: RecordFormData }>({
+        mutationFn: ({ id, data }) => updateTypeApprovalRecord(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['typeApprovalRecords'] });
+            toast({
+                title: 'Başarılı!',
+                description: 'Kayıt başarıyla güncellendi.',
+            });
+            onOpenChange(false); // Close dialog on success
+        },
+        onError: (error) => {
+            console.error("Error updating record:", error);
+            toast({
+                title: 'Güncelleme Hatası!',
+                description: `Kayıt güncellenirken bir hata oluştu: ${error.message}`,
+                variant: 'destructive',
+            });
+        },
+    });
+
+    const onSubmit = (data: RecordFormData) => {
+        console.log("Updating record:", record.id, data);
+        updateMutation.mutate({ id: record.id, data });
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Kaydı Düzenle</DialogTitle>
+                    <DialogDescription>
+                        Tip onay kaydı bilgilerini düzenleyin. Tip Onay No alanı zorunludur.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form id="editRecordForm" onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                        {(Object.keys(RecordSchema.shape) as Array<keyof RecordFormData>).map((fieldName) => (
+                            <FormField
+                                key={fieldName}
+                                control={form.control}
+                                name={fieldName}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>
+                                            {templateHeaders.find(h => excelHeaderMapping[h.toLowerCase()] === fieldName) || fieldName}
+                                            {fieldName === 'tip_onay_no' && <span className="text-destructive">*</span>}
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input placeholder={`${templateHeaders.find(h => excelHeaderMapping[h.toLowerCase()] === fieldName) || fieldName}...`} {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        ))}
+                    </form>
+                </Form>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="outline">İptal</Button>
+                    </DialogClose>
+                    <Button type="submit" form="editRecordForm" disabled={updateMutation.isPending}>
+                        {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Kaydet
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
+// --- Main Page Component ---
 export default function TypeApprovalListPage() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -127,6 +188,7 @@ export default function TypeApprovalListPage() {
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [isManualEntryDialogOpen, setIsManualEntryDialogOpen] = useState(false);
+    const [editingRecord, setEditingRecord] = useState<TypeApprovalRecord | null>(null); // State for editing
 
     // Fetch data using React Query
     const { data: records = [], isLoading: isLoadingRecords, error: fetchError } = useQuery<TypeApprovalRecord[], Error>({
@@ -135,8 +197,8 @@ export default function TypeApprovalListPage() {
     });
 
     // Form for manual entry
-    const manualEntryForm = useForm<ManualEntryFormData>({
-        resolver: zodResolver(ManualEntrySchema),
+    const manualEntryForm = useForm<RecordFormData>({
+        resolver: zodResolver(RecordSchema),
         defaultValues: {
           sube_adi: '',
           proje_adi: '',
@@ -196,6 +258,122 @@ export default function TypeApprovalListPage() {
         },
     });
 
+     // Mutation for deleting a record
+     const deleteMutation = useMutation<void, Error, string>({
+        mutationFn: deleteTypeApprovalRecord,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['typeApprovalRecords'] });
+            toast({
+                title: "Kayıt Silindi",
+                description: "Kayıt başarıyla silindi.",
+                variant: "destructive"
+            });
+        },
+        onError: (error) => {
+            console.error("Error deleting record:", error);
+            toast({
+                title: 'Silme Hatası!',
+                description: `Kayıt silinirken bir hata oluştu: ${error.message}`,
+                variant: 'destructive',
+            });
+        },
+    });
+
+
+     // Define columns for the React Table, adding the Actions column
+    const columns: ColumnDef<TypeApprovalRecord>[] = [
+        {
+            accessorKey: 'sube_adi',
+            header: ({ column }) => (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                >
+                    Şube Adı
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            ),
+        },
+        {
+            accessorKey: 'proje_adi',
+            header: 'Proje Adı',
+        },
+        {
+            accessorKey: 'tip_onay',
+            header: 'Tip Onay',
+        },
+        {
+            accessorKey: 'tip_onay_seviye',
+            header: 'Onay Seviye',
+        },
+        {
+            accessorKey: 'varyant',
+            header: 'Varyant',
+        },
+        {
+            accessorKey: 'versiyon',
+            header: 'Versiyon',
+        },
+        {
+            accessorKey: 'tip_onay_no',
+            header: ({ column }) => (
+                 <Button
+                     variant="ghost"
+                     onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                 >
+                     Tip Onay No
+                     <ArrowUpDown className="ml-2 h-4 w-4" />
+                 </Button>
+             ),
+        },
+        // Removed belge_url column based on request
+         // Add Actions column
+        {
+            id: 'actions',
+            header: 'İşlemler',
+            cell: ({ row }) => (
+                <div className="flex space-x-1">
+                    {/* Edit Button */}
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingRecord(row.original)} // Set the record to edit
+                        title="Düzenle"
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                    {/* Delete Button */}
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" title="Sil">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Bu işlem geri alınamaz. '{row.original.tip_onay_no}' numaralı kaydı kalıcı olarak silmek istediğinizden emin misiniz?
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>İptal</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={() => handleDelete(row.original.id)}
+                                    className="bg-destructive hover:bg-destructive/90"
+                                    disabled={deleteMutation.isPending}
+                                >
+                                    {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Sil
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+            ),
+        },
+    ];
+
     // Configure React Table
     const table = useReactTable({
         data: records,
@@ -231,9 +409,10 @@ export default function TypeApprovalListPage() {
                 console.log("Parsed Excel data (raw):", json);
                 console.log("Number of rows found (including header):", json?.length);
 
-                if (!json || json.length < 1) { // Allow files with only headers for validation
-                    console.error("Validation failed: json array is null or empty.", json);
-                    throw new Error("Excel dosyası boş veya okunamadı.");
+                 // Check if the file is empty or just headers
+                if (!json || json.length <= 1) {
+                    console.error("Validation failed: Excel file is empty or only contains a header row.");
+                    throw new Error("Excel dosyası boş veya sadece başlık satırı içeriyor.");
                 }
 
                 const headers = json[0]?.map(header => String(header).trim().toLowerCase());
@@ -298,17 +477,24 @@ export default function TypeApprovalListPage() {
                 console.log(`Total valid records found: ${recordsToUpload.length}`);
                 if (recordsToUpload.length === 0 && json.length > 1) { // Error only if rows existed but were invalid
                      throw new Error("Excel dosyasında geçerli kayıt bulunamadı (Her satırda 'TİP ONAY NO' olduğundan emin olun ve boş satırları kontrol edin).");
-                 } else if (recordsToUpload.length === 0 && json.length <= 1) {
-                      throw new Error("Excel dosyasında yüklenecek veri bulunamadı (sadece başlık satırı var veya dosya boş).");
+                 } else if (recordsToUpload.length === 0 && json.length <= 1) { // This check is now redundant due to the check at the beginning
+                      // throw new Error("Excel dosyasında yüklenecek veri bulunamadı (sadece başlık satırı var veya dosya boş)."); // Removed redundant check
+                      console.warn("No valid data rows found to upload after processing.");
                  }
 
                 console.log("Records to upload to Firestore:", recordsToUpload);
-                excelUploadMutation.mutate(recordsToUpload);
+                if(recordsToUpload.length > 0) {
+                    excelUploadMutation.mutate(recordsToUpload);
+                } else {
+                     // If no valid records found after processing, inform the user
+                     throw new Error("Excel dosyasında yüklenecek geçerli veri bulunamadı.");
+                }
+
 
             } catch (error: any) {
                 console.error("Error processing Excel file:", error);
-                const userFriendlyMessage = error.message.includes("Excel dosyası boş") || error.message.includes("geçerli kayıt bulunamadı") || error.message.includes("Eksik Excel sütun başlıkları") || error.message.includes("başlık satırı bulunamadı") || error.message.includes("yüklenecek veri bulunamadı")
-                    ? error.message // Use specific error message if it's about content/headers
+                const userFriendlyMessage = error.message.includes("Excel dosyası boş") || error.message.includes("geçerli kayıt bulunamadı") || error.message.includes("Eksik Excel sütun başlıkları") || error.message.includes("başlık satırı bulunamadı") || error.message.includes("yüklenecek veri bulunamadı") || error.message.includes("yüklenecek geçerli veri bulunamadı")
+                    ? error.message // Use specific error message if it's about content/headers/validity
                     : `Dosya okunamadı veya formatı hatalı: ${error.message}`; // Generic message otherwise
 
                 setUploadError(`Excel dosyası işlenirken hata: ${userFriendlyMessage}`);
@@ -360,10 +546,17 @@ export default function TypeApprovalListPage() {
      };
 
      // Handle manual entry form submission
-     const onManualSubmit = (data: ManualEntryFormData) => {
+     const onManualSubmit = (data: RecordFormData) => {
          console.log("Submitting manual entry:", data);
          manualEntryMutation.mutate(data); // Pass data to the mutation
      };
+
+     // Handle delete action
+     const handleDelete = (id: string) => {
+         console.log("Deleting record with ID:", id);
+         deleteMutation.mutate(id);
+     };
+
 
     return (
         <div className="p-4 md:p-6 lg:p-8">
@@ -382,7 +575,7 @@ export default function TypeApprovalListPage() {
                     <div className="flex flex-col sm:flex-row items-center flex-wrap gap-4 p-4 border rounded-md bg-secondary/30">
                          {/* Upload Button */}
                          <label htmlFor="excel-upload" className="w-full sm:w-auto">
-                             <Button asChild variant="outline" disabled={uploading || manualEntryMutation.isPending} className="w-full sm:w-auto cursor-pointer">
+                             <Button asChild variant="outline" disabled={uploading || manualEntryMutation.isPending || updateMutation.isPending || deleteMutation.isPending} className="w-full sm:w-auto cursor-pointer">
                                  <div>
                                      {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
                                      Excel Yükle
@@ -395,13 +588,13 @@ export default function TypeApprovalListPage() {
                              accept=".xlsx, .csv"
                              onChange={handleFileUpload}
                              className="hidden"
-                             disabled={uploading || manualEntryMutation.isPending}
+                             disabled={uploading || manualEntryMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
                          />
                          {/* Download Template Button */}
                          <Button
                              variant="secondary"
                              onClick={handleDownloadTemplate}
-                             disabled={uploading || manualEntryMutation.isPending}
+                             disabled={uploading || manualEntryMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
                              className="w-full sm:w-auto"
                          >
                              <Download className="mr-2 h-4 w-4" />
@@ -410,7 +603,7 @@ export default function TypeApprovalListPage() {
                          {/* Manual Entry Button */}
                           <Dialog open={isManualEntryDialogOpen} onOpenChange={setIsManualEntryDialogOpen}>
                              <DialogTrigger asChild>
-                                 <Button variant="default" className="w-full sm:w-auto" disabled={uploading || manualEntryMutation.isPending}>
+                                 <Button variant="default" className="w-full sm:w-auto" disabled={uploading || manualEntryMutation.isPending || updateMutation.isPending || deleteMutation.isPending}>
                                      <PlusCircle className="mr-2 h-4 w-4" />
                                      Manuel Kayıt Ekle
                                  </Button>
@@ -423,9 +616,9 @@ export default function TypeApprovalListPage() {
                                      </DialogDescription>
                                  </DialogHeader>
                                   <Form {...manualEntryForm}>
-                                     <form onSubmit={manualEntryForm.handleSubmit(onManualSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                                     <form id="manualEntryForm" onSubmit={manualEntryForm.handleSubmit(onManualSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                                          {/* Map through fields for cleaner code */}
-                                         {(Object.keys(ManualEntrySchema.shape) as Array<keyof ManualEntryFormData>).map((fieldName) => (
+                                         {(Object.keys(RecordSchema.shape) as Array<keyof RecordFormData>).map((fieldName) => (
                                             <FormField
                                                 key={fieldName}
                                                 control={manualEntryForm.control}
@@ -451,7 +644,7 @@ export default function TypeApprovalListPage() {
                                      <DialogClose asChild>
                                         <Button type="button" variant="outline">İptal</Button>
                                     </DialogClose>
-                                     <Button type="submit" form="manualEntryForm" disabled={manualEntryMutation.isPending} onClick={manualEntryForm.handleSubmit(onManualSubmit)}>
+                                     <Button type="submit" form="manualEntryForm" disabled={manualEntryMutation.isPending} >
                                          {manualEntryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                          Kaydet
                                      </Button>
@@ -461,6 +654,7 @@ export default function TypeApprovalListPage() {
 
                          {/* Loading indicator can be shared or specific */}
                           {uploading && <span className="text-sm text-muted-foreground">Yükleniyor...</span>}
+                          {(manualEntryMutation.isPending || updateMutation.isPending || deleteMutation.isPending) && <span className="text-sm text-muted-foreground">İşlem yapılıyor...</span>}
                     </div>
                     {uploadError && (
                         <Alert variant="destructive">
@@ -529,6 +723,19 @@ export default function TypeApprovalListPage() {
                     </div>
                 </CardContent>
             </Card>
+
+             {/* Edit Dialog Instance */}
+             {editingRecord && (
+                <EditRecordDialog
+                    record={editingRecord}
+                    isOpen={!!editingRecord}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setEditingRecord(null); // Clear editing state when dialog closes
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 }
