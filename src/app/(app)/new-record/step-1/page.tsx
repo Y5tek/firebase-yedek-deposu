@@ -21,6 +21,7 @@ import { decideOcrOverride } from '@/ai/flows/decide-ocr-override';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { ExtractVehicleDataOutput } from '@/ai/flows/extract-vehicle-data-from-image';
 import type { DecideOcrOverrideOutput } from '@/ai/flows/decide-ocr-override';
+import { getSerializableFileInfo } from '@/lib/utils';
 
 // Schema for the form fields including the initial OCR fields
 const FormSchema = z.object({
@@ -40,21 +41,21 @@ export default function NewRecordStep1() {
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [progress] = React.useState(16); // Step 1 of 6 (approx 16.67%)
+  const [progress] = React.useState(16); // Step 1 of 7 (approx 14%)
   const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null); // State for image preview
   const [ocrError, setOcrError] = React.useState<string | null>(null); // State for OCR errors
   const [currentFile, setCurrentFile] = React.useState<File | null>(null); // Keep track of the current File object
 
   const form = useForm<FormData>({
     resolver: zodResolver(FormSchema),
-    defaultValues: {
-      chassisNumber: recordData.chassisNumber || '',
-      brand: recordData.brand || '',
-      type: recordData.type || '',
-      tradeName: recordData.tradeName || '',
-      owner: recordData.owner || '',
-      plateNumber: recordData.plateNumber || '', // Default plateNumber
-      document: recordData.registrationDocument || null,
+    defaultValues: { // Initialize fields as empty
+      chassisNumber: '',
+      brand: '',
+      type: '',
+      tradeName: '',
+      owner: '',
+      plateNumber: '',
+      document: null, // Document will be loaded from state in useEffect
     },
   });
 
@@ -134,21 +135,22 @@ export default function NewRecordStep1() {
       const ocrData = ocrResult.ocrData;
 
       // --- START: Handle Override Decision ---
+      // Get current form values *at the time of scanning* for the decision
       const currentDataForDecision = {
-        chassisNumber: form.getValues('chassisNumber') || recordData.chassisNumber,
-        brand: form.getValues('brand') || recordData.brand,
-        type: form.getValues('type') || recordData.type,
-        tradeName: form.getValues('tradeName') || recordData.tradeName,
-        owner: form.getValues('owner') || recordData.owner,
-        plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Include plateNumber
-        typeApprovalNumber: recordData.typeApprovalNumber, // From global state (step 2)
-        typeAndVariant: recordData.typeAndVariant,     // From global state (step 2)
+        chassisNumber: form.getValues('chassisNumber'),
+        brand: form.getValues('brand'),
+        type: form.getValues('type'),
+        tradeName: form.getValues('tradeName'),
+        owner: form.getValues('owner'),
+        plateNumber: form.getValues('plateNumber'),
+        // Also include potentially existing data from global state for fields not directly on this form
+        typeApprovalNumber: recordData.typeApprovalNumber,
+        typeAndVariant: recordData.typeAndVariant,
       };
       console.log("Current Data for Override Decision (Step 1):", currentDataForDecision);
 
       const ocrDataForDecision = {
         ...ocrData,
-        plateNumber: ocrData.plateNumber, // Include plateNumber from OCR result
       };
       console.log("OCR Data for Override Decision (Step 1):", ocrDataForDecision);
 
@@ -164,7 +166,7 @@ export default function NewRecordStep1() {
       }
       // --- END: Handle Override Decision ---
 
-      // --- Update form fields and state based on the OCR data and override decision ---
+      // --- Update form fields and prepare global state updates based on the OCR data and override decision ---
       const override = overrideDecision.override;
 
       // Function to decide if a field should be updated
@@ -181,6 +183,8 @@ export default function NewRecordStep1() {
         updates.chassisNumber = ocrData.chassisNumber;
       } else {
           console.log("Not overriding chassisNumber. Override:", override.chassisNumber, "OCR Data:", ocrData.chassisNumber);
+          // If not overriding, ensure global state update uses current form value
+           updates.chassisNumber = form.getValues('chassisNumber');
       }
 
       // Update brand field
@@ -190,6 +194,7 @@ export default function NewRecordStep1() {
           updates.brand = ocrData.brand;
       } else {
           console.log("Not overriding brand. Override:", override.brand, "OCR Data:", ocrData.brand);
+           updates.brand = form.getValues('brand');
       }
 
       // Update type field
@@ -199,6 +204,7 @@ export default function NewRecordStep1() {
           updates.type = ocrData.type;
       } else {
           console.log("Not overriding type. Override:", override.type, "OCR Data:", ocrData.type);
+           updates.type = form.getValues('type');
       }
 
       // Update tradeName field
@@ -208,6 +214,7 @@ export default function NewRecordStep1() {
           updates.tradeName = ocrData.tradeName;
       } else {
            console.log("Not overriding tradeName. Override:", override.tradeName, "OCR Data:", ocrData.tradeName);
+            updates.tradeName = form.getValues('tradeName');
       }
 
       // Update owner field
@@ -217,6 +224,7 @@ export default function NewRecordStep1() {
           updates.owner = ocrData.owner;
       } else {
           console.log("Not overriding owner. Override:", override.owner, "OCR Data:", ocrData.owner);
+           updates.owner = form.getValues('owner');
       }
 
       // Update plateNumber field
@@ -226,21 +234,26 @@ export default function NewRecordStep1() {
            updates.plateNumber = ocrData.plateNumber;
        } else {
             console.log("Not overriding plateNumber. Override:", override.plateNumber, "OCR Data:", ocrData.plateNumber);
+             updates.plateNumber = form.getValues('plateNumber');
        }
 
 
-      // Update global state for step 2 fields if decision suggests it
+      // Update global state for step 2 fields if decision suggests it (these are not form fields here)
       if (shouldUpdate('typeApprovalNumber')) {
            console.log("Preparing update for typeApprovalNumber in global state:", ocrData.typeApprovalNumber);
           updates.typeApprovalNumber = ocrData.typeApprovalNumber;
       } else {
           console.log("Not overriding typeApprovalNumber. Override:", override.typeApprovalNumber, "OCR Data:", ocrData.typeApprovalNumber);
+           // Preserve existing global state value if not overriding
+           updates.typeApprovalNumber = recordData.typeApprovalNumber;
       }
       if (shouldUpdate('typeAndVariant')) {
           console.log("Preparing update for typeAndVariant in global state:", ocrData.typeAndVariant);
           updates.typeAndVariant = ocrData.typeAndVariant;
       } else {
           console.log("Not overriding typeAndVariant. Override:", override.typeAndVariant, "OCR Data:", ocrData.typeAndVariant);
+            // Preserve existing global state value if not overriding
+           updates.typeAndVariant = recordData.typeAndVariant;
       }
 
 
@@ -252,44 +265,61 @@ export default function NewRecordStep1() {
     } catch (aiError) {
       // Handle AI specific errors (including potential 503)
       handleAiError(aiError, 1);
-       // Fallback: if OCR worked but decision failed, still populate empty fields
+       // Fallback: if OCR worked but decision failed, still populate *empty* form fields
        if (ocrResult && ocrResult.ocrData && !overrideDecision) {
             console.warn("Override decision failed, populating empty fields with OCR data as fallback.");
             const ocrDataFallback = ocrResult.ocrData;
-            // Fallback logic for each field
+            // Fallback logic for each field - only populate if the form field is currently empty
             if (!form.getValues('chassisNumber') && ocrDataFallback.chassisNumber) {
                 form.setValue('chassisNumber', ocrDataFallback.chassisNumber);
                 updates.chassisNumber = ocrDataFallback.chassisNumber;
-            }
+            } else { updates.chassisNumber = form.getValues('chassisNumber'); } // Use current form value
+
             if (!form.getValues('brand') && ocrDataFallback.brand) {
                 form.setValue('brand', ocrDataFallback.brand);
                  updates.brand = ocrDataFallback.brand;
-            }
+            } else { updates.brand = form.getValues('brand'); }
+
             if (!form.getValues('type') && ocrDataFallback.type) {
                 form.setValue('type', ocrDataFallback.type);
                  updates.type = ocrDataFallback.type;
-            }
+            } else { updates.type = form.getValues('type'); }
+
             if (!form.getValues('tradeName') && ocrDataFallback.tradeName) {
                 form.setValue('tradeName', ocrDataFallback.tradeName);
                 updates.tradeName = ocrDataFallback.tradeName;
-            }
+            } else { updates.tradeName = form.getValues('tradeName'); }
+
             if (!form.getValues('owner') && ocrDataFallback.owner) {
                  form.setValue('owner', ocrDataFallback.owner);
                  updates.owner = ocrDataFallback.owner;
-            }
+            } else { updates.owner = form.getValues('owner'); }
+
              if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) {
                  form.setValue('plateNumber', ocrDataFallback.plateNumber);
                  updates.plateNumber = ocrDataFallback.plateNumber;
-             }
-             // Fallback for global state fields
+             } else { updates.plateNumber = form.getValues('plateNumber'); }
+
+             // Fallback for global state fields (take existing or OCR if existing is empty)
              updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
              updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
+       } else {
+           // If OCR itself failed or decision failed without OCR fallback,
+           // ensure updates reflect current form values for consistency
+           updates.chassisNumber = form.getValues('chassisNumber');
+           updates.brand = form.getValues('brand');
+           updates.type = form.getValues('type');
+           updates.tradeName = form.getValues('tradeName');
+           updates.owner = form.getValues('owner');
+           updates.plateNumber = form.getValues('plateNumber');
+           updates.typeApprovalNumber = recordData.typeApprovalNumber; // Keep existing global
+           updates.typeAndVariant = recordData.typeAndVariant;     // Keep existing global
        }
 
     } finally {
-       // Update app state regardless of override success, including the file itself
+       // Update app state with the collected updates and the file itself
        console.log("Updating global state with:", { ...updates, registrationDocument: file });
-       updateRecordData({ ...updates, registrationDocument: file }); // Ensure file object is in state
+       updateRecordData({ ...updates, registrationDocument: file }); // Ensure file object and field data is in state
        setIsLoading(false);
        console.log("OCR Scan finished for Step 1.");
     }
@@ -297,26 +327,30 @@ export default function NewRecordStep1() {
   }, [form, recordData, updateRecordData, toast]);
 
 
-  // Revoke object URL on unmount or change
+  // Revoke object URL on unmount or change & Setup initial preview
   React.useEffect(() => {
     let url: string | null = null;
     const setupPreview = () => {
-      if (recordData.registrationDocument instanceof File) {
-        const file = recordData.registrationDocument;
+      const currentDoc = recordData.registrationDocument;
+      if (currentDoc instanceof File) {
+        const file = currentDoc;
         setCurrentFile(file);
         url = URL.createObjectURL(file);
         setImagePreviewUrl(url);
         form.setValue('document', file);
-      } else if (typeof recordData.registrationDocument === 'object' && recordData.registrationDocument?.name) {
+        console.log("Setting up preview for File:", file.name);
+      } else if (typeof currentDoc === 'object' && currentDoc?.name) {
         // If it's serializable info (from persisted state), no preview
         setCurrentFile(null); // No actual File object here
         setImagePreviewUrl(null);
-        form.setValue('document', recordData.registrationDocument); // Keep the info for the field
+        form.setValue('document', currentDoc); // Keep the info for the field
+        console.log("Setting up preview with persisted info:", currentDoc.name);
       } else {
         // Reset if neither File nor info object exists
         setCurrentFile(null);
         setImagePreviewUrl(null);
         form.setValue('document', null);
+        console.log("Resetting document field and preview.");
       }
     };
 
@@ -324,6 +358,7 @@ export default function NewRecordStep1() {
 
     return () => {
       if (url) {
+        console.log("Revoking preview URL:", url);
         URL.revokeObjectURL(url);
         setImagePreviewUrl(null); // Also clear the state url
       }
@@ -348,6 +383,15 @@ export default function NewRecordStep1() {
       form.setValue('document', file); // Set the File object in the form state
       updateRecordData({ registrationDocument: file }); // Update global state with File object
       console.log("File selected:", file.name);
+      // Reset text fields when a new image is uploaded
+      // form.resetField('chassisNumber');
+      // form.resetField('brand');
+      // form.resetField('type');
+      // form.resetField('tradeName');
+      // form.resetField('owner');
+      // form.resetField('plateNumber');
+      // console.log("Cleared text fields after new file upload.");
+
     } else {
       // Handle case where file selection is cancelled or no file is chosen
       if (imagePreviewUrl) {
@@ -400,58 +444,47 @@ export default function NewRecordStep1() {
     console.log("Document to save (or info):", documentToSave);
 
     // Update global state, ensuring the file (or its info) is correctly passed
+    // Get values directly from the form state at submission time
     updateRecordData({
-        chassisNumber: data.chassisNumber,
-        brand: data.brand,
-        type: data.type,
-        tradeName: data.tradeName,
-        owner: data.owner,
-        plateNumber: data.plateNumber, // Save plateNumber
+        chassisNumber: form.getValues('chassisNumber'),
+        brand: form.getValues('brand'),
+        type: form.getValues('type'),
+        tradeName: form.getValues('tradeName'),
+        owner: form.getValues('owner'),
+        plateNumber: form.getValues('plateNumber'), // Save plateNumber
         registrationDocument: documentToSave // This will be the File or the info object
     });
     router.push('/new-record/step-2');
   };
 
+  // Load initial data from state (only the document preview needs this)
   React.useEffect(() => {
     if (!branch) {
       router.push('/select-branch');
     }
-     // Sync form fields with global state when the component loads or recordData changes
-     // This ensures data from OCR/override is reflected and persisted data is loaded
-     form.reset({
-        chassisNumber: recordData.chassisNumber || '',
-        brand: recordData.brand || '',
-        type: recordData.type || '',
-        tradeName: recordData.tradeName || '',
-        owner: recordData.owner || '',
-        plateNumber: recordData.plateNumber || '', // Sync plateNumber
-        document: recordData.registrationDocument || null,
-     });
-      // Setup preview again after form reset ensures correct preview state
-       const setupPreview = () => {
-         if (recordData.registrationDocument instanceof File) {
-            const file = recordData.registrationDocument;
-            setCurrentFile(file);
-             // Avoid creating new object URLs unnecessarily if preview already exists for the same file
-             if (!imagePreviewUrl || currentFile?.name !== file.name) {
-                if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-                const url = URL.createObjectURL(file);
-                setImagePreviewUrl(url);
-            }
-         } else if (typeof recordData.registrationDocument === 'object' && recordData.registrationDocument?.name) {
-             setCurrentFile(null);
-             if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl); // Clean up if switching from File to info
-             setImagePreviewUrl(null);
-         } else {
-             setCurrentFile(null);
-              if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl); // Clean up if no document
-             setImagePreviewUrl(null);
-         }
-       };
-       setupPreview();
+    // Load document from state for preview, but keep form fields empty initially
+    const docFromState = recordData.registrationDocument;
+    if (docFromState) {
+      form.setValue('document', docFromState);
+      // The preview useEffect will handle setting the imagePreviewUrl
+    } else {
+      // Ensure preview is cleared if no doc in state
+      setImagePreviewUrl(null);
+      setCurrentFile(null);
+      form.setValue('document', null);
+    }
+     // Explicitly set other fields to empty string from state if they exist
+     // This covers cases where user navigates back and forth
+     form.setValue('chassisNumber', recordData.chassisNumber || '');
+     form.setValue('brand', recordData.brand || '');
+     form.setValue('type', recordData.type || '');
+     form.setValue('tradeName', recordData.tradeName || '');
+     form.setValue('owner', recordData.owner || '');
+     form.setValue('plateNumber', recordData.plateNumber || '');
+
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branch, recordData, router]); // form is excluded as form.reset handles sync
+  }, [branch, recordData.registrationDocument, router]); // Only depend on doc changes for preview
 
 
   if (!branch) {
@@ -496,16 +529,25 @@ export default function NewRecordStep1() {
                             />
                           </div>
                         ) : (
-                          <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-                            <ImageIcon className="w-12 h-12 mb-2" />
-                            <span>Belge önizlemesi burada görünecek</span>
-                          </div>
+                           // Display placeholder if there's persisted info but no preview URL
+                           typeof field.value === 'object' && field.value?.name ? (
+                                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground p-4 text-center">
+                                    <ImageIcon className="w-12 h-12 mb-2" />
+                                    <span>Kayıtlı Belge: {field.value.name}</span>
+                                    <span className="text-xs">(Önizleme mevcut değil, yeni dosya yükleyebilir veya tarayabilirsiniz)</span>
+                                </div>
+                            ) : (
+                               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                                  <ImageIcon className="w-12 h-12 mb-2" />
+                                  <span>Belge önizlemesi burada görünecek</span>
+                               </div>
+                           )
                         )}
 
                          {currentFile?.name ? (
-                            <p className="text-sm text-muted-foreground">Yüklendi: {currentFile.name}</p>
+                            <p className="text-sm text-muted-foreground">Şu an yüklü: {currentFile.name}</p>
                          ) : typeof field.value === 'object' && field.value?.name ? (
-                             <p className="text-sm text-muted-foreground">Yüklendi: {field.value.name} (Önizleme Yok)</p>
+                             <p className="text-sm text-muted-foreground">Kayıtlı: {field.value.name}</p>
                          ) : !imagePreviewUrl && (
                            <p className="text-sm text-muted-foreground">Belge yüklemek için tıklayın veya sürükleyip bırakın.</p>
                          )}
@@ -528,7 +570,7 @@ export default function NewRecordStep1() {
                                 type="button"
                                 variant="secondary"
                                 onClick={handleManualScanClick}
-                                disabled={!currentFile || isLoading}
+                                disabled={!(currentFile || (typeof field.value === 'object' && field.value?.name)) || isLoading} // Enable if current file OR persisted info exists
                            >
                                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanSearch className="mr-2 h-4 w-4" />}
                                 Resmi Tara (OCR)
