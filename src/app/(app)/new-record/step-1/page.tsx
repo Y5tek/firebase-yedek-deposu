@@ -41,7 +41,7 @@ export default function NewRecordStep1() {
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [progress] = React.useState(16); // Step 1 of 7 (approx 14%)
+  const [progress] = React.useState(14); // Step 1 of 7 (approx 14%)
   const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null); // State for image preview
   const [ocrError, setOcrError] = React.useState<string | null>(null); // State for OCR errors
   const [currentFile, setCurrentFile] = React.useState<File | null>(null); // Keep track of the current File object
@@ -173,7 +173,9 @@ export default function NewRecordStep1() {
       const shouldUpdate = (fieldName: keyof typeof override): boolean => {
         const ocrValue = ocrData[fieldName as keyof typeof ocrData];
         // Update if override is true AND OCR found a value for the field.
-        return !!(override[fieldName] && ocrValue);
+        // Also allow update if current form field is empty, regardless of override decision (useful for initial population)
+        const currentValue = form.getValues(fieldName as keyof FormData);
+        return !!((override[fieldName] && ocrValue) || (!currentValue && ocrValue));
       };
 
       // Update chassisNumber field
@@ -383,14 +385,14 @@ export default function NewRecordStep1() {
       form.setValue('document', file); // Set the File object in the form state
       updateRecordData({ registrationDocument: file }); // Update global state with File object
       console.log("File selected:", file.name);
-      // Reset text fields when a new image is uploaded
-      // form.resetField('chassisNumber');
-      // form.resetField('brand');
-      // form.resetField('type');
-      // form.resetField('tradeName');
-      // form.resetField('owner');
-      // form.resetField('plateNumber');
-      // console.log("Cleared text fields after new file upload.");
+      // Reset text fields when a new image is uploaded - KEEP THIS BEHAVIOR
+      form.resetField('chassisNumber');
+      form.resetField('brand');
+      form.resetField('type');
+      form.resetField('tradeName');
+      form.resetField('owner');
+      form.resetField('plateNumber');
+      console.log("Cleared text fields after new file upload.");
 
     } else {
       // Handle case where file selection is cancelled or no file is chosen
@@ -473,18 +475,18 @@ export default function NewRecordStep1() {
       setCurrentFile(null);
       form.setValue('document', null);
     }
-     // Explicitly set other fields to empty string from state if they exist
-     // This covers cases where user navigates back and forth
-     form.setValue('chassisNumber', recordData.chassisNumber || '');
-     form.setValue('brand', recordData.brand || '');
-     form.setValue('type', recordData.type || '');
-     form.setValue('tradeName', recordData.tradeName || '');
-     form.setValue('owner', recordData.owner || '');
-     form.setValue('plateNumber', recordData.plateNumber || '');
+     // Explicitly set other fields to empty string initially
+     // This ensures fields start blank on first load
+     form.setValue('chassisNumber', '');
+     form.setValue('brand', '');
+     form.setValue('type', '');
+     form.setValue('tradeName', '');
+     form.setValue('owner', '');
+     form.setValue('plateNumber', '');
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branch, recordData.registrationDocument, router]); // Only depend on doc changes for preview
+  }, [branch, router]); // Remove recordData dependency to prevent resetting fields on back navigation
 
 
   if (!branch) {
@@ -502,7 +504,7 @@ export default function NewRecordStep1() {
             Yeni Kayıt - Adım 1: Araç Ruhsatı
           </CardTitle>
           <CardDescription>
-            Lütfen araç ruhsatını yükleyin ve 'Resmi Tara' butonu ile bilgileri alın.
+            Lütfen araç ruhsatını yükleyin ve 'Resmi Tara' butonu ile bilgileri alın. Alanlar yükleme sonrası boşaltılır.
             (Şube: {branch})
           </CardDescription>
         </CardHeader>
@@ -526,6 +528,7 @@ export default function NewRecordStep1() {
                               style={{ objectFit: 'contain' }}
                               className="rounded-md"
                               unoptimized // Use unoptimized for local object URLs
+                              data-ai-hint="vehicle registration document"
                             />
                           </div>
                         ) : (
