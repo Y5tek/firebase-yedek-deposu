@@ -677,7 +677,7 @@ export default function NewRecordStep2() {
                         name="typeAndVariant"
                         render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Tip ve Varyant</FormLabel>
+                            <FormLabel>Varyant</FormLabel> {/* Changed label */}
                             <FormControl>
                             <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                             </FormControl>
@@ -703,3 +703,4 @@ export default function NewRecordStep2() {
     </div>
   );
 }
+

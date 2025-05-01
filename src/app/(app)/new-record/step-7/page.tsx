@@ -431,7 +431,7 @@ export default function NewRecordStep7() {
                          )}
                       />
                       <FormItem className="grid grid-cols-[150px_1fr] items-center">
-                           <FormLabel>VARYANT</FormLabel>
+                           <FormLabel>Varyant</FormLabel> {/* Changed label */}
                            <FormControl>
                               <Input value={recordData.typeAndVariant || '-'} disabled className="bg-secondary/30"/>
                            </FormControl>
@@ -458,7 +458,7 @@ export default function NewRecordStep7() {
                          name="typeApprovalNumber"
                          render={({ field }) => (
                             <FormItem className="grid grid-cols-[150px_1fr_auto] items-start gap-x-2"> {/* Changed to items-start for multiline description */}
-                                <FormLabel className="pt-2">TİP ONAY NO</FormLabel> {/* Reverted label text back */}
+                                <FormLabel className="pt-2">TİP ONAY NO</FormLabel>
                                 <div className="flex flex-col w-full"> {/* Wrap input and message */}
                                     <FormControl>
                                          <Input
@@ -477,7 +477,7 @@ export default function NewRecordStep7() {
                                     type="button"
                                     variant="secondary"
                                     size="sm"
-                                    onClick={findAndSetTypeApprovalNumber} // Removed wrapping arrow function
+                                    onClick={findAndSetTypeApprovalNumber}
                                     disabled={isLoading || isLoadingApprovals || isFindingApprovalNo}
                                     className="whitespace-nowrap mt-[2px]" // Align button slightly better
                                 >
@@ -595,3 +595,4 @@ export default function NewRecordStep7() {
     </div>
   );
 }
+
