@@ -68,7 +68,8 @@ export default function NewRecordStep1() {
 
     // Check for specific AI Service Unavailable error
     if (errorMessage.includes('AI Service Unavailable') || errorMessage.includes('503') || errorMessage.includes('500 Internal Server Error')) {
-        const errorType = errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : 'Sunucu Hatası';
+        const errorTypeMatch = errorMessage.match(/\(([^)]+)\)/); // Extract text within parentheses if available
+        const errorType = errorTypeMatch ? errorTypeMatch[1] : (errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : 'Sunucu Hatası');
         const userMsg = `Yapay zeka servisinde geçici bir sorun (${errorType}) yaşanıyor. Lütfen birkaç dakika sonra tekrar deneyin veya bilgileri manuel girin.`;
         setOcrError(userMsg);
         toast({
@@ -127,7 +128,7 @@ export default function NewRecordStep1() {
     try {
       console.log("Calling extractVehicleData flow...");
       ocrResult = await extractVehicleData({ imageBase64: base64String });
-      console.log("OCR Result (Step 1):", ocrResult.ocrData);
+      console.log("OCR Result (Step 1):", ocrResult?.ocrData); // Use optional chaining
 
       // Proceed only if OCR data is available
       if (!ocrResult || !ocrResult.ocrData) {
@@ -136,6 +137,7 @@ export default function NewRecordStep1() {
 
       const ocrData = ocrResult.ocrData;
       console.log("OCR Data Extracted (owner):", ocrData.owner); // Log owner specifically
+      console.log("OCR Data Extracted (brand):", ocrData.brand); // Log brand specifically
 
       // --- START: Handle Override Decision ---
       // Get current form values *at the time of scanning* for the decision
@@ -162,8 +164,9 @@ export default function NewRecordStep1() {
         ocrData: ocrDataForDecision,
         currentData: currentDataForDecision
       });
-      console.log("Override Decision (Step 1):", overrideDecision.override);
-      console.log("Override Decision for owner:", overrideDecision.override.owner); // Log owner decision
+      console.log("Override Decision (Step 1):", overrideDecision?.override); // Use optional chaining
+      console.log("Override Decision for owner:", overrideDecision?.override?.owner); // Log owner decision
+      console.log("Override Decision for brand:", overrideDecision?.override?.brand); // Log brand decision
 
       if (!overrideDecision || !overrideDecision.override) {
            throw new Error("Geçersiz kılma kararı alınamadı.");
@@ -173,15 +176,16 @@ export default function NewRecordStep1() {
       // --- Update form fields and prepare global state updates based on the OCR data and override decision ---
       const override = overrideDecision.override;
 
-       // Function to decide if a field should be updated
+       // Function to decide if a field should be updated based on override OR if current is empty
        const shouldUpdate = (fieldName: keyof typeof override): boolean => {
          const ocrValue = ocrData[fieldName as keyof typeof ocrData];
          const currentValue = form.getValues(fieldName as keyof FormData);
-         // Override decision is true AND OCR has value
-         const condition1 = override[fieldName] && ocrValue;
-         // Current value is empty AND OCR has value
-         const condition2 = !currentValue && ocrValue;
-         console.log(`shouldUpdate(${fieldName})? OCR: ${ocrValue}, Current: ${currentValue}, Override: ${override[fieldName]}, Cond1: ${condition1}, Cond2: ${condition2}, Result: ${!!(condition1 || condition2)}`);
+         // Condition 1: Override decision is true AND OCR has a non-empty value
+         const condition1 = override[fieldName] && ocrValue && ocrValue.trim() !== '';
+         // Condition 2: Current value is empty AND OCR has a non-empty value
+         const condition2 = (!currentValue || currentValue.trim() === '') && ocrValue && ocrValue.trim() !== '';
+
+         console.log(`shouldUpdate(${fieldName})? OCR: '${ocrValue}', Current: '${currentValue}', Override: ${override[fieldName]}, Cond1: ${condition1}, Cond2: ${condition2}, Result: ${!!(condition1 || condition2)}`);
          return !!(condition1 || condition2);
        };
 
@@ -725,4 +729,4 @@ export default function NewRecordStep1() {
 }
 
 
-
+    
