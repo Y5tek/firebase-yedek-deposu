@@ -56,7 +56,7 @@ const extractDataPrompt = ai.definePrompt({
 
 *   Chassis Number (Şasi No / Araç Kimlik No)
 *   License Plate Number (Plaka) - Usually on registration documents
-*   Brand (Markası)
+*   Brand (Markası) - **Specifically look for the value next to the "Markası" label.**
 *   Type (Tipi)
 *   Trade Name (Ticari Adı)
 *   Owner (Adı, Soyadı) - **Extract the full name from the "Adı, Soyadı" field**. Usually only on registration documents. Example: "AHMET YILMAZ"
@@ -92,7 +92,7 @@ const extractVehicleDataFlow = ai.defineFlow<
         // Call the AI prompt with the image data URI and destructure the output
         const { output } = await extractDataPrompt(input);
         // Correctly access the structured output from the Genkit 1.x response
-        extractedData = output;
+        extractedData = output; // Directly use the output property
 
     } catch (error) {
         console.error("Error calling extractDataPrompt:", error);
@@ -111,6 +111,7 @@ const extractVehicleDataFlow = ai.defineFlow<
     }
 
     console.log("AI OCR Extraction Result:", extractedData);
+    console.log("AI OCR Extracted Brand:", extractedData.brand); // Specific log for brand
 
     // Wrap the extracted data in the expected output format
     return {
@@ -119,3 +120,4 @@ const extractVehicleDataFlow = ai.defineFlow<
   }
 );
 
+    

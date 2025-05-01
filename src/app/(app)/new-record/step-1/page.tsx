@@ -67,7 +67,7 @@ export default function NewRecordStep1() {
     const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen bir yapay zeka hatası oluştu.';
 
     // Check for specific AI Service Unavailable error
-    if (errorMessage.includes('AI Service Unavailable') || errorMessage.includes('503') || errorMessage.includes('500 Internal Server Error')) {
+     if (errorMessage.includes('AI Service Unavailable') || errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable') || errorMessage.includes('500 Internal Server Error')) {
         const errorTypeMatch = errorMessage.match(/\(([^)]+)\)/); // Extract text within parentheses if available
         const errorType = errorTypeMatch ? errorTypeMatch[1] : (errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : 'Sunucu Hatası');
         const userMsg = `Yapay zeka servisinde geçici bir sorun (${errorType}) yaşanıyor. Lütfen birkaç dakika sonra tekrar deneyin veya bilgileri manuel girin.`;
@@ -129,6 +129,7 @@ export default function NewRecordStep1() {
       console.log("Calling extractVehicleData flow...");
       ocrResult = await extractVehicleData({ imageBase64: base64String });
       console.log("OCR Result (Step 1):", ocrResult?.ocrData); // Use optional chaining
+      console.log("OCR Extracted Brand (Step 1):", ocrResult?.ocrData?.brand); // Log brand specifically
 
       // Proceed only if OCR data is available
       if (!ocrResult || !ocrResult.ocrData) {
@@ -153,11 +154,13 @@ export default function NewRecordStep1() {
         typeAndVariant: recordData.typeAndVariant,
       };
       console.log("Current Data for Override Decision (Step 1):", currentDataForDecision);
+      console.log("Current Brand Value for Override Decision (Step 1):", currentDataForDecision.brand);
 
       const ocrDataForDecision = {
         ...ocrData,
       };
       console.log("OCR Data for Override Decision (Step 1):", ocrDataForDecision);
+      console.log("OCR Brand for Override Decision (Step 1):", ocrDataForDecision.brand);
 
       console.log("Calling decideOcrOverride flow...");
       overrideDecision = await decideOcrOverride({
@@ -302,9 +305,13 @@ export default function NewRecordStep1() {
             } else { updates.chassisNumber = form.getValues('chassisNumber') || recordData.chassisNumber; } // Use current form value or existing
 
             if (!form.getValues('brand') && ocrDataFallback.brand) {
+                console.log("Fallback: Populating brand field with OCR data:", ocrDataFallback.brand);
                 form.setValue('brand', ocrDataFallback.brand);
                  updates.brand = ocrDataFallback.brand;
-            } else { updates.brand = form.getValues('brand') || recordData.brand; }
+            } else {
+                console.log("Fallback: Brand field not empty or no OCR brand data:", form.getValues('brand'), ocrDataFallback.brand);
+                updates.brand = form.getValues('brand') || recordData.brand;
+            }
 
             if (!form.getValues('type') && ocrDataFallback.type) {
                 form.setValue('type', ocrDataFallback.type);
@@ -727,6 +734,5 @@ export default function NewRecordStep1() {
     </div>
   );
 }
-
 
     
