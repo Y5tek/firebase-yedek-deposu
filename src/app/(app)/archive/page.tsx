@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -278,8 +277,8 @@ export default function ArchivePage() {
         // Placeholder - replace with actual Firebase Storage URL generation
         console.warn("Placeholder: Using placeholder URL for viewing file:", fileInfo.name);
         // Example placeholder structure (adjust to your Firebase setup)
-        return `https://firebasestorage.googleapis.com/v0/b/your-project-id.appspot.com/o/archive_files%2F${encodeURIComponent(fileInfo.name)}?alt=media`;
-        // return null; // Or return null if viewing isn't implemented yet
+        // return `https://firebasestorage.googleapis.com/v0/b/your-project-id.appspot.com/o/archive_files%2F${encodeURIComponent(fileInfo.name)}?alt=media`;
+        return null; // Return null if viewing isn't implemented yet
     };
 
     const openMediaPreview = (fileInfo: { name: string; type?: string; size?: number } | undefined) => {
@@ -291,7 +290,7 @@ export default function ArchivePage() {
              // Assume image if type is unknown but URL exists
              setPreviewMedia({ url, type: 'image', name: fileInfo.name });
         } else {
-            toast({ title: "Hata", description: "Dosya görüntüleme URL'si alınamadı.", variant: "destructive" });
+            toast({ title: "Görüntüleme Yok", description: "Bu dosya için görüntüleme URL'si bulunamadı veya ayarlanmadı.", variant: "destructive" });
         }
     };
 
@@ -692,5 +691,3 @@ export default function ArchivePage() {
     </div>
   );
 }
-
-    
