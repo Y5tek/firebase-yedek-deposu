@@ -89,14 +89,14 @@ interface EditRecordDialogProps {
     record: TypeApprovalRecord;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
+    onUpdate: (id: string, data: RecordFormData) => void; // Pass mutation function
+    isUpdating: boolean; // Pass loading state
 }
 
-function EditRecordDialog({ record, isOpen, onOpenChange }: EditRecordDialogProps) {
-    const { toast } = useToast();
-    const queryClient = useQueryClient();
-
+function EditRecordDialog({ record, isOpen, onOpenChange, onUpdate, isUpdating }: EditRecordDialogProps) {
     const form = useForm<RecordFormData>({
         resolver: zodResolver(RecordSchema),
+        // Use defaultValues prop and update it when the record prop changes
         defaultValues: {
             sube_adi: record.sube_adi || '',
             proje_adi: record.proje_adi || '',
@@ -108,29 +108,22 @@ function EditRecordDialog({ record, isOpen, onOpenChange }: EditRecordDialogProp
         },
     });
 
-    const updateMutation = useMutation<void, Error, { id: string; data: RecordFormData }>({
-        mutationFn: ({ id, data }) => updateTypeApprovalRecord(id, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['typeApprovalRecords'] });
-            toast({
-                title: 'Başarılı!',
-                description: 'Kayıt başarıyla güncellendi.',
-            });
-            onOpenChange(false); // Close dialog on success
-        },
-        onError: (error) => {
-            console.error("Error updating record:", error);
-            toast({
-                title: 'Güncelleme Hatası!',
-                description: `Kayıt güncellenirken bir hata oluştu: ${error.message}`,
-                variant: 'destructive',
-            });
-        },
-    });
+    // Sync form with record when it changes
+    React.useEffect(() => {
+         form.reset({
+            sube_adi: record.sube_adi || '',
+            proje_adi: record.proje_adi || '',
+            tip_onay: record.tip_onay || '',
+            tip_onay_seviye: record.tip_onay_seviye || '',
+            varyant: record.varyant || '',
+            versiyon: record.versiyon || '',
+            tip_onay_no: record.tip_onay_no || '',
+        });
+    }, [record, form]);
 
     const onSubmit = (data: RecordFormData) => {
         console.log("Updating record:", record.id, data);
-        updateMutation.mutate({ id: record.id, data });
+        onUpdate(record.id, data); // Call the passed mutation function
     };
 
     return (
@@ -169,8 +162,8 @@ function EditRecordDialog({ record, isOpen, onOpenChange }: EditRecordDialogProp
                     <DialogClose asChild>
                         <Button type="button" variant="outline">İptal</Button>
                     </DialogClose>
-                    <Button type="submit" form="editRecordForm" disabled={updateMutation.isPending}>
-                        {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Button type="submit" form="editRecordForm" disabled={isUpdating}>
+                        {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Kaydet
                     </Button>
                 </DialogFooter>
@@ -279,6 +272,28 @@ export default function TypeApprovalListPage() {
         },
     });
 
+    // Mutation for updating a record (defined in the parent)
+    const updateMutation = useMutation<void, Error, { id: string; data: RecordFormData }>({
+        mutationFn: ({ id, data }) => updateTypeApprovalRecord(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['typeApprovalRecords'] });
+            toast({
+                title: 'Başarılı!',
+                description: 'Kayıt başarıyla güncellendi.',
+            });
+            setEditingRecord(null); // Close dialog on success
+        },
+        onError: (error) => {
+            console.error("Error updating record:", error);
+            toast({
+                title: 'Güncelleme Hatası!',
+                description: `Kayıt güncellenirken bir hata oluştu: ${error.message}`,
+                variant: 'destructive',
+            });
+             // Optionally keep the dialog open on error by not calling setEditingRecord(null) here
+        },
+    });
+
 
      // Define columns for the React Table, adding the Actions column
     const columns: ColumnDef<TypeApprovalRecord>[] = [
@@ -339,13 +354,20 @@ export default function TypeApprovalListPage() {
                         size="icon"
                         onClick={() => setEditingRecord(row.original)} // Set the record to edit
                         title="Düzenle"
+                        disabled={updateMutation.isPending || deleteMutation.isPending} // Disable while other actions are pending
                     >
                         <Pencil className="h-4 w-4" />
                     </Button>
                     {/* Delete Button */}
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" title="Sil">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:text-destructive/90"
+                                title="Sil"
+                                disabled={updateMutation.isPending || deleteMutation.isPending} // Disable while other actions are pending
+                            >
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </AlertDialogTrigger>
@@ -557,6 +579,11 @@ export default function TypeApprovalListPage() {
          deleteMutation.mutate(id);
      };
 
+     // Handle update action (passed to the dialog)
+    const handleUpdate = (id: string, data: RecordFormData) => {
+        updateMutation.mutate({ id, data });
+    };
+
 
     return (
         <div className="p-4 md:p-6 lg:p-8">
@@ -734,6 +761,8 @@ export default function TypeApprovalListPage() {
                             setEditingRecord(null); // Clear editing state when dialog closes
                         }
                     }}
+                    onUpdate={handleUpdate} // Pass the mutation handler
+                    isUpdating={updateMutation.isPending} // Pass the loading state
                 />
             )}
         </div>
