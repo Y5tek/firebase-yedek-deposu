@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -11,14 +12,14 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Save, ArrowLeft, ExternalLink, FileText, Loader2, Search } from 'lucide-react'; // Added Search icon
+import { Save, ArrowLeft, ExternalLink, FileText, Loader2, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { getSerializableFileInfo } from '@/lib/utils';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'; // Import form components
-import { useQuery } from '@tanstack/react-query'; // Import useQuery
-import { getTypeApprovalRecords } from '@/services/firestore'; // Import function to fetch records
-import type { TypeApprovalRecord } from '@/types'; // Import type
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { useQuery } from '@tanstack/react-query';
+import { getTypeApprovalRecords } from '@/services/firestore';
+import type { TypeApprovalRecord } from '@/types';
 
 
 // Define Zod schema for editable fields on this page
@@ -50,8 +51,6 @@ export default function NewRecordStep7() {
     queryKey: ['typeApprovalRecords'], // Use the same key as the list page
     queryFn: getTypeApprovalRecords,
     staleTime: 5 * 60 * 1000, // Cache data for 5 minutes
-    // Refetch on window focus might be useful if the list updates frequently in another tab
-    // refetchOnWindowFocus: true,
   });
 
 
@@ -82,22 +81,23 @@ export default function NewRecordStep7() {
         }
         setIsFindingApprovalNo(true); // Indicate loading state for the button action
 
-        // Define matching criteria (adjust these fields as needed)
+        // --- Define matching criteria based on request ---
         // Use form values first, fallback to recordData for values not directly on this form's schema
         const criteria = {
             sube_adi: branch, // Match current branch
             proje_adi: form.getValues('projectName') || recordData.projectName,
             tip_onay: form.getValues('typeApprovalType') || recordData.typeApprovalType,
             tip_onay_seviye: form.getValues('typeApprovalLevel') || recordData.typeApprovalLevel,
-            varyant: recordData.typeAndVariant, // From previous step's recordData
+            varyant: recordData.typeAndVariant, // From global state (likely Step 2)
             versiyon: form.getValues('typeApprovalVersion') || recordData.typeApprovalVersion,
         };
 
         console.log("Attempting to find match with criteria:", criteria);
 
+        // Filter the list based on the defined criteria
         const matchedRecords = typeApprovalList.filter(record => {
             let isMatch = true;
-            // Check each criterion - only compare if the criterion value exists in criteria
+            // Compare each criterion, only if the criterion has a value
             if (criteria.sube_adi && record.sube_adi !== criteria.sube_adi) isMatch = false;
             if (criteria.proje_adi && record.proje_adi !== criteria.proje_adi) isMatch = false;
             if (criteria.tip_onay && record.tip_onay !== criteria.tip_onay) isMatch = false;
@@ -138,11 +138,11 @@ export default function NewRecordStep7() {
              }
         } else if (matchedRecords.length > 1) {
             console.warn("Multiple matching Type Approval Numbers found. Cannot auto-populate.");
-            message = "Birden fazla eşleşen Tip Onay Numarası bulundu. Otomatik doldurma yapılamadı.";
+            message = `Birden fazla (${matchedRecords.length}) eşleşen Tip Onay Numarası bulundu. Otomatik doldurma yapılamadı. Lütfen kriterleri daraltın veya manuel giriş yapın.`;
             variant = "destructive";
         } else {
-             console.log("No unique matching Type Approval Number found starting with AİTM.");
-             message = "Eşleşen Tip Onay Numarası bulunamadı (AİTM ile başlamalı).";
+             console.log("No unique matching Type Approval Number found starting with AİTM based on criteria.");
+             message = "Belirtilen kriterlere uyan ve 'AİTM' ile başlayan Tip Onay Numarası bulunamadı.";
              variant = "destructive";
         }
 
@@ -153,29 +153,25 @@ export default function NewRecordStep7() {
         });
         setIsFindingApprovalNo(false); // Reset loading state
 
-   // Dependencies: Include form.getValues for criteria
+   // Dependencies: Include all criteria fields from form/state
    }, [
        typeApprovalList,
        isLoadingApprovals,
        branch,
+       form, // Include form instance as getValues is used
        recordData.typeAndVariant, // Dependency from previous step
        updateRecordData,
-       toast,
-       form // Include form instance as getValues is used
+       toast
    ]);
 
 
    // Effect to potentially auto-populate on load (optional, can be removed if button is the only trigger)
    React.useEffect(() => {
-       // Optional: Trigger the find function on initial load or when dependencies change significantly
-       // findAndSetTypeApprovalNumber();
        // Commented out to make the button the primary trigger.
-   // eslint-disable-next-line react-hooks/exhaustive-deps
+       // findAndSetTypeApprovalNumber();
    }, [
        // Only trigger find on load if absolutely necessary based on specific deps
-       typeApprovalList, // Ensure list is loaded
-       branch,
-       // Add other critical dependencies if needed for initial auto-find
+       // typeApprovalList, branch, // etc.
    ]);
 
 
@@ -201,6 +197,10 @@ export default function NewRecordStep7() {
   // Helper to get document URL or handle missing/invalid data
   // TODO: Replace with actual Firebase URL retrieval logic
   const getTypeApprovalDocumentUrl = (): string | null => {
+      // This function currently generates a placeholder URL.
+      // In a real application, you would fetch the URL associated with the
+      // selected recordData.typeApprovalNumber from Firestore or another source.
+      // For now, it links based on the *current* document attached in state, if any.
       const docInfo = getSerializableFileInfo(recordData.typeApprovalDocument);
        if (docInfo) {
            console.warn("Placeholder URL generation for Type Approval Document.");
@@ -314,7 +314,9 @@ export default function NewRecordStep7() {
          });
     }
    // Only run when branch or chassis number changes, or on mount
-   }, [branch, recordData.chassisNumber, router, toast, form, recordData]); // Added recordData to ensure sync if other parts change
+   // Removed form and recordData from deps to prevent excessive resets, rely on state sync from updateRecordData
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [branch, recordData.chassisNumber, router, toast]);
 
 
   if (!branch || !recordData.chassisNumber) {
@@ -426,15 +428,21 @@ export default function NewRecordStep7() {
                          control={form.control}
                          name="typeApprovalNumber"
                          render={({ field }) => (
-                            <FormItem className="grid grid-cols-[150px_1fr_auto] items-center gap-x-2"> {/* Added gap */}
-                                <FormLabel>TİP ONAY NO</FormLabel>
-                                <FormControl>
-                                     <Input
-                                         placeholder={isLoadingApprovals ? "Liste yükleniyor..." : "Tip Onay No..."}
-                                         {...field}
-                                         disabled={isLoading || isLoadingApprovals || isFindingApprovalNo} // Disable during lookup too
-                                    />
-                                </FormControl>
+                            <FormItem className="grid grid-cols-[150px_1fr_auto] items-start gap-x-2"> {/* Changed to items-start for multiline description */}
+                                <FormLabel className="pt-2">TİP ONAY NO</FormLabel> {/* Adjusted padding */}
+                                <div className="flex flex-col w-full"> {/* Wrap input and message */}
+                                    <FormControl>
+                                         <Input
+                                             placeholder={isLoadingApprovals ? "Liste yükleniyor..." : "Tip Onay No..."}
+                                             {...field}
+                                             disabled={isLoading || isLoadingApprovals || isFindingApprovalNo}
+                                        />
+                                    </FormControl>
+                                    <FormMessage className="mt-1" /> {/* Add margin top */}
+                                     <FormDescription className="text-xs mt-1"> {/* Add margin top */}
+                                         Eşleşen kayıt bulunursa otomatik doldurulur (AİTM ile başlamalıdır) veya "No Bul" ile deneyin.
+                                     </FormDescription>
+                                </div>
                                 {/* Button to trigger lookup */}
                                 <Button
                                     type="button"
@@ -442,15 +450,11 @@ export default function NewRecordStep7() {
                                     size="sm"
                                     onClick={findAndSetTypeApprovalNumber}
                                     disabled={isLoading || isLoadingApprovals || isFindingApprovalNo}
-                                    className="whitespace-nowrap" // Prevent button text wrap
+                                    className="whitespace-nowrap mt-[2px]" // Align button slightly better
                                 >
                                     {isFindingApprovalNo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4"/>}
-                                    <span className="ml-1 hidden sm:inline">No Bul</span> {/* Hide text on small screens */}
+                                    <span className="ml-1 hidden sm:inline">No Bul</span>
                                 </Button>
-                                <FormDescription className="col-start-2 col-span-2 text-xs"> {/* Span description across input and button */}
-                                    Eşleşen kayıt bulunursa otomatik doldurulur (AİTM ile başlamalıdır) veya "No Bul" ile deneyin.
-                                </FormDescription>
-                                <FormMessage className="col-start-2 col-span-2"/> {/* Span message */}
                             </FormItem>
                          )}
                      />
@@ -562,3 +566,4 @@ export default function NewRecordStep7() {
     </div>
   );
 }
+
