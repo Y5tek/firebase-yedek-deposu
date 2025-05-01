@@ -484,43 +484,36 @@ export default function NewRecordStep1() {
            return; // Early return if no branch
        }
 
+       // Clear form fields on initial load or when branch changes
+       form.reset({
+            chassisNumber: '',
+            brand: '',
+            type: '',
+            tradeName: '',
+            owner: '',
+            plateNumber: '',
+            document: recordData.registrationDocument || null, // Keep doc if exists
+        });
+
        // Load document from state for preview
        const docFromState = recordData.registrationDocument;
        if (docFromState instanceof File) {
            // The preview useEffect will handle this case
        } else if (typeof docFromState === 'object' && docFromState?.name) {
-           form.setValue('document', docFromState);
+           // form.setValue('document', docFromState); // Already set in reset
            setImagePreviewUrl(null); // Ensure no old preview shows
            setCurrentFile(null);
        } else {
            // Ensure preview is cleared if no doc in state
            setImagePreviewUrl(null);
            setCurrentFile(null);
-           form.setValue('document', null);
+           // form.setValue('document', null); // Already set in reset
        }
 
-       // Set initial form field values from recordData (if available), otherwise empty string
-       form.setValue('chassisNumber', recordData.chassisNumber || '');
-       form.setValue('brand', recordData.brand || '');
-       form.setValue('type', recordData.type || '');
-       form.setValue('tradeName', recordData.tradeName || '');
-       form.setValue('owner', recordData.owner || '');
-       form.setValue('plateNumber', recordData.plateNumber || '');
-
-       console.log("Step 1 Initialized with recordData:", {
-           chassisNumber: recordData.chassisNumber,
-           brand: recordData.brand,
-           type: recordData.type,
-           tradeName: recordData.tradeName,
-           owner: recordData.owner,
-           plateNumber: recordData.plateNumber
-       });
-
+       console.log("Step 1 Initialized for branch:", branch);
 
        // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [branch, router, recordData.chassisNumber, recordData.brand, recordData.type, recordData.tradeName, recordData.owner, recordData.plateNumber]); // Depend on individual fields to re-sync if they change in state
-  // Note: We deliberately exclude the full `recordData` to avoid resetting fields unnecessarily on every minor change.
-  // We also exclude `form` to avoid loops. `form.setValue` does not need `form` as a dependency.
+   }, [branch, router]); // Depend only on branch to trigger the reset
 
 
   if (!branch) {
@@ -607,7 +600,7 @@ export default function NewRecordStep1() {
                                 type="button"
                                 variant="secondary"
                                 onClick={handleManualScanClick}
-                                disabled={!(currentFile || (typeof field.value === 'object' && field.value?.name)) || isLoading} // Enable if current file OR persisted info exists
+                                disabled={!currentFile || isLoading} // Only enable if a new file is actively selected
                            >
                                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanSearch className="mr-2 h-4 w-4" />}
                                 Resmi Tara (OCR)
@@ -653,7 +646,7 @@ export default function NewRecordStep1() {
                       <FormItem>
                         <FormLabel>Plaka</FormLabel>
                         <FormControl>
-                          <Input placeholder="Plaka girin veya Resmi Tara..." {...field} disabled={isLoading} />
+                          <Input placeholder="Resmi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -725,4 +718,4 @@ export default function NewRecordStep1() {
   );
 }
 
-    
+
