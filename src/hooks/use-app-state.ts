@@ -95,6 +95,9 @@ export interface RecordData {
   additionalNotes?: string; // Might be replaced by 'notes' field
   inspectionDate?: string; // Might be replaced by 'formDate' or 'workOrderDate'
   inspectorName?: string; // Might be replaced by 'controllerName' or 'authorityName' or 'finalControllerName'
+
+  // Branch information associated with the record
+  branch?: string | null;
 }
 
 // Define the state structure
@@ -115,7 +118,7 @@ const defaultOfferItem: OfferItem = {
   totalPrice: undefined, // Should likely be calculated
 };
 
-const initialRecordData: RecordData = {
+const initialRecordData: Omit<RecordData, 'branch' | 'archive'> = { // Exclude archive and branch from initial data defaults
     // Step 4 Defaults
     sequenceNo: '3', // Default SIRA to 3 based on image
     q1_suitable: 'olumlu', // Default checklist items to 'olumlu'
@@ -141,7 +144,7 @@ const initialRecordData: RecordData = {
     check4_windowApprovals_ara: true,
     check4_windowApprovals_son: true,
     // General Defaults
-    archive: [], // Initialize archive array
+    // archive: [], // Initialize archive array - This is handled separately
     additionalPhotos: [], // Initialize photos array
     additionalVideos: [], // Initialize videos array
     engineNumber: '', // Initialize engineNumber
@@ -157,38 +160,55 @@ export const useAppState = create<AppState>()(
   persist(
     (set, get) => ({
       branch: null,
-      recordData: initialRecordData,
+      recordData: {
+         archive: [], // Initialize archive here
+         ...initialRecordData // Spread the rest of the initial defaults
+      },
 
-      setBranch: (branch) => set({ branch }),
+      setBranch: (branch) => {
+         console.log('useAppState: Setting branch to:', branch);
+         set({ branch });
+      },
 
       updateRecordData: (newData, reset = false) => {
+        console.log('useAppState: updateRecordData called. Reset:', reset, 'New data:', newData);
         if (reset) {
            // Keep archive, reset the rest to initial defaults
+           const currentArchive = get().recordData.archive || [];
+           console.log('useAppState: Resetting record data, preserving archive:', currentArchive);
            set({ recordData: {
-                archive: get().recordData.archive,
-                ...initialRecordData,
-                 // Explicitly reset non-default fields to undefined
+                 ...initialRecordData, // Start with initial defaults
+                 archive: currentArchive, // Preserve the existing archive
+                 branch: get().branch, // Preserve the current branch
+                 // Explicitly reset non-default fields to undefined/initial state
                  chassisNumber: undefined,
                  brand: undefined,
                  type: undefined,
                  tradeName: undefined,
                  owner: undefined,
-                 plateNumber: undefined, // Reset plateNumber (Ruhsat)
+                 plateNumber: '',
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                 versiyon: undefined, // Reset versiyon
-                 engineNumber: undefined,
+                 versiyon: '',
+                 engineNumber: '',
                  registrationDocument: undefined,
                  labelDocument: undefined,
                  typeApprovalDocument: undefined,
+                 additionalPhotos: [], // Reset arrays
+                 additionalVideos: [], // Reset arrays
                  customerName: undefined,
                  formDate: undefined,
+                 sequenceNo: '3',
+                 q1_suitable: 'olumlu',
+                 q2_typeApprovalMatch: 'olumlu',
+                 q3_scopeExpansion: 'olumlu',
+                 q4_unaffectedPartsDefect: 'olumlu',
                  notes: undefined,
                  controllerName: undefined,
                  authorityName: undefined,
                  projectName: undefined,
-                 plate: undefined, // Reset plate (İş Emri)
-                 workOrderNumber: undefined, // Reset İş Emri No
+                 plate: '',
+                 workOrderNumber: '3',
                  workOrderDate: undefined,
                  completionDate: undefined,
                  detailsOfWork: undefined,
@@ -198,115 +218,105 @@ export const useAppState = create<AppState>()(
                  customerSignature: undefined,
                  projectNo: undefined,
                  offerAuthorizedName: undefined,
+                 offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK',
                  offerCompanyAddress: undefined,
+                 offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97',
                  offerPhoneNumber: undefined,
                  offerEmailAddress: undefined,
                  offerDate: undefined,
-                 offerAcceptance: undefined, // Will be reset by initialRecordData spread
-                 offerItems: [ // Reset offer items
+                 offerItems: [
                       {...defaultOfferItem, id: Math.random().toString(36).substring(2, 15)}
-                  ],
+                  ], // Reset offer items
+                 offerAcceptance: 'accepted',
                  finalCheckDate: undefined,
+                 check1_exposedParts_ara: true,
+                 check1_exposedParts_son: true,
+                 check2_isofixSeat_ara: true,
+                 check2_isofixSeat_son: true,
+                 check3_seatBelts_ara: true,
+                 check3_seatBelts_son: true,
+                 check4_windowApprovals_ara: true,
+                 check4_windowApprovals_son: true,
                  finalControllerName: undefined,
                  typeApprovalType: undefined,
                  typeApprovalLevel: undefined,
                  typeApprovalVersion: undefined,
-
-                 // Reset old fields
+                 archivedAt: undefined,
+                 fileName: undefined,
                  additionalNotes: undefined,
                  inspectionDate: undefined,
                  inspectorName: undefined,
              } });
         } else {
            set((state) => {
+             console.log('useAppState: Merging new data into state:', newData);
              // Merge new data, prioritizing File objects if newData provides them
-             const mergedData = { ...state.recordData, ...newData };
+             const currentRecordData = state.recordData || { archive: [] }; // Ensure state.recordData exists
+             const currentArchive = currentRecordData.archive || []; // Ensure archive is always an array
+
+              // Create the merged data object, explicitly handling the archive
+              const mergedData: RecordData = {
+                 ...(currentRecordData), // Start with current state
+                 ...(newData), // Apply new data
+                 archive: newData.archive || currentArchive, // Prioritize new archive array, fallback to current
+                 branch: state.branch, // Ensure branch is carried over
+             };
+             console.log('useAppState: State before file handling:', mergedData);
 
               // Ensure individual files are handled correctly (clearing or preserving File objects)
-              if (newData.registrationDocument === undefined && 'registrationDocument' in newData) {
-                   delete mergedData.registrationDocument;
-              } else if (newData.registrationDocument && !(newData.registrationDocument instanceof File) && state.recordData.registrationDocument instanceof File) {
-                   mergedData.registrationDocument = state.recordData.registrationDocument;
-              } else if (newData.registrationDocument instanceof File) {
-                   mergedData.registrationDocument = newData.registrationDocument;
-              }
-
-
-              if (newData.labelDocument === undefined && 'labelDocument' in newData) {
-                  delete mergedData.labelDocument;
-              } else if (newData.labelDocument && !(newData.labelDocument instanceof File) && state.recordData.labelDocument instanceof File) {
-                   mergedData.labelDocument = state.recordData.labelDocument;
-              } else if (newData.labelDocument instanceof File) {
-                    mergedData.labelDocument = newData.labelDocument;
-              }
-
-               if (newData.typeApprovalDocument === undefined && 'typeApprovalDocument' in newData) {
-                   delete mergedData.typeApprovalDocument;
-              } else if (newData.typeApprovalDocument && !(newData.typeApprovalDocument instanceof File) && state.recordData.typeApprovalDocument instanceof File) {
-                   mergedData.typeApprovalDocument = state.recordData.typeApprovalDocument;
-              } else if (newData.typeApprovalDocument instanceof File) {
-                    mergedData.typeApprovalDocument = newData.typeApprovalDocument;
-              }
-
+              mergedData.registrationDocument = handleFileMerge(currentRecordData.registrationDocument, newData.registrationDocument);
+              mergedData.labelDocument = handleFileMerge(currentRecordData.labelDocument, newData.labelDocument);
+              mergedData.typeApprovalDocument = handleFileMerge(currentRecordData.typeApprovalDocument, newData.typeApprovalDocument);
 
               // Handle file arrays: merge File objects correctly
-                if (newData.additionalPhotos) {
-                    mergedData.additionalPhotos = mergeFileArrays(state.recordData.additionalPhotos, newData.additionalPhotos);
-                } else if (state.recordData.additionalPhotos && !('additionalPhotos' in newData)) {
-                    mergedData.additionalPhotos = state.recordData.additionalPhotos;
-                } else if ('additionalPhotos' in newData && !newData.additionalPhotos) {
-                    mergedData.additionalPhotos = [];
-                }
+              mergedData.additionalPhotos = mergeFileArrays(currentRecordData.additionalPhotos, newData.additionalPhotos);
+              mergedData.additionalVideos = mergeFileArrays(currentRecordData.additionalVideos, newData.additionalVideos);
 
+              // Ensure offerItems is always an array
+              mergedData.offerItems = newData.offerItems ?? currentRecordData.offerItems ?? [];
 
-                if (newData.additionalVideos) {
-                     mergedData.additionalVideos = mergeFileArrays(state.recordData.additionalVideos, newData.additionalVideos);
-                } else if (state.recordData.additionalVideos && !('additionalVideos' in newData)) {
-                     mergedData.additionalVideos = state.recordData.additionalVideos;
-                } else if ('additionalVideos' in newData && !newData.additionalVideos) {
-                    mergedData.additionalVideos = [];
-                }
-
-                // Ensure offerItems is always an array
-                if (newData.offerItems && Array.isArray(newData.offerItems)) {
-                    mergedData.offerItems = newData.offerItems;
-                } else if (state.recordData.offerItems && !('offerItems' in newData)) {
-                     mergedData.offerItems = state.recordData.offerItems;
-                } else if ('offerItems' in newData && !newData.offerItems) {
-                    mergedData.offerItems = [];
-                }
-
+              console.log('useAppState: Final merged state:', { recordData: mergedData });
              return { recordData: mergedData };
            });
         }
        },
         resetRecordData: () => {
+             const currentArchive = get().recordData.archive || [];
+             console.log('useAppState: Resetting record data, preserving archive:', currentArchive);
              // Keep archive, reset everything else to initial defaults
              set({ recordData: {
-                 archive: get().recordData.archive,
                  ...initialRecordData,
-                  // Explicitly reset non-default fields to undefined
+                 archive: currentArchive, // Preserve the existing archive
+                 branch: get().branch, // Preserve the current branch
+                 // Explicitly reset non-default fields to undefined/initial state
                  chassisNumber: undefined,
                  brand: undefined,
                  type: undefined,
                  tradeName: undefined,
                  owner: undefined,
-                 plateNumber: undefined, // Reset plateNumber (Ruhsat)
+                 plateNumber: '',
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                 versiyon: undefined, // Reset versiyon
-                 engineNumber: undefined,
+                 versiyon: '',
+                 engineNumber: '',
                  registrationDocument: undefined,
                  labelDocument: undefined,
                  typeApprovalDocument: undefined,
+                 additionalPhotos: [], // Reset arrays
+                 additionalVideos: [], // Reset arrays
                  customerName: undefined,
                  formDate: undefined,
+                 sequenceNo: '3',
+                 q1_suitable: 'olumlu',
+                 q2_typeApprovalMatch: 'olumlu',
+                 q3_scopeExpansion: 'olumlu',
+                 q4_unaffectedPartsDefect: 'olumlu',
                  notes: undefined,
                  controllerName: undefined,
                  authorityName: undefined,
                  projectName: undefined,
-                 plate: undefined, // Reset plate (İş Emri)
-                 workOrderNumber: undefined, // Reset İş Emri No
+                 plate: '',
+                 workOrderNumber: '3',
                  workOrderDate: undefined,
                  completionDate: undefined,
                  detailsOfWork: undefined,
@@ -316,138 +326,150 @@ export const useAppState = create<AppState>()(
                  customerSignature: undefined,
                  projectNo: undefined,
                  offerAuthorizedName: undefined,
+                 offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK',
                  offerCompanyAddress: undefined,
+                 offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97',
                  offerPhoneNumber: undefined,
                  offerEmailAddress: undefined,
                  offerDate: undefined,
-                 offerAcceptance: undefined, // Will be reset by initialRecordData spread
                  offerItems: [ // Reset offer items
                       {...defaultOfferItem, id: Math.random().toString(36).substring(2, 15)}
                   ],
+                 offerAcceptance: 'accepted',
                  finalCheckDate: undefined,
+                 check1_exposedParts_ara: true,
+                 check1_exposedParts_son: true,
+                 check2_isofixSeat_ara: true,
+                 check2_isofixSeat_son: true,
+                 check3_seatBelts_ara: true,
+                 check3_seatBelts_son: true,
+                 check4_windowApprovals_ara: true,
+                 check4_windowApprovals_son: true,
                  finalControllerName: undefined,
                  typeApprovalType: undefined,
                  typeApprovalLevel: undefined,
                  typeApprovalVersion: undefined,
-
-                 // Reset old fields
+                 archivedAt: undefined,
+                 fileName: undefined,
                  additionalNotes: undefined,
                  inspectionDate: undefined,
                  inspectorName: undefined,
              } });
+             console.log('useAppState: Record data reset complete.');
         },
     }),
     {
       name: 'arsiv-asistani-storage', // Name of the item in storage (must be unique)
       storage: createJSONStorage(() => localStorage), // Use localStorage
-       partialize: (state) => ({
-            branch: state.branch,
-            // Only persist serializable parts of recordData
-             recordData: {
-                 // Persist all non-File fields from Steps 1-4
-                 chassisNumber: state.recordData.chassisNumber,
-                 brand: state.recordData.brand,
-                 type: state.recordData.type,
-                 tradeName: state.recordData.tradeName,
-                 owner: state.recordData.owner,
-                 plateNumber: state.recordData.plateNumber, // Persist Ruhsat plate
-                 typeApprovalNumber: state.recordData.typeApprovalNumber,
-                 typeAndVariant: state.recordData.typeAndVariant,
-                 versiyon: state.recordData.versiyon, // Persist versiyon
-                 engineNumber: state.recordData.engineNumber,
-                 customerName: state.recordData.customerName,
-                 formDate: state.recordData.formDate,
-                 sequenceNo: state.recordData.sequenceNo,
-                 q1_suitable: state.recordData.q1_suitable,
-                 q2_typeApprovalMatch: state.recordData.q2_typeApprovalMatch,
-                 q3_scopeExpansion: state.recordData.q3_scopeExpansion,
-                 q4_unaffectedPartsDefect: state.recordData.q4_unaffectedPartsDefect,
-                 notes: state.recordData.notes,
-                 controllerName: state.recordData.controllerName,
-                 authorityName: state.recordData.authorityName,
+       partialize: (state) => {
+            console.log('useAppState: Partializing state for persistence:', state);
+             // Ensure recordData and archive exist before accessing them
+            const recordDataToPersist = state.recordData || {};
+            const archiveToPersist = recordDataToPersist.archive || [];
+            const partialData = {
+                branch: state.branch,
+                recordData: {
+                     // Persist all non-File fields
+                     chassisNumber: recordDataToPersist.chassisNumber,
+                     brand: recordDataToPersist.brand,
+                     type: recordDataToPersist.type,
+                     tradeName: recordDataToPersist.tradeName,
+                     owner: recordDataToPersist.owner,
+                     plateNumber: recordDataToPersist.plateNumber,
+                     typeApprovalNumber: recordDataToPersist.typeApprovalNumber,
+                     typeAndVariant: recordDataToPersist.typeAndVariant,
+                     versiyon: recordDataToPersist.versiyon,
+                     engineNumber: recordDataToPersist.engineNumber,
+                     customerName: recordDataToPersist.customerName,
+                     formDate: recordDataToPersist.formDate,
+                     sequenceNo: recordDataToPersist.sequenceNo,
+                     q1_suitable: recordDataToPersist.q1_suitable,
+                     q2_typeApprovalMatch: recordDataToPersist.q2_typeApprovalMatch,
+                     q3_scopeExpansion: recordDataToPersist.q3_scopeExpansion,
+                     q4_unaffectedPartsDefect: recordDataToPersist.q4_unaffectedPartsDefect,
+                     notes: recordDataToPersist.notes,
+                     controllerName: recordDataToPersist.controllerName,
+                     authorityName: recordDataToPersist.authorityName,
+                     projectName: recordDataToPersist.projectName,
+                     plate: recordDataToPersist.plate,
+                     workOrderNumber: recordDataToPersist.workOrderNumber,
+                     workOrderDate: recordDataToPersist.workOrderDate,
+                     completionDate: recordDataToPersist.completionDate,
+                     detailsOfWork: recordDataToPersist.detailsOfWork,
+                     sparePartsUsed: recordDataToPersist.sparePartsUsed,
+                     pricing: recordDataToPersist.pricing,
+                     vehicleAcceptanceSignature: recordDataToPersist.vehicleAcceptanceSignature,
+                     customerSignature: recordDataToPersist.customerSignature,
+                     projectNo: recordDataToPersist.projectNo,
+                     offerAuthorizedName: recordDataToPersist.offerAuthorizedName,
+                     offerCompanyName: recordDataToPersist.offerCompanyName,
+                     offerCompanyAddress: recordDataToPersist.offerCompanyAddress,
+                     offerTaxOfficeAndNumber: recordDataToPersist.offerTaxOfficeAndNumber,
+                     offerPhoneNumber: recordDataToPersist.offerPhoneNumber,
+                     offerEmailAddress: recordDataToPersist.offerEmailAddress,
+                     offerDate: recordDataToPersist.offerDate,
+                     offerItems: recordDataToPersist.offerItems,
+                     offerAcceptance: recordDataToPersist.offerAcceptance,
+                     finalCheckDate: recordDataToPersist.finalCheckDate,
+                     check1_exposedParts_ara: recordDataToPersist.check1_exposedParts_ara,
+                     check1_exposedParts_son: recordDataToPersist.check1_exposedParts_son,
+                     check2_isofixSeat_ara: recordDataToPersist.check2_isofixSeat_ara,
+                     check2_isofixSeat_son: recordDataToPersist.check2_isofixSeat_son,
+                     check3_seatBelts_ara: recordDataToPersist.check3_seatBelts_ara,
+                     check3_seatBelts_son: recordDataToPersist.check3_seatBelts_son,
+                     check4_windowApprovals_ara: recordDataToPersist.check4_windowApprovals_ara,
+                     check4_windowApprovals_son: recordDataToPersist.check4_windowApprovals_son,
+                     finalControllerName: recordDataToPersist.finalControllerName,
+                     typeApprovalType: recordDataToPersist.typeApprovalType,
+                     typeApprovalLevel: recordDataToPersist.typeApprovalLevel,
+                     typeApprovalVersion: recordDataToPersist.typeApprovalVersion,
+                     additionalNotes: recordDataToPersist.additionalNotes,
+                     inspectionDate: recordDataToPersist.inspectionDate,
+                     inspectorName: recordDataToPersist.inspectorName,
+                     branch: state.branch, // Also save branch within recordData for context
 
-                 // Persist Step 5 Fields (İş Emri)
-                 projectName: state.recordData.projectName,
-                 plate: state.recordData.plate, // Persist İş Emri plate
-                 workOrderNumber: state.recordData.workOrderNumber,
-                 workOrderDate: state.recordData.workOrderDate,
-                 completionDate: state.recordData.completionDate,
-                 detailsOfWork: state.recordData.detailsOfWork,
-                 sparePartsUsed: state.recordData.sparePartsUsed,
-                 pricing: state.recordData.pricing,
-                 vehicleAcceptanceSignature: state.recordData.vehicleAcceptanceSignature,
-                 customerSignature: state.recordData.customerSignature,
-                 projectNo: state.recordData.projectNo,
+                     // Convert File objects to serializable info
+                     registrationDocument: getSerializableFileInfo(recordDataToPersist.registrationDocument),
+                     labelDocument: getSerializableFileInfo(recordDataToPersist.labelDocument),
+                     typeApprovalDocument: getSerializableFileInfo(recordDataToPersist.typeApprovalDocument),
+                     additionalPhotos: recordDataToPersist.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
+                     additionalVideos: recordDataToPersist.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
 
-                 // Persist Step 6 Fields (Teklif Formu)
-                 offerAuthorizedName: state.recordData.offerAuthorizedName,
-                 offerCompanyName: state.recordData.offerCompanyName,
-                 offerCompanyAddress: state.recordData.offerCompanyAddress,
-                 offerTaxOfficeAndNumber: state.recordData.offerTaxOfficeAndNumber,
-                 offerPhoneNumber: state.recordData.offerPhoneNumber,
-                 offerEmailAddress: state.recordData.offerEmailAddress,
-                 offerDate: state.recordData.offerDate,
-                 offerItems: state.recordData.offerItems,
-                 offerAcceptance: state.recordData.offerAcceptance,
-
-                  // Persist Step 7 Fields (Ara ve Son Kontrol Formu)
-                  finalCheckDate: state.recordData.finalCheckDate,
-                  check1_exposedParts_ara: state.recordData.check1_exposedParts_ara,
-                  check1_exposedParts_son: state.recordData.check1_exposedParts_son,
-                  check2_isofixSeat_ara: state.recordData.check2_isofixSeat_ara,
-                  check2_isofixSeat_son: state.recordData.check2_isofixSeat_son,
-                  check3_seatBelts_ara: state.recordData.check3_seatBelts_ara,
-                  check3_seatBelts_son: state.recordData.check3_seatBelts_son,
-                  check4_windowApprovals_ara: state.recordData.check4_windowApprovals_ara,
-                  check4_windowApprovals_son: state.recordData.check4_windowApprovals_son,
-                  finalControllerName: state.recordData.finalControllerName,
-
-                 // Persist Step 8 Summary fields
-                 typeApprovalType: state.recordData.typeApprovalType,
-                 typeApprovalLevel: state.recordData.typeApprovalLevel,
-                 typeApprovalVersion: state.recordData.typeApprovalVersion, // Persist this one too (if different from versiyon)
-
-
-                 // Persist legacy fields
-                 additionalNotes: state.recordData.additionalNotes,
-                 inspectionDate: state.recordData.inspectionDate,
-                 inspectorName: state.recordData.inspectorName,
-
-                 // Convert File objects to serializable info before saving
-                 registrationDocument: getSerializableFileInfo(state.recordData.registrationDocument),
-                 labelDocument: getSerializableFileInfo(state.recordData.labelDocument),
-                 typeApprovalDocument: getSerializableFileInfo(state.recordData.typeApprovalDocument),
-                 additionalPhotos: state.recordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined, // Ensure array is correctly typed
-                 additionalVideos: state.recordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined, // Ensure array is correctly typed
-                 archive: state.recordData.archive // Persist archive
-            }
-        }),
+                     // Persist the archive array
+                     archive: archiveToPersist,
+                 }
+            };
+            console.log('useAppState: Data being persisted:', partialData);
+            return partialData;
+       },
         // When rehydrating, merge persisted data with current runtime state, preserving File objects
         merge: (persistedState, currentState) => {
+            console.log('useAppState: Rehydrating state. Persisted:', persistedState, 'Current:', currentState);
             const typedPersistedState = persistedState as Partial<AppState>; // Type assertion
+
+            // Ensure currentState.recordData and persistedState.recordData exist
+            const currentRecordData = currentState.recordData || { archive: [] };
+            const persistedRecordData = typedPersistedState.recordData || {};
+            const persistedArchive = persistedRecordData.archive || [];
 
              const mergedRecordData = {
                  ...initialRecordData, // Start with initial defaults
-                 ...currentState.recordData, // Then apply current runtime recordData
-                 ...(typedPersistedState.recordData || {}), // Finally, overwrite with persisted recordData (non-file fields)
+                 ...currentRecordData, // Then apply current runtime recordData (including potential File objects)
+                 ...(persistedRecordData), // Finally, overwrite with persisted recordData (non-file fields and archive)
+                 archive: persistedArchive, // Ensure persisted archive is used
+                 branch: typedPersistedState.branch ?? currentState.branch, // Prioritize persisted branch
 
-                 // Restore File objects if they exist in current state but only info in persisted
-                  registrationDocument: currentState.recordData.registrationDocument instanceof File
-                      ? currentState.recordData.registrationDocument
-                      : typedPersistedState.recordData?.registrationDocument, // Use persisted info if no File exists
-                  labelDocument: currentState.recordData.labelDocument instanceof File
-                      ? currentState.recordData.labelDocument
-                      : typedPersistedState.recordData?.labelDocument, // Use persisted info if no File exists
-                   typeApprovalDocument: currentState.recordData.typeApprovalDocument instanceof File
-                      ? currentState.recordData.typeApprovalDocument
-                      : typedPersistedState.recordData?.typeApprovalDocument, // Use persisted info if no File exists
+                 // Restore File objects ONLY if they exist in current state but only info in persisted
+                 // This prevents replacing an existing File object with stale persisted info
+                  registrationDocument: handleFileRehydration(currentRecordData.registrationDocument, persistedRecordData.registrationDocument),
+                  labelDocument: handleFileRehydration(currentRecordData.labelDocument, persistedRecordData.labelDocument),
+                  typeApprovalDocument: handleFileRehydration(currentRecordData.typeApprovalDocument, persistedRecordData.typeApprovalDocument),
 
                   // Restore File arrays - merge current File objects with persisted info
-                  additionalPhotos: mergeFileArrays(currentState.recordData.additionalPhotos, typedPersistedState.recordData?.additionalPhotos),
-                  additionalVideos: mergeFileArrays(currentState.recordData.additionalVideos, typedPersistedState.recordData?.additionalVideos),
+                  additionalPhotos: mergeFileArrays(currentRecordData.additionalPhotos, persistedRecordData.additionalPhotos),
+                  additionalVideos: mergeFileArrays(currentRecordData.additionalVideos, persistedRecordData.additionalVideos),
 
-                  archive: typedPersistedState.recordData?.archive ?? currentState.recordData.archive ?? [], // Ensure archive is an array
-                  offerItems: typedPersistedState.recordData?.offerItems ?? currentState.recordData.offerItems ?? [], // Ensure offerItems is an array
+                  offerItems: persistedRecordData.offerItems ?? currentRecordData.offerItems ?? [], // Ensure offerItems is an array
              };
 
              // Ensure essential fields are present, falling back to initial state if necessary
@@ -455,22 +477,57 @@ export const useAppState = create<AppState>()(
              mergedRecordData.additionalPhotos = mergedRecordData.additionalPhotos || [];
              mergedRecordData.additionalVideos = mergedRecordData.additionalVideos || [];
              mergedRecordData.offerItems = mergedRecordData.offerItems || [{ ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }];
-             mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Ensure plateNumber is initialized
-             mergedRecordData.plate = mergedRecordData.plate || ''; // Ensure plate (İş Emri) is initialized
-             mergedRecordData.engineNumber = mergedRecordData.engineNumber || ''; // Ensure engineNumber is initialized
-             mergedRecordData.versiyon = mergedRecordData.versiyon || ''; // Ensure versiyon is initialized
+             mergedRecordData.plateNumber = mergedRecordData.plateNumber || '';
+             mergedRecordData.plate = mergedRecordData.plate || '';
+             mergedRecordData.engineNumber = mergedRecordData.engineNumber || '';
+             mergedRecordData.versiyon = mergedRecordData.versiyon || '';
 
 
             const merged: AppState = {
                 ...currentState, // Start with current runtime state
-                ...(typedPersistedState || {}), // Overwrite with persisted non-recordData fields
+                branch: typedPersistedState.branch ?? currentState.branch, // Prioritize persisted branch
                 recordData: mergedRecordData as RecordData, // Ensure the final type is RecordData
             };
+             console.log('useAppState: State after rehydration:', merged);
             return merged;
         },
     }
   )
 );
+
+// Helper function to handle single file merging during updates
+function handleFileMerge(
+    currentFile: File | { name: string; type?: string; size?: number } | undefined,
+    newFile: File | { name: string; type?: string; size?: number } | undefined
+): File | { name: string; type?: string; size?: number } | undefined {
+    // If newFile is explicitly undefined, clear the field
+    if (newFile === undefined && arguments.length > 1) { // Check arguments.length to differentiate missing prop vs explicit undefined
+      return undefined;
+    }
+    // If newFile is a File, use it
+    if (newFile instanceof File) {
+      return newFile;
+    }
+    // If newFile is info and current is a File, keep the current File
+    if (currentFile instanceof File && typeof newFile === 'object' && newFile !== null && 'name' in newFile) {
+        return currentFile;
+    }
+    // Otherwise, use the new value (which could be info or undefined if not provided)
+    return newFile ?? currentFile;
+}
+
+// Helper function to handle single file rehydration
+function handleFileRehydration(
+    currentFile: File | { name: string; type?: string; size?: number } | undefined,
+    persistedFileInfo: { name: string; type?: string; size?: number } | undefined
+): File | { name: string; type?: string; size?: number } | undefined {
+    // If a File object exists in the current runtime state, keep it.
+    if (currentFile instanceof File) {
+        return currentFile;
+    }
+    // Otherwise, use the persisted file info (which might be undefined).
+    return persistedFileInfo;
+}
 
 
 // Helper function to merge file arrays during rehydration and updates
@@ -481,11 +538,11 @@ function mergeFileArrays(
     const mergedMap = new Map<string, File | { name: string; type?: string; size?: number }>();
 
     // Add current files (prioritize File objects)
-    currentFiles?.forEach(f => {
+    (currentFiles || []).forEach(f => {
         if (f instanceof File) {
             mergedMap.set(`${f.name}-${f.size}`, f); // Use name and size as key for uniqueness
         } else if (f && f.name) {
-            // If it's info, add it only if a File with the same key doesn't exist
+            // If it's info, add it only if a File with the same key doesn't exist yet
             const key = `${f.name}-${f.size ?? ''}`;
             if (!mergedMap.has(key) || !(mergedMap.get(key) instanceof File)) {
                  mergedMap.set(key, f);
@@ -494,11 +551,11 @@ function mergeFileArrays(
     });
 
      // Add new files or info (prioritize File objects)
-     newFilesOrInfo?.forEach(f => {
+     (newFilesOrInfo || []).forEach(f => {
          if (f instanceof File) {
              mergedMap.set(`${f.name}-${f.size}`, f); // Overwrite info with File object if present
          } else if (f && f.name) {
-            // If it's info, add it only if a File with the same key doesn't exist
+            // If it's info, add it only if a File with the same key doesn't exist yet
             const key = `${f.name}-${f.size ?? ''}`;
              if (!mergedMap.has(key) || !(mergedMap.get(key) instanceof File)) {
                  mergedMap.set(key, f);

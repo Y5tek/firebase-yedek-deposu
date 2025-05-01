@@ -45,93 +45,119 @@ export default function ArchivePage() {
   const [editingEntry, setEditingEntry] = React.useState<ArchiveEntry | null>(null); // State for viewing details
 
   // Use recordData.archive or default to empty array
-  const archive: ArchiveEntry[] = recordData.archive || [];
+  // Add console log to check the initial state
+  React.useEffect(() => {
+    console.log('ArchivePage: Initial recordData from state:', recordData);
+    console.log('ArchivePage: Archive data:', recordData?.archive);
+  }, [recordData]);
 
-  const filteredArchive = archive.filter((entry: ArchiveEntry) => {
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    // Ensure fields exist before calling toLowerCase()
-    return (
-      entry.fileName?.toLowerCase().includes(lowerSearchTerm) ||
-      entry.chassisNumber?.toLowerCase().includes(lowerSearchTerm) ||
-      entry.brand?.toLowerCase().includes(lowerSearchTerm) ||
-      entry.owner?.toLowerCase().includes(lowerSearchTerm) ||
-      entry.branch?.toLowerCase().includes(lowerSearchTerm) ||
-      entry.customerName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 4 customer
-      entry.offerCompanyName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 6 company
-      entry.plateNumber?.toLowerCase().includes(lowerSearchTerm) || // Search plateNumber (Step 1)
-      entry.plate?.toLowerCase().includes(lowerSearchTerm) // Search plate (Step 5 iş emri)
-    );
-  });
+  const archive: ArchiveEntry[] = React.useMemo(() => {
+    const data = recordData?.archive || [];
+    console.log('ArchivePage: Memoized archive data:', data);
+    return data;
+  }, [recordData?.archive]);
 
-  const groupedArchive = filteredArchive.reduce((acc, entry) => {
-    try {
-        // Ensure archivedAt exists and is a valid string before parsing
-         if (!entry.archivedAt || typeof entry.archivedAt !== 'string') {
-            console.warn("Skipping entry due to invalid or missing archivedAt date:", entry);
-            return acc; // Skip this entry if the date is invalid
+
+  const filteredArchive = React.useMemo(() => {
+     const lowerSearchTerm = searchTerm.toLowerCase();
+     const filtered = archive.filter((entry: ArchiveEntry) => {
+       // Ensure fields exist before calling toLowerCase()
+       return (
+         entry.fileName?.toLowerCase().includes(lowerSearchTerm) ||
+         entry.chassisNumber?.toLowerCase().includes(lowerSearchTerm) ||
+         entry.brand?.toLowerCase().includes(lowerSearchTerm) ||
+         entry.owner?.toLowerCase().includes(lowerSearchTerm) ||
+         entry.branch?.toLowerCase().includes(lowerSearchTerm) ||
+         entry.customerName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 4 customer
+         entry.offerCompanyName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 6 company
+         entry.plateNumber?.toLowerCase().includes(lowerSearchTerm) || // Search plateNumber (Step 1)
+         entry.plate?.toLowerCase().includes(lowerSearchTerm) // Search plate (Step 5 iş emri)
+       );
+     });
+     console.log('ArchivePage: Filtered archive based on searchTerm:', searchTerm, filtered);
+     return filtered;
+  }, [archive, searchTerm]);
+
+
+  const groupedArchive = React.useMemo(() => {
+     return filteredArchive.reduce((acc, entry) => {
+        try {
+            // Ensure archivedAt exists and is a valid string before parsing
+             if (!entry.archivedAt || typeof entry.archivedAt !== 'string') {
+                console.warn("Skipping entry due to invalid or missing archivedAt date:", entry);
+                return acc; // Skip this entry if the date is invalid
+             }
+            const date = parseISO(entry.archivedAt);
+            const year = getYear(date);
+            // const month = getMonth(date); // 0-indexed month (unused)
+            const monthName = format(date, 'LLLL', { locale: tr }); // Full month name in Turkish
+            const key = `${year}-${monthName}`;
+
+            if (!acc[key]) {
+            acc[key] = [];
+            }
+            acc[key].push(entry);
+            // Sort entries within the month by date, newest first
+            acc[key].sort((a, b) => {
+                 // Handle potentially missing archivedAt during sorting
+                 const timeA = a.archivedAt ? parseISO(a.archivedAt).getTime() : 0;
+                 const timeB = b.archivedAt ? parseISO(b.archivedAt).getTime() : 0;
+                 return timeB - timeA;
+             });
+
+            return acc;
+          } catch (error) {
+             console.error("Error processing date for entry:", entry, error);
+             // Group entries with errors under "Hatalı Kayıtlar" or similar
+             const errorKey = "Hatalı Kayıtlar";
+             if (!acc[errorKey]) {
+                 acc[errorKey] = [];
+             }
+             acc[errorKey].push(entry);
+             return acc;
          }
-        const date = parseISO(entry.archivedAt);
-        const year = getYear(date);
-        // const month = getMonth(date); // 0-indexed month (unused)
-        const monthName = format(date, 'LLLL', { locale: tr }); // Full month name in Turkish
-        const key = `${year}-${monthName}`;
+      }, {} as { [key: string]: ArchiveEntry[] });
+  }, [filteredArchive]);
 
-        if (!acc[key]) {
-        acc[key] = [];
-        }
-        acc[key].push(entry);
-        // Sort entries within the month by date, newest first
-        acc[key].sort((a, b) => {
-             // Handle potentially missing archivedAt during sorting
-             const timeA = a.archivedAt ? parseISO(a.archivedAt).getTime() : 0;
-             const timeB = b.archivedAt ? parseISO(b.archivedAt).getTime() : 0;
-             return timeB - timeA;
-         });
-
-        return acc;
-      } catch (error) {
-         console.error("Error processing date for entry:", entry, error);
-         // Group entries with errors under "Hatalı Kayıtlar" or similar
-         const errorKey = "Hatalı Kayıtlar";
-         if (!acc[errorKey]) {
-             acc[errorKey] = [];
-         }
-         acc[errorKey].push(entry);
-         return acc;
-     }
-  }, {} as { [key: string]: ArchiveEntry[] });
 
    // Sort group keys (year-month) chronologically, newest first
-  const sortedGroupKeys = Object.keys(groupedArchive).sort((a, b) => {
-      if (a === "Hatalı Kayıtlar") return 1; // Put errors last
-      if (b === "Hatalı Kayıtlar") return -1;
+  const sortedGroupKeys = React.useMemo(() => {
+      const keys = Object.keys(groupedArchive);
+       keys.sort((a, b) => {
+          if (a === "Hatalı Kayıtlar") return 1; // Put errors last
+          if (b === "Hatalı Kayıtlar") return -1;
 
-      // Assuming format YYYY-MonthName (Turkish)
-      const [yearAStr, monthNameA] = a.split('-');
-      const [yearBStr, monthNameB] = b.split('-');
+          // Assuming format YYYY-MonthName (Turkish)
+          const [yearAStr, monthNameA] = a.split('-');
+          const [yearBStr, monthNameB] = b.split('-');
 
-      const yearA = parseInt(yearAStr);
-      const yearB = parseInt(yearBStr);
+          const yearA = parseInt(yearAStr);
+          const yearB = parseInt(yearBStr);
 
-      if (yearA !== yearB) {
-          return yearB - yearA; // Sort years descending
-      }
+          if (yearA !== yearB) {
+              return yearB - yearA; // Sort years descending
+          }
 
-      // Convert month names back to numbers for comparison
-       const monthOrder = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-       const monthIndexA = monthOrder.indexOf(monthNameA);
-       const monthIndexB = monthOrder.indexOf(monthNameB);
+          // Convert month names back to numbers for comparison
+           const monthOrder = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+           const monthIndexA = monthOrder.indexOf(monthNameA);
+           const monthIndexB = monthOrder.indexOf(monthNameB);
 
-       // Handle cases where month name might be invalid (shouldn't happen often with current logic)
-        if (monthIndexA === -1) return 1;
-        if (monthIndexB === -1) return -1;
+           // Handle cases where month name might be invalid (shouldn't happen often with current logic)
+            if (monthIndexA === -1) return 1;
+            if (monthIndexB === -1) return -1;
 
-       return monthIndexB - monthIndexA; // Sort months descending within the year
-  });
+           return monthIndexB - monthIndexA; // Sort months descending within the year
+       });
+       console.log('ArchivePage: Sorted group keys:', keys);
+       return keys;
+  }, [groupedArchive]);
+
 
   const handleDelete = (fileNameToDelete: string) => {
+     // Filter based on the ArchiveEntry type which is the type of elements in `archive`
      const updatedArchive = archive.filter((entry: ArchiveEntry) => entry.fileName !== fileNameToDelete);
-     updateRecordData({ archive: updatedArchive });
+     updateRecordData({ archive: updatedArchive }); // Update the state with the filtered array
      toast({
         title: "Kayıt Silindi",
         description: `${fileNameToDelete} başarıyla silindi.`,
