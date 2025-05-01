@@ -48,6 +48,27 @@ interface MediaFile {
   type: 'image' | 'video';
 }
 
+// Helper function to generate preview URL safely
+const generatePreviewUrl = (file: File): string | null => {
+    try {
+        return URL.createObjectURL(file);
+    } catch (error) {
+        console.error("Error creating object URL:", error);
+        return null;
+    }
+};
+
+// Helper function to revoke preview URL safely
+const revokePreviewUrl = (url: string | null) => {
+    if (url && url.startsWith('blob:')) {
+        try {
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Error revoking object URL:", error);
+        }
+    }
+};
+
 export default function NewRecordStep3() {
   const router = useRouter();
   const { toast } = useToast();
@@ -58,6 +79,9 @@ export default function NewRecordStep3() {
   const [typeApprovalDocInfo, setTypeApprovalDocInfo] = React.useState<{ name: string; type?: string; size?: number } | null>(null); // For persisted info
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [previewMedia, setPreviewMedia] = React.useState<MediaFile | { url: string; type: 'image' | 'video', name: string } | null>(null); // State for media preview modal
+  const [registrationDocPreview, setRegistrationDocPreview] = React.useState<string | null>(null);
+  const [labelDocPreview, setLabelDocPreview] = React.useState<string | null>(null);
+
 
   // Use a simple form instance, no schema needed here as we manage files directly
   const form = useForm();
@@ -65,78 +89,84 @@ export default function NewRecordStep3() {
   const typeApprovalInputRef = React.useRef<HTMLInputElement>(null);
   const additionalMediaInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Initialize state and setup previews from global state on component mount
+   React.useEffect(() => {
+        console.log("Step 3 Mounting - Initializing state from recordData:", recordData);
 
-  // Initialize state from global state on component mount
-  React.useEffect(() => {
-    // Initialize Type Approval Document
-    const taDoc = recordData.typeApprovalDocument;
-    if (taDoc instanceof File) {
-        setTypeApprovalDoc(taDoc);
-        setTypeApprovalDocInfo(null); // Clear info if File exists
-    } else if (typeof taDoc === 'object' && taDoc?.name) {
-        setTypeApprovalDoc(null); // Clear File if only info exists
-        setTypeApprovalDocInfo(taDoc);
-    } else {
-         setTypeApprovalDoc(null);
-         setTypeApprovalDocInfo(null);
-    }
-
-
-    // Initialize Additional Media Files
-    const initialMedia: MediaFile[] = [];
-    const existingMediaKeys = new Set(mediaFiles.map(mf => `${mf.file.name}-${mf.file.size}`));
-
-    const addFilesToMedia = (files: (File | { name: string })[] | undefined, type: 'image' | 'video') => {
-      files?.forEach(fileData => {
-        if (fileData instanceof File) {
-          const fileKey = `${fileData.name}-${fileData.size}`;
-          if (!existingMediaKeys.has(fileKey)) {
-            try {
-              const previewUrl = URL.createObjectURL(fileData);
-              initialMedia.push({ file: fileData, previewUrl, type });
-              existingMediaKeys.add(fileKey); // Add to set to prevent duplicates within this init phase
-            } catch (error) {
-                console.error("Error creating object URL for initial media:", fileData.name, error);
-            }
-          }
+        // Initialize Type Approval Document
+        const taDoc = recordData.typeApprovalDocument;
+        if (taDoc instanceof File) {
+            setTypeApprovalDoc(taDoc);
+            setTypeApprovalDocInfo(null);
+        } else if (typeof taDoc === 'object' && taDoc?.name) {
+            setTypeApprovalDoc(null);
+            setTypeApprovalDocInfo(taDoc);
+        } else {
+            setTypeApprovalDoc(null);
+            setTypeApprovalDocInfo(null);
         }
-        // Note: We cannot recreate previews for non-File objects (persisted info)
-      });
-    };
 
-    // Retrieve files from global state and determine their type
-    addFilesToMedia(recordData.additionalPhotos as File[], 'image');
-    addFilesToMedia(recordData.additionalVideos as File[], 'video');
+       // Initialize Additional Media Files from global state (only if they are File objects)
+       const initialMediaFiles: MediaFile[] = [];
+       const processFiles = (files: (File | { name: string; type?: string; size?: number })[] | undefined, type: 'image' | 'video') => {
+           (files || []).forEach(fileData => {
+               if (fileData instanceof File) {
+                   const previewUrl = generatePreviewUrl(fileData);
+                   if (previewUrl) {
+                       initialMediaFiles.push({ file: fileData, previewUrl, type });
+                   }
+               }
+           });
+       };
+       processFiles(recordData.additionalPhotos, 'image');
+       processFiles(recordData.additionalVideos, 'video');
+       setMediaFiles(initialMediaFiles);
 
-    // If initialMedia has new files, update the state
-    if (initialMedia.length > 0) {
-       setMediaFiles(prev => {
-         const existingKeys = new Set(prev.map(mf => `${mf.file.name}-${mf.file.size}`));
-         const newFilesToAdd = initialMedia.filter(imf => !existingKeys.has(`${imf.file.name}-${imf.file.size}`));
-         return [...prev, ...newFilesToAdd];
-       });
-    }
 
-    // Cleanup object URLs on unmount
-    return () => {
-      // Use the state value at the time of cleanup
-      setMediaFiles(currentMediaFiles => {
-          currentMediaFiles.forEach(mf => {
-              try { URL.revokeObjectURL(mf.previewUrl) } catch {} // Ignore errors on revoke
-            });
-          return []; // Clear the array after cleanup
-      });
-    };
+        // Setup previews for registration and label documents
+        let regUrl: string | null = null;
+        if (recordData.registrationDocument instanceof File) {
+            regUrl = generatePreviewUrl(recordData.registrationDocument);
+            setRegistrationDocPreview(regUrl);
+        } else {
+            setRegistrationDocPreview(null); // Clear preview if it's not a file
+        }
+
+        let lblUrl: string | null = null;
+        if (recordData.labelDocument instanceof File) {
+            lblUrl = generatePreviewUrl(recordData.labelDocument);
+            setLabelDocPreview(lblUrl);
+        } else {
+            setLabelDocPreview(null); // Clear preview if it's not a file
+        }
+
+
+        // Cleanup object URLs on unmount
+        return () => {
+            console.log("Step 3 Unmounting - Cleaning up previews");
+            revokePreviewUrl(regUrl);
+            revokePreviewUrl(lblUrl);
+            initialMediaFiles.forEach(mf => revokePreviewUrl(mf.previewUrl));
+            // Ensure the state variables are also cleared if necessary
+             setRegistrationDocPreview(prev => { revokePreviewUrl(prev); return null; });
+             setLabelDocPreview(prev => { revokePreviewUrl(prev); return null; });
+             setMediaFiles(prev => {
+                 prev.forEach(mf => revokePreviewUrl(mf.previewUrl));
+                 return [];
+             });
+        };
     // Run only on mount, state updates handled separately
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array to run only on mount
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, []); // Empty dependency array to run only on mount
+
 
     // Revoke object URLs when files are removed from mediaFiles state
     React.useEffect(() => {
+        // This effect handles cleanup if the mediaFiles array itself changes
+        // (e.g., adding/removing files causes re-render and potential stale URLs)
+        // The unmount cleanup handles the final cleanup.
         return () => {
-            mediaFiles.forEach(mf => {
-                try { URL.revokeObjectURL(mf.previewUrl) } catch {}
-            });
+            mediaFiles.forEach(mf => revokePreviewUrl(mf.previewUrl));
         };
     }, [mediaFiles]); // Dependency on mediaFiles
 
@@ -182,7 +212,7 @@ export default function NewRecordStep3() {
      setUploadError(null); // Clear previous errors
 
      if (files) {
-       const newMediaFiles: MediaFile[] = [];
+       const newMediaFilesToAdd: MediaFile[] = [];
        let errorFound = false;
        const currentKeys = new Set(mediaFiles.map(mf => `${mf.file.name}-${mf.file.size}`));
 
@@ -190,7 +220,7 @@ export default function NewRecordStep3() {
           const fileKey = `${file.name}-${file.size}`;
           if (currentKeys.has(fileKey)) {
               console.log(`Skipping duplicate file: ${file.name}`);
-              return;
+              return; // Skip duplicates already in the local state
           }
 
           let fileType: 'image' | 'video' | null = null;
@@ -204,21 +234,20 @@ export default function NewRecordStep3() {
            setUploadError(`Desteklenmeyen dosya türü: ${file.name}. Sadece resim (${ACCEPTED_IMAGE_TYPES.join(', ')}) veya video (${ACCEPTED_VIDEO_TYPES.join(', ')}) dosyaları kabul edilir.`);
            errorFound = true;
            // Revoke URLs for files added in this batch before erroring out
-           newMediaFiles.forEach(nmf => { try { URL.revokeObjectURL(nmf.previewUrl) } catch {} });
+           newMediaFilesToAdd.forEach(nmf => revokePreviewUrl(nmf.previewUrl));
            return; // Stop processing this batch
          }
 
-         try {
-             const previewUrl = URL.createObjectURL(file);
-             newMediaFiles.push({ file, previewUrl, type: fileType });
-             currentKeys.add(fileKey); // Add new key to prevent duplicates within the same batch
-         } catch (error) {
-              console.error("Error creating object URL for additional media:", file.name, error);
-               setUploadError(`Dosya için önizleme oluşturulamadı: ${file.name}`);
-               errorFound = true;
-               newMediaFiles.forEach(nmf => { try { URL.revokeObjectURL(nmf.previewUrl) } catch {} });
-               return;
+         const previewUrl = generatePreviewUrl(file);
+         if (!previewUrl) {
+            console.error("Error creating object URL for additional media:", file.name);
+            setUploadError(`Dosya için önizleme oluşturulamadı: ${file.name}`);
+            errorFound = true;
+            newMediaFilesToAdd.forEach(nmf => revokePreviewUrl(nmf.previewUrl));
+            return;
          }
+         newMediaFilesToAdd.push({ file, previewUrl, type: fileType });
+         currentKeys.add(fileKey); // Add new key to prevent duplicates within the same batch
        });
 
 
@@ -233,18 +262,21 @@ export default function NewRecordStep3() {
            return; // Exit if an error was found
        }
 
-       if (newMediaFiles.length > 0) {
-         setMediaFiles(prev => [...prev, ...newMediaFiles]);
+       if (newMediaFilesToAdd.length > 0) {
+         setMediaFiles(prev => [...prev, ...newMediaFilesToAdd]);
          // Update global state immediately, separating into photos and videos
-         const currentPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File) as File[];
-         const currentVideos = (recordData.additionalVideos || []).filter(f => f instanceof File) as File[];
+         // Ensure we are adding *only* the new files to the global state arrays
+         const addedPhotos = newMediaFilesToAdd.filter(mf => mf.type === 'image').map(mf => mf.file);
+         const addedVideos = newMediaFilesToAdd.filter(mf => mf.type === 'video').map(mf => mf.file);
 
-         const addedPhotos = newMediaFiles.filter(mf => mf.type === 'image').map(mf => mf.file);
-         const addedVideos = newMediaFiles.filter(mf => mf.type === 'video').map(mf => mf.file);
+         // Get current File objects from global state to append to
+         const currentGlobalPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File) as File[];
+         const currentGlobalVideos = (recordData.additionalVideos || []).filter(f => f instanceof File) as File[];
+
 
          updateRecordData({
-             additionalPhotos: [...currentPhotos, ...addedPhotos],
-             additionalVideos: [...currentVideos, ...addedVideos]
+             additionalPhotos: [...currentGlobalPhotos, ...addedPhotos],
+             additionalVideos: [...currentGlobalVideos, ...addedVideos]
           });
        }
      }
@@ -257,12 +289,12 @@ export default function NewRecordStep3() {
     let fileToDelete: MediaFile | null = null;
 
     setMediaFiles(prev => {
-      fileToDelete = prev[indexToDelete]; // Capture the file to delete
-      if (fileToDelete) {
-          try { URL.revokeObjectURL(fileToDelete.previewUrl); } catch {} // Clean up object URL immediately
-      }
-      // Return the updated local state
-      return prev.filter((_, index) => index !== indexToDelete);
+        fileToDelete = prev[indexToDelete]; // Capture the file to delete
+        if (fileToDelete) {
+            revokePreviewUrl(fileToDelete.previewUrl); // Clean up object URL immediately
+        }
+        // Return the updated local state
+        return prev.filter((_, index) => index !== indexToDelete);
     });
 
     if (fileToDelete) {
@@ -299,38 +331,58 @@ export default function NewRecordStep3() {
   };
 
   // Open Preview Dialog
-  const openPreview = (item: MediaFile | { name: string; type?: string; size?: number } | File | null) => {
+  const openPreview = (item: MediaFile | { name: string; type?: string; size?: number } | File | string | null) => {
        if (!item) return;
 
-       if (item instanceof File) {
-            try {
-                const url = URL.createObjectURL(item);
-                 const type = item.type.startsWith('video/') ? 'video' : 'image';
-                 setPreviewMedia({ url: url, type: type, name: item.name });
-                 // Revoke URL when dialog closes
-                 const originalOnOpenChange = previewMedia?.onOpenChange; // Assuming Dialog has onOpenChange
-                 // This part needs adjustment based on the Dialog component used
-                 // Example:
-                 // setPreviewMedia(prev => ({...prev, onOpenChange: (open) => {
-                 //     if (!open) URL.revokeObjectURL(url);
-                 //     originalOnOpenChange?.(open);
-                 // }}));
+        let urlToUse: string | null = null;
+        let nameToUse: string = 'Dosya';
+        let typeToUse: 'image' | 'video' = 'image'; // Default to image
 
-             } catch (error) {
-                 console.error("Error creating preview URL for File:", error);
-                 toast({ title: "Önizleme Hatası", description: "Dosya önizlemesi oluşturulamadı.", variant: "destructive" });
-             }
-       } else if ('previewUrl' in item) { // It's a MediaFile from local state
-           setPreviewMedia(item);
-       } else if ('name' in item) { // It's persisted info
-           // Try to construct a placeholder URL or indicate preview not available
-           console.warn("Cannot generate preview for persisted file info:", item.name);
-           // Example: Construct a potential Firebase URL (replace with your actual logic)
-            const placeholderUrl = `https://firebasestorage.googleapis.com/v0/b/your-project-id.appspot.com/o/uploads%2F${encodeURIComponent(item.name)}?alt=media`;
-            const type = item.type?.startsWith('video/') ? 'video' : 'image';
-            setPreviewMedia({ url: placeholderUrl, type: type, name: item.name });
-           // toast({ title: "Önizleme Yok", description: "Kaydedilmiş dosya için önizleme mevcut değil.", variant: "default" });
-       }
+       if (typeof item === 'string') {
+            // If it's just a URL string (like from a blob URL)
+            urlToUse = item;
+            // Try to guess type and name from URL (basic)
+            if (urlToUse.includes('.mp4') || urlToUse.includes('.webm') || urlToUse.includes('.ogg') || urlToUse.includes('.mov')) {
+                typeToUse = 'video';
+            }
+            try {
+                const urlParts = new URL(urlToUse);
+                nameToUse = urlParts.pathname.split('/').pop() || 'Önizleme';
+            } catch {
+                // Handle invalid URL if necessary
+            }
+
+        } else if (item instanceof File) {
+            urlToUse = generatePreviewUrl(item); // Generate temporary URL
+             nameToUse = item.name;
+             typeToUse = item.type.startsWith('video/') ? 'video' : 'image';
+        } else if ('previewUrl' in item) { // It's a MediaFile from local state
+            urlToUse = item.previewUrl;
+            nameToUse = item.file.name;
+            typeToUse = item.type;
+        } else if ('name' in item && item.name) { // It's persisted info or other object with name
+             nameToUse = item.name;
+             typeToUse = item.type?.startsWith('video/') ? 'video' : 'image';
+             // Try to construct a placeholder URL or indicate preview not available
+             console.warn("Cannot generate reliable preview for persisted file info:", item.name);
+             // Example: Construct a potential Firebase URL (replace with your actual logic)
+             // urlToUse = `https://firebasestorage.googleapis.com/v0/b/your-project-id.appspot.com/o/uploads%2F${encodeURIComponent(item.name)}?alt=media`;
+             toast({ title: "Önizleme Yok", description: "Kaydedilmiş dosya için direkt önizleme mevcut değil.", variant: "default" });
+             return; // Exit if no preview can be shown
+        }
+
+        if (!urlToUse) {
+             toast({ title: "Önizleme Hatası", description: "Dosya önizlemesi oluşturulamadı veya URL bulunamadı.", variant: "destructive" });
+             return;
+        }
+
+
+        setPreviewMedia({ url: urlToUse, type: typeToUse, name: nameToUse });
+
+        // If a temporary URL was generated for a File, handle cleanup in onOpenChange
+         if (item instanceof File && urlToUse && urlToUse.startsWith('blob:')) {
+             console.log("Preview opened with temporary blob URL. Will revoke on close.");
+         }
    };
 
    // Get display name for files (File or Info object)
@@ -342,34 +394,6 @@ export default function NewRecordStep3() {
        }
        return 'Yok';
    };
-
-    // Get preview source for registration/label docs from global state
-    const getDocPreviewSrc = (docData: File | { name: string; type?: string; size?: number } | undefined): string | null => {
-        if (docData instanceof File) {
-            try {
-                 // IMPORTANT: Creating temporary URLs here. They need cleanup.
-                 // Consider moving preview logic entirely to the component rendering the preview.
-                 return URL.createObjectURL(docData);
-            } catch (error) {
-                console.error("Error creating object URL for doc preview:", error);
-                return null;
-            }
-        }
-        // Cannot generate preview for persisted info reliably here
-        return null;
-    };
-
-    const registrationDocPreview = getDocPreviewSrc(recordData.registrationDocument);
-    const labelDocPreview = getDocPreviewSrc(recordData.labelDocument);
-
-    // Clean up temporary URLs created by getDocPreviewSrc
-    React.useEffect(() => {
-        return () => {
-            if (registrationDocPreview) URL.revokeObjectURL(registrationDocPreview);
-            if (labelDocPreview) URL.revokeObjectURL(labelDocPreview);
-        };
-    }, [registrationDocPreview, labelDocPreview]);
-
 
   // Redirect if essential data is missing
   React.useEffect(() => {
@@ -409,7 +433,7 @@ export default function NewRecordStep3() {
                         <div className="flex flex-col items-center gap-2 border p-3 rounded-md">
                             <FormLabel className="font-semibold">Ruhsat Belgesi (Adım 1)</FormLabel>
                              {registrationDocPreview ? (
-                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(recordData.registrationDocument)}>
+                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(registrationDocPreview)}>
                                     <Image src={registrationDocPreview} alt="Ruhsat Önizleme" fill style={{ objectFit: 'cover' }} className="rounded-md" unoptimized data-ai-hint="vehicle registration document" />
                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                                         <Eye className="h-8 w-8 text-white" />
@@ -431,7 +455,7 @@ export default function NewRecordStep3() {
                          <div className="flex flex-col items-center gap-2 border p-3 rounded-md">
                             <FormLabel className="font-semibold">Etiket Belgesi (Adım 2)</FormLabel>
                             {labelDocPreview ? (
-                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(recordData.labelDocument)}>
+                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(labelDocPreview)}>
                                     <Image src={labelDocPreview} alt="Etiket Önizleme" fill style={{ objectFit: 'cover' }} className="rounded-md" unoptimized data-ai-hint="vehicle label document" />
                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                                         <Eye className="h-8 w-8 text-white" />
@@ -603,15 +627,16 @@ export default function NewRecordStep3() {
       </Card>
 
        {/* Media Preview Dialog */}
-       {previewMedia && (
+        {previewMedia && (
             <Dialog open={!!previewMedia} onOpenChange={(open) => {
                 if (!open) {
-                     // Revoke temporary object URL if it was created for previewing a File
-                     if (previewMedia && 'previewUrl' in previewMedia && previewMedia.url?.startsWith('blob:')) {
-                         try { URL.revokeObjectURL(previewMedia.url); } catch {}
-                     }
-                     setPreviewMedia(null);
-                 }
+                    // Revoke temporary blob URL if it exists in the previewMedia state
+                    if (previewMedia && previewMedia.url?.startsWith('blob:')) {
+                        console.log("Closing preview dialog, revoking URL:", previewMedia.url);
+                        revokePreviewUrl(previewMedia.url);
+                    }
+                    setPreviewMedia(null); // Clear the preview state
+                }
             }}>
                <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
                    <DialogHeader>
@@ -641,7 +666,7 @@ export default function NewRecordStep3() {
                     </DialogClose>
                </DialogContent>
            </Dialog>
-       )}
+        )}
     </div>
   );
 }
