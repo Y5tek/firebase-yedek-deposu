@@ -269,7 +269,7 @@ export default function NewRecordStep3() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center p-4 md:p-6 lg:p-8">
        <Progress value={progress} className="w-full max-w-2xl mb-4" />
       <Card className="w-full max-w-2xl shadow-lg">
         <CardHeader>
@@ -342,6 +342,7 @@ export default function NewRecordStep3() {
                                             style={{ objectFit: 'cover' }}
                                             className="rounded-md transition-transform group-hover:scale-105"
                                             unoptimized
+                                            data-ai-hint="uploaded vehicle photo"
                                         />
                                         {/* View Icon Overlay */}
                                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -360,6 +361,7 @@ export default function NewRecordStep3() {
                                              fill
                                              style={{ objectFit: 'contain' }}
                                              unoptimized
+                                             data-ai-hint="uploaded vehicle photo preview"
                                          />
                                      </div>
                                 </DialogContent>
