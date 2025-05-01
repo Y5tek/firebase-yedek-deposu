@@ -71,103 +71,113 @@ export default function NewRecordStep7() {
 
    // Function to find and set the Type Approval Number
    const findAndSetTypeApprovalNumber = React.useCallback(() => {
-        if (isLoadingApprovals || !typeApprovalList || typeApprovalList.length === 0) {
-            toast({
-                title: "Liste Yüklenemedi",
-                description: "Tip onay listesi henüz yüklenmedi veya boş.",
-                variant: "destructive"
-            });
-            return; // Don't run if data isn't ready
+        console.log("findAndSetTypeApprovalNumber called");
+        if (isLoadingApprovals) {
+            toast({ title: "Liste Yükleniyor", description: "Tip onay listesi yükleniyor, lütfen bekleyin.", variant: "default" });
+            return;
         }
-        setIsFindingApprovalNo(true); // Indicate loading state for the button action
+        if (!typeApprovalList || typeApprovalList.length === 0) {
+            toast({ title: "Liste Boş", description: "Tip onay listesi boş veya yüklenemedi.", variant: "destructive" });
+            return;
+        }
+        setIsFindingApprovalNo(true);
 
-        // --- Define matching criteria based on request ---
-        // Use form values first, fallback to recordData for values not directly on this form's schema
+        // --- Define matching criteria ---
+        // Prioritize form values, then fallback to recordData
+        const getFormOrRecordValue = (key: keyof FormData) => form.getValues(key) || recordData[key as keyof typeof recordData];
+
         const criteria = {
-            sube_adi: branch, // Match current branch
-            proje_adi: form.getValues('projectName') || recordData.projectName,
-            tip_onay: form.getValues('typeApprovalType') || recordData.typeApprovalType,
-            tip_onay_seviye: form.getValues('typeApprovalLevel') || recordData.typeApprovalLevel,
-            varyant: recordData.typeAndVariant, // From global state (likely Step 2)
-            versiyon: form.getValues('typeApprovalVersion') || recordData.typeApprovalVersion,
+            sube_adi: branch, // Use current branch from global state
+            proje_adi: getFormOrRecordValue('projectName'),
+            tip_onay: getFormOrRecordValue('typeApprovalType'),
+            tip_onay_seviye: getFormOrRecordValue('typeApprovalLevel'),
+            varyant: recordData.typeAndVariant, // This likely comes from Step 2, not this form
+            versiyon: getFormOrRecordValue('typeApprovalVersion'),
         };
 
         console.log("Attempting to find match with criteria:", criteria);
+        console.log("Full Type Approval List:", typeApprovalList);
 
         // Filter the list based on the defined criteria
         const matchedRecords = typeApprovalList.filter(record => {
+             const checkMatch = (field: keyof TypeApprovalRecord, criterionValue: string | undefined | null) => {
+                // If criterion is empty/null, don't filter based on it (matches everything)
+                if (!criterionValue) return true;
+                // Compare case-insensitively and trim whitespace
+                return record[field] && typeof record[field] === 'string' &&
+                       record[field]?.trim().toLowerCase() === criterionValue.trim().toLowerCase();
+            };
+
             let isMatch = true;
-            // Compare each criterion, only if the criterion has a value
-            // Use optional chaining and nullish coalescing for safer access
-             if (criteria.sube_adi && record.sube_adi !== criteria.sube_adi) isMatch = false;
-             if (criteria.proje_adi && record.proje_adi !== criteria.proje_adi) isMatch = false;
-             if (criteria.tip_onay && record.tip_onay !== criteria.tip_onay) isMatch = false;
-             if (criteria.tip_onay_seviye && record.tip_onay_seviye !== criteria.tip_onay_seviye) isMatch = false;
-             if (criteria.varyant && record.varyant !== criteria.varyant) isMatch = false;
-             if (criteria.versiyon && record.versiyon !== criteria.versiyon) isMatch = false;
+            // Compare each criterion
+            if (!checkMatch('sube_adi', criteria.sube_adi)) isMatch = false;
+            if (!checkMatch('proje_adi', criteria.proje_adi)) isMatch = false;
+            if (!checkMatch('tip_onay', criteria.tip_onay)) isMatch = false;
+            if (!checkMatch('tip_onay_seviye', criteria.tip_onay_seviye)) isMatch = false;
+            if (!checkMatch('varyant', criteria.varyant)) isMatch = false;
+            if (!checkMatch('versiyon', criteria.versiyon)) isMatch = false;
 
-
-            // Also check if tip_onay_no exists and starts with "AİTM"
-            if (!record.tip_onay_no || !record.tip_onay_no.toUpperCase().startsWith('AİTM')) {
+            // Also check if tip_onay_no exists and starts with "AİTM" (case-insensitive)
+            const tipOnayNo = record.tip_onay_no?.trim().toUpperCase();
+            if (!tipOnayNo || !tipOnayNo.startsWith('AİTM')) {
                  isMatch = false;
              }
+
+             if (isMatch) console.log("Potential match found:", record);
 
             return isMatch;
         });
 
-        console.log("Matched records found:", matchedRecords);
+        console.log(`Found ${matchedRecords.length} matched records.`);
 
         let message = "";
         let variant: "default" | "destructive" = "default";
+        let numberToSet = ''; // Variable to hold the number to set or empty string to clear
 
-        // If exactly one match is found, auto-populate the field
         if (matchedRecords.length === 1) {
             const matchedNumber = matchedRecords[0].tip_onay_no;
-             const currentApprovalNo = form.getValues('typeApprovalNumber');
-            if (matchedNumber && (!currentApprovalNo || currentApprovalNo !== matchedNumber)) {
-                 console.log("Auto-populating TİP ONAY NO with:", matchedNumber);
-                 form.setValue('typeApprovalNumber', matchedNumber);
-                 updateRecordData({ typeApprovalNumber: matchedNumber }); // Update global state too
-                 message = `Tip Onay No bulundu ve dolduruldu: ${matchedNumber}`;
-                 variant = "default";
-             } else if (matchedNumber && currentApprovalNo === matchedNumber) {
-                 message = `Tip Onay No zaten doğru şekilde ayarlanmış: ${matchedNumber}`;
-                 variant = "default";
-             } else {
-                 // This case should ideally not happen if matchedNumber exists
-                 message = "Eşleşen Tip Onay No bulundu ancak alan güncellenemedi.";
-                 variant = "destructive";
-             }
+            if (matchedNumber) {
+                console.log("Unique match found. Setting TİP ONAY NO to:", matchedNumber);
+                numberToSet = matchedNumber;
+                message = `Tip Onay No bulundu ve dolduruldu: ${matchedNumber}`;
+                variant = "default";
+            } else {
+                // This case shouldn't normally happen if the filter requires tip_onay_no
+                console.warn("Unique match found, but tip_onay_no is empty.");
+                message = "Eşleşen kayıt bulundu ancak Tip Onay No boş.";
+                variant = "destructive";
+            }
         } else if (matchedRecords.length > 1) {
             console.warn("Multiple matching Type Approval Numbers found. Cannot auto-populate.");
             message = `Birden fazla (${matchedRecords.length}) eşleşen Tip Onay Numarası bulundu. Otomatik doldurma yapılamadı. Lütfen kriterleri daraltın veya manuel giriş yapın.`;
             variant = "destructive";
-            // Clear the field if multiple matches are found
-            // form.setValue('typeApprovalNumber', ''); // Consider if this behavior is desired
-            // updateRecordData({ typeApprovalNumber: '' });
+             // numberToSet remains '' which will clear the field
         } else {
              console.log("No unique matching Type Approval Number found starting with AİTM based on criteria.");
              message = "Belirtilen kriterlere uyan ve 'AİTM' ile başlayan Tip Onay Numarası bulunamadı.";
              variant = "destructive";
-             // Clear the field if no match is found
-             form.setValue('typeApprovalNumber', '');
-             updateRecordData({ typeApprovalNumber: '' });
+             // numberToSet remains '' which will clear the field
         }
+
+        // Update form and global state
+        form.setValue('typeApprovalNumber', numberToSet);
+        updateRecordData({ typeApprovalNumber: numberToSet });
 
          toast({
             title: "Tip Onay No Arama Sonucu",
             description: message,
             variant: variant,
+            duration: matchedRecords.length === 1 ? 5000 : 9000, // Longer duration for errors/warnings
         });
-        setIsFindingApprovalNo(false); // Reset loading state
+        setIsFindingApprovalNo(false);
 
-   // Dependencies: Include all criteria fields from form/state
+   // Re-added dependencies for useCallback
    }, [
        typeApprovalList,
        isLoadingApprovals,
        branch,
-       form, // Include form instance as getValues is used
-       recordData.projectName, // Include individual fields used in criteria
+       form,
+       recordData.projectName,
        recordData.typeApprovalType,
        recordData.typeApprovalLevel,
        recordData.typeAndVariant,
@@ -177,14 +187,22 @@ export default function NewRecordStep7() {
    ]);
 
 
+
    // Effect to potentially auto-populate on load (optional, can be removed if button is the only trigger)
-   React.useEffect(() => {
-       // Commented out to make the button the primary trigger.
-       // findAndSetTypeApprovalNumber();
-   }, [
-       // Only trigger find on load if absolutely necessary based on specific deps
-       // typeApprovalList, branch, // etc.
-   ]);
+   // React.useEffect(() => {
+   //     // Only attempt auto-fill if the list is loaded and typeApprovalNumber is currently empty
+   //     if (!isLoadingApprovals && typeApprovalList.length > 0 && !form.getValues('typeApprovalNumber')) {
+   //         console.log("Attempting auto-fill on load...");
+   //         findAndSetTypeApprovalNumber();
+   //     }
+   // // eslint-disable-next-line react-hooks/exhaustive-deps
+   // }, [
+   //     typeApprovalList, // Trigger when list loads
+   //     isLoadingApprovals,
+   //     // Include findAndSetTypeApprovalNumber or its own deps if needed, but carefully
+   //     findAndSetTypeApprovalNumber,
+   //     form // Need form instance to check current value
+   // ]);
 
 
   // Format dates safely
@@ -250,25 +268,25 @@ export default function NewRecordStep7() {
          // Access the *updated* state after the updateRecordData call
          const finalRecordData = useAppState.getState().recordData;
 
+        // Construct the archive entry using the final state
         const archiveEntry = {
-          // Spread all existing fields from the final state
-          ...finalRecordData,
-          // Ensure file info is serializable
-          registrationDocument: getSerializableFileInfo(finalRecordData.registrationDocument),
-          labelDocument: getSerializableFileInfo(finalRecordData.labelDocument),
-          typeApprovalDocument: getSerializableFileInfo(finalRecordData.typeApprovalDocument),
-          additionalPhotos: finalRecordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-          additionalVideos: finalRecordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-          // Add metadata
-          branch: branch, // Ensure branch is included
-          archivedAt: new Date().toISOString(),
-          fileName: `${branch || 'NO-BRANCH'}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}` // Handle null branch
+            ...finalRecordData,
+            // Ensure file info is serializable
+            registrationDocument: getSerializableFileInfo(finalRecordData.registrationDocument),
+            labelDocument: getSerializableFileInfo(finalRecordData.labelDocument),
+            typeApprovalDocument: getSerializableFileInfo(finalRecordData.typeApprovalDocument),
+            additionalPhotos: finalRecordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
+            additionalVideos: finalRecordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
+            // Add metadata
+            branch: branch, // Ensure branch is included
+            archivedAt: new Date().toISOString(),
+            fileName: `${branch || 'NO-BRANCH'}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}-${new Date().getTime()}` // Added timestamp for uniqueness
         };
 
         console.log("Archiving final entry:", archiveEntry);
 
-        const currentArchive = finalRecordData.archive || [];
-        // Use the state setter function to ensure atomicity if needed, though direct update is usually fine here
+        // Update the archive in the state
+        const currentArchive = useAppState.getState().recordData.archive || [];
         updateRecordData({ archive: [...currentArchive, archiveEntry] });
 
 
@@ -326,9 +344,8 @@ export default function NewRecordStep7() {
          });
     }
    // Only run when branch or chassis number changes, or on mount
-   // Removed form and recordData from deps to prevent excessive resets, rely on state sync from updateRecordData
    // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [branch, recordData.chassisNumber, router, toast]);
+   }, [branch, recordData.chassisNumber, router, toast]); // Removed form and most recordData deps
 
 
   if (!branch || !recordData.chassisNumber) {
@@ -460,7 +477,7 @@ export default function NewRecordStep7() {
                                     type="button"
                                     variant="secondary"
                                     size="sm"
-                                    onClick={findAndSetTypeApprovalNumber}
+                                    onClick={findAndSetTypeApprovalNumber} // Removed wrapping arrow function
                                     disabled={isLoading || isLoadingApprovals || isFindingApprovalNo}
                                     className="whitespace-nowrap mt-[2px]" // Align button slightly better
                                 >
