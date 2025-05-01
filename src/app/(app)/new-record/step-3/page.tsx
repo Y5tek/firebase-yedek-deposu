@@ -72,7 +72,7 @@ const revokePreviewUrl = (url: string | null) => {
 export default function NewRecordStep3() {
   const router = useRouter();
   const { toast } = useToast();
-  const { branch, recordData, updateRecordData } = useAppState();
+  const { branch, recordData, updateRecordData } = useAppState(); // RecordData type is implicitly used via useAppState
   const [progress] = React.useState(43); // Step 3 of 7 (approx 43%) - Adjusted progress
   const [mediaFiles, setMediaFiles] = React.useState<MediaFile[]>([]); // For additional photos/videos
   const [typeApprovalDoc, setTypeApprovalDoc] = React.useState<File | null>(null); // Separate state for type approval doc
@@ -130,48 +130,49 @@ export default function NewRecordStep3() {
         // Setup previews for registration and label documents
         let regUrl: string | null = null;
         let lblUrl: string | null = null;
-        let shouldRevokeRegUrl = registrationDocPreview; // Track if previous URL existed
-        let shouldRevokeLblUrl = labelDocPreview;
 
+        // Registration Document Preview
         if (recordData.registrationDocument instanceof File) {
              console.log("Step 3 Effect: Found registration doc File:", recordData.registrationDocument.name);
              regUrl = generatePreviewUrl(recordData.registrationDocument);
-             setRegistrationDocPreview(regUrl); // Set the new or existing URL
-        } else {
-            console.log("Step 3 Effect: No registration doc File found in recordData.");
-             if (registrationDocPreview) {
-                 revokePreviewUrl(registrationDocPreview); // Revoke old URL if exists
+             if (regUrl !== registrationDocPreview) { // Only set if URL changes or is new
+                 if (registrationDocPreview) revokePreviewUrl(registrationDocPreview); // Revoke old URL first
+                 setRegistrationDocPreview(regUrl);
              }
-            setRegistrationDocPreview(null); // Clear preview if not a file
+        } else if (registrationDocPreview) { // If current state has a preview but recordData doesn't have a File
+            console.log("Step 3 Effect: No registration doc File found in recordData, clearing preview.");
+            revokePreviewUrl(registrationDocPreview); // Revoke the existing URL
+            setRegistrationDocPreview(null); // Clear preview
         }
 
-
+        // Label Document Preview
         if (recordData.labelDocument instanceof File) {
              console.log("Step 3 Effect: Found label doc File:", recordData.labelDocument.name);
              lblUrl = generatePreviewUrl(recordData.labelDocument);
-             setLabelDocPreview(lblUrl);
-        } else {
-             console.log("Step 3 Effect: No label doc File found in recordData.");
-             if (labelDocPreview) {
-                 revokePreviewUrl(labelDocPreview);
+             if (lblUrl !== labelDocPreview) { // Only set if URL changes or is new
+                 if (labelDocPreview) revokePreviewUrl(labelDocPreview); // Revoke old URL first
+                 setLabelDocPreview(lblUrl);
              }
-            setLabelDocPreview(null);
+        } else if (labelDocPreview) { // If current state has a preview but recordData doesn't have a File
+             console.log("Step 3 Effect: No label doc File found in recordData, clearing preview.");
+             revokePreviewUrl(labelDocPreview); // Revoke the existing URL
+             setLabelDocPreview(null); // Clear preview
         }
 
-        // Cleanup function for generated preview URLs
+        // Cleanup function for generated preview URLs on component unmount
         return () => {
-            console.log("Step 3 Effect Cleanup: Revoking temporary preview URLs if they were generated.");
-            if (regUrl && regUrl !== shouldRevokeRegUrl) { // Only revoke newly generated URLs
-                revokePreviewUrl(regUrl);
+            console.log("Step 3 Effect Cleanup: Revoking temporary preview URLs on unmount.");
+            if (registrationDocPreview) {
+                revokePreviewUrl(registrationDocPreview);
             }
-            if (lblUrl && lblUrl !== shouldRevokeLblUrl) {
-                 revokePreviewUrl(lblUrl);
+            if (labelDocPreview) {
+                 revokePreviewUrl(labelDocPreview);
             }
-            // Cleanup for additional media is handled in its own useEffect
         };
     // Add dependencies to re-run when these specific documents change
+    // Also include the current preview state to handle URL revocation correctly
     // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [recordData.registrationDocument, recordData.labelDocument]);
+   }, [recordData.registrationDocument, recordData.labelDocument, registrationDocPreview, labelDocPreview]);
 
 
     // Revoke object URLs when files are removed from mediaFiles state
@@ -354,6 +355,7 @@ export default function NewRecordStep3() {
         let urlToUse: string | null = null;
         let nameToUse: string = 'Dosya';
         let typeToUse: 'image' | 'video' = 'image'; // Default to image
+        let wasTemporaryUrlGenerated = false; // Flag to track if we generate a temporary URL here
 
        if (typeof item === 'string') {
             // If it's just a URL string (like from a blob URL)
@@ -371,6 +373,7 @@ export default function NewRecordStep3() {
 
         } else if (item instanceof File) {
             urlToUse = generatePreviewUrl(item); // Generate temporary URL
+            wasTemporaryUrlGenerated = true; // Mark that we generated a temporary URL
              nameToUse = item.name;
              typeToUse = item.type.startsWith('video/') ? 'video' : 'image';
         } else if ('previewUrl' in item) { // It's a MediaFile from local state
@@ -394,10 +397,10 @@ export default function NewRecordStep3() {
         }
 
 
-        setPreviewMedia({ url: urlToUse, type: typeToUse, name: nameToUse });
+        setPreviewMedia({ url: urlToUse, type: typeToUse, name: nameToUse, wasTemporaryUrlGenerated }); // Pass the flag
 
         // If a temporary URL was generated for a File, handle cleanup in onOpenChange
-         if (item instanceof File && urlToUse && urlToUse.startsWith('blob:')) {
+         if (wasTemporaryUrlGenerated && urlToUse && urlToUse.startsWith('blob:')) {
              console.log("Preview opened with temporary blob URL. Will revoke on close.");
          }
    };
@@ -647,12 +650,12 @@ export default function NewRecordStep3() {
         {previewMedia && (
             <Dialog open={!!previewMedia} onOpenChange={(open) => {
                 if (!open) {
-                    // Revoke temporary blob URL if it exists in the previewMedia state
-                    if (previewMedia && previewMedia.url?.startsWith('blob:')) {
-                        console.log("Closing preview dialog, revoking URL:", previewMedia.url);
-                        revokePreviewUrl(previewMedia.url);
-                    }
-                    setPreviewMedia(null); // Clear the preview state
+                     // Revoke temporary blob URL if it was generated *for this preview instance*
+                     if (previewMedia.wasTemporaryUrlGenerated && previewMedia.url?.startsWith('blob:')) {
+                        console.log("Closing preview dialog, revoking temporary URL:", previewMedia.url);
+                         revokePreviewUrl(previewMedia.url);
+                     }
+                     setPreviewMedia(null); // Clear the preview state
                 }
             }}>
                <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
@@ -687,3 +690,5 @@ export default function NewRecordStep3() {
     </div>
   );
 }
+
+    

@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Save, ArrowLeft, ExternalLink, FileText, Loader2, Search } from 'lucide-react';
+import { Save, ArrowLeft, ExternalLink, FileText, Loader2, Search, Eye } from 'lucide-react'; // Added Eye
 import { format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { getSerializableFileInfo } from '@/lib/utils';
@@ -20,7 +20,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useQuery } from '@tanstack/react-query';
 import { getTypeApprovalRecords } from '@/services/firestore';
 import type { TypeApprovalRecord } from '@/types';
-
+import Image from 'next/image'; // Import Image
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogClose,
+} from "@/components/ui/dialog";
 
 // Define Zod schema for editable fields on this page
 const FormSchema = z.object({
@@ -37,6 +44,27 @@ const FormSchema = z.object({
 
 type FormData = z.infer<typeof FormSchema>;
 
+// Helper function to generate preview URL safely
+const generatePreviewUrl = (file: File): string | null => {
+    try {
+        return URL.createObjectURL(file);
+    } catch (error) {
+        console.error("Error creating object URL:", error);
+        return null;
+    }
+};
+
+// Helper function to revoke preview URL safely
+const revokePreviewUrl = (url: string | null) => {
+    if (url && url.startsWith('blob:')) {
+        try {
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Error revoking object URL:", error);
+        }
+    }
+};
+
 
 export default function NewRecordStep7() {
   const router = useRouter();
@@ -45,6 +73,9 @@ export default function NewRecordStep7() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isFindingApprovalNo, setIsFindingApprovalNo] = React.useState(false); // State for button loading
   const [progress] = React.useState(100); // Final Step
+  const [previewMedia, setPreviewMedia] = React.useState<{ url: string; type: 'image' | 'video', name: string, wasTemporaryUrlGenerated?: boolean } | null>(null); // State for media preview modal
+  const [registrationDocPreview, setRegistrationDocPreview] = React.useState<string | null>(null);
+  const [labelDocPreview, setLabelDocPreview] = React.useState<string | null>(null);
 
   // Fetch Type Approval Records using React Query
   const { data: typeApprovalList = [], isLoading: isLoadingApprovals, error: fetchApprovalsError } = useQuery<TypeApprovalRecord[], Error>({
@@ -68,6 +99,33 @@ export default function NewRecordStep7() {
         projectNo: recordData.projectNo || '',
     },
   });
+
+    // Effect to manage preview URLs for registration and label docs
+   React.useEffect(() => {
+        let regUrl: string | null = null;
+        let lblUrl: string | null = null;
+
+        if (recordData.registrationDocument instanceof File) {
+            regUrl = generatePreviewUrl(recordData.registrationDocument);
+            setRegistrationDocPreview(regUrl);
+        } else {
+            setRegistrationDocPreview(null); // Clear if not a file
+        }
+
+        if (recordData.labelDocument instanceof File) {
+            lblUrl = generatePreviewUrl(recordData.labelDocument);
+            setLabelDocPreview(lblUrl);
+        } else {
+            setLabelDocPreview(null); // Clear if not a file
+        }
+
+        // Cleanup function
+        return () => {
+            if (regUrl) revokePreviewUrl(regUrl);
+            if (lblUrl) revokePreviewUrl(lblUrl);
+        };
+    }, [recordData.registrationDocument, recordData.labelDocument]);
+
 
    // Function to find and set the Type Approval Number
    const findAndSetTypeApprovalNumber = React.useCallback(() => {
@@ -177,11 +235,7 @@ export default function NewRecordStep7() {
        isLoadingApprovals,
        branch,
        form,
-       recordData.projectName,
-       recordData.typeApprovalType,
-       recordData.typeApprovalLevel,
-       recordData.typeAndVariant,
-       recordData.typeApprovalVersion,
+       recordData, // Use the whole recordData object
        updateRecordData,
        toast
    ]);
@@ -204,6 +258,76 @@ export default function NewRecordStep7() {
            return 'Geçersiz Tarih';
        }
    };
+
+   // Get display name for files (File or Info object)
+   const getFileName = (fileData: File | { name: string; type?: string; size?: number } | undefined | null): string => {
+       if (fileData instanceof File) {
+           return fileData.name;
+       } else if (typeof fileData === 'object' && fileData?.name) {
+           return fileData.name;
+       }
+       return 'Yok';
+   };
+
+
+    // Open Preview Dialog
+    const openPreview = (item: File | { name: string; type?: string; size?: number } | string | null) => {
+       if (!item) return;
+
+        let urlToUse: string | null = null;
+        let nameToUse: string = 'Dosya';
+        let typeToUse: 'image' | 'video' = 'image'; // Default to image
+        let wasTemporaryUrlGenerated = false; // Flag to track if we generate a temporary URL here
+
+       if (typeof item === 'string') {
+            // If it's just a URL string (like from a blob URL)
+            urlToUse = item;
+            // Try to guess type and name from URL (basic)
+            if (urlToUse.includes('.mp4') || urlToUse.includes('.webm') || urlToUse.includes('.ogg') || urlToUse.includes('.mov')) {
+                typeToUse = 'video';
+            }
+            try {
+                const urlParts = new URL(urlToUse);
+                nameToUse = urlParts.pathname.split('/').pop() || 'Önizleme';
+            } catch {
+                // Handle invalid URL if necessary
+            }
+
+        } else if (item instanceof File) {
+            urlToUse = generatePreviewUrl(item); // Generate temporary URL
+            wasTemporaryUrlGenerated = true; // Mark that we generated a temporary URL
+             nameToUse = item.name;
+             typeToUse = item.type.startsWith('video/') ? 'video' : 'image';
+        } else if ('previewUrl' in item && typeof item.previewUrl === 'string') { // Check if it's likely MediaFile
+            urlToUse = item.previewUrl;
+            nameToUse = item.file?.name || 'Dosya'; // Check if file exists
+            typeToUse = item.type || 'image';
+        } else if ('name' in item && item.name) { // It's persisted info or other object with name
+             nameToUse = item.name;
+             typeToUse = item.type?.startsWith('video/') ? 'video' : 'image';
+             // Try to construct a placeholder URL or indicate preview not available
+             console.warn("Cannot generate reliable preview for persisted file info:", item.name);
+             // Example: Construct a potential Firebase URL (replace with your actual logic)
+             // urlToUse = `https://firebasestorage.googleapis.com/v0/b/your-project-id.appspot.com/o/uploads%2F${encodeURIComponent(item.name)}?alt=media`;
+             toast({ title: "Önizleme Yok", description: "Kaydedilmiş dosya için direkt önizleme mevcut değil.", variant: "default" });
+             return; // Exit if no preview can be shown
+        }
+
+        if (!urlToUse) {
+             toast({ title: "Önizleme Hatası", description: "Dosya önizlemesi oluşturulamadı veya URL bulunamadı.", variant: "destructive" });
+             return;
+        }
+
+
+        setPreviewMedia({ url: urlToUse, type: typeToUse, name: nameToUse, wasTemporaryUrlGenerated }); // Pass the flag
+
+        // If a temporary URL was generated for a File, handle cleanup in onOpenChange
+         if (wasTemporaryUrlGenerated && urlToUse && urlToUse.startsWith('blob:')) {
+             console.log("Preview opened with temporary blob URL. Will revoke on close.");
+         }
+   };
+
+
 
   // Helper to get document URL or handle missing/invalid data
   // TODO: Replace with actual Firebase URL retrieval logic
@@ -593,6 +717,56 @@ export default function NewRecordStep7() {
                      />
                  </div>
 
+                {/* Display Uploaded Registration and Label Documents from Previous Steps */}
+                <div className="border rounded-md p-4 space-y-4">
+                    <h3 className="text-lg font-medium mb-2">Yüklenen Belgeler</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Registration Document */}
+                        <FormItem className="flex flex-col items-center gap-2 border p-3 rounded-md">
+                            <FormLabel className="font-semibold">Ruhsat Belgesi (Adım 1)</FormLabel>
+                            {registrationDocPreview ? (
+                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(registrationDocPreview)}>
+                                    <Image src={registrationDocPreview} alt="Ruhsat Önizleme" fill style={{ objectFit: 'contain' }} className="rounded-md" unoptimized data-ai-hint="vehicle registration document" />
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                        <Eye className="h-8 w-8 text-white" />
+                                    </div>
+                                </div>
+                            ) : (getFileName(recordData.registrationDocument) !== 'Yok') ? (
+                                <div className="w-32 h-32 flex items-center justify-center bg-muted rounded-md text-muted-foreground text-center text-xs p-2">
+                                    <FileText className="h-6 w-6 mr-1"/> Önizleme Yok ({getFileName(recordData.registrationDocument)})
+                                </div>
+                             ) : (
+                                <div className="w-32 h-32 flex items-center justify-center bg-muted rounded-md text-muted-foreground text-center text-xs p-2">Yüklenmedi</div>
+                            )}
+                            <span className="text-xs text-muted-foreground mt-1 truncate max-w-[120px]" title={getFileName(recordData.registrationDocument)}>
+                                {getFileName(recordData.registrationDocument)}
+                            </span>
+                        </FormItem>
+
+                        {/* Label Document */}
+                        <FormItem className="flex flex-col items-center gap-2 border p-3 rounded-md">
+                            <FormLabel className="font-semibold">Etiket Belgesi (Adım 2)</FormLabel>
+                            {labelDocPreview ? (
+                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(labelDocPreview)}>
+                                    <Image src={labelDocPreview} alt="Etiket Önizleme" fill style={{ objectFit: 'contain' }} className="rounded-md" unoptimized data-ai-hint="vehicle label document" />
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                        <Eye className="h-8 w-8 text-white" />
+                                    </div>
+                                </div>
+                            ) : (getFileName(recordData.labelDocument) !== 'Yok') ? (
+                                <div className="w-32 h-32 flex items-center justify-center bg-muted rounded-md text-muted-foreground text-center text-xs p-2">
+                                    <FileText className="h-6 w-6 mr-1"/> Önizleme Yok ({getFileName(recordData.labelDocument)})
+                                </div>
+                             ) : (
+                                <div className="w-32 h-32 flex items-center justify-center bg-muted rounded-md text-muted-foreground text-center text-xs p-2">Yüklenmedi</div>
+                            )}
+                             <span className="text-xs text-muted-foreground mt-1 truncate max-w-[120px]" title={getFileName(recordData.labelDocument)}>
+                                {getFileName(recordData.labelDocument)}
+                             </span>
+                        </FormItem>
+                    </div>
+                </div>
+
 
               {/* Action Buttons */}
               <div className="flex justify-between pt-6">
@@ -608,6 +782,49 @@ export default function NewRecordStep7() {
           </Form>
         </CardContent>
       </Card>
+
+      {/* Media Preview Dialog */}
+        {previewMedia && (
+            <Dialog open={!!previewMedia} onOpenChange={(open) => {
+                if (!open) {
+                     // Revoke temporary blob URL if it was generated *for this preview instance*
+                     if (previewMedia.wasTemporaryUrlGenerated && previewMedia.url?.startsWith('blob:')) {
+                        console.log("Closing preview dialog, revoking temporary URL:", previewMedia.url);
+                         revokePreviewUrl(previewMedia.url);
+                     }
+                     setPreviewMedia(null); // Clear the preview state
+                }
+            }}>
+               <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+                   <DialogHeader>
+                       <DialogTitle className="truncate">{previewMedia.name}</DialogTitle>
+                   </DialogHeader>
+                   <div className="flex-1 relative overflow-auto flex items-center justify-center bg-black">
+                       {previewMedia.type === 'image' ? (
+                           <Image
+                               src={previewMedia.url || ''} // Handle potential undefined URL gracefully
+                               alt={`Önizleme - ${previewMedia.name}`}
+                               width={1200} // Adjust width as needed
+                               height={800} // Adjust height as needed
+                               style={{ objectFit: 'contain', maxWidth: '100%', maxHeight: '100%' }}
+                               unoptimized // Important for blob URLs and potentially external URLs
+                               data-ai-hint="media preview image"
+                               onError={(e) => { console.error("Error loading image preview:", previewMedia.url, e); toast({title: "Hata", description:"Resim yüklenemedi.", variant:"destructive"})}}
+                           />
+                       ) : (
+                           <video controls className="max-w-full max-h-full" autoPlay>
+                               <source src={previewMedia.url} type={previewMedia.name?.endsWith('.mp4') ? 'video/mp4' : previewMedia.name?.endsWith('.webm') ? 'video/webm' : previewMedia.name?.endsWith('.mov') ? 'video/quicktime' : 'video/ogg'} />
+                               Tarayıcınız video etiketini desteklemiyor.
+                           </video>
+                       )}
+                   </div>
+                    <DialogClose asChild>
+                       <Button type="button" variant="outline" className="mt-4">Kapat</Button>
+                    </DialogClose>
+               </DialogContent>
+           </Dialog>
+        )}
+
     </div>
   );
 }
