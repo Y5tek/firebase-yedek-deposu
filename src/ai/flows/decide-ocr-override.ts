@@ -15,22 +15,20 @@ import {z} from 'genkit';
 const DecideOcrOverrideInputSchema = z.object({
   ocrData: z.object({
     chassisNumber: z.string().optional().describe('Chassis number extracted from OCR.'),
-    brand: z.string().optional().describe('Brand extracted from OCR.'),
+    // brand: z.string().optional().describe('Brand extracted from OCR.'), // Removed brand
     type: z.string().optional().describe('Type extracted from OCR.'),
     tradeName: z.string().optional().describe('Trade name extracted from OCR.'),
     owner: z.string().optional().describe('Owner (Adı Soyadı) extracted from OCR.'), // Clarified description
-    // plateNumber: z.string().optional().describe('Plate number extracted from OCR.'), // Removed plateNumber
     typeApprovalNumber: z.string().optional().describe('Type approval number extracted from OCR.'),
     typeAndVariant: z.string().optional().describe('Type and variant information extracted from OCR.'),
     versiyon: z.string().optional().describe('Version information extracted from OCR.'), // Added versiyon
   }).describe('Data extracted from OCR.'),
   currentData: z.object({
     chassisNumber: z.string().optional().describe('Current chassis number.'),
-    brand: z.string().optional().describe('Current brand.'),
+    // brand: z.string().optional().describe('Current brand.'), // Removed brand
     type: z.string().optional().describe('Current type.'),
     tradeName: z.string().optional().describe('Current trade name.'),
     owner: z.string().optional().describe('Current owner (Adı Soyadı).'), // Clarified description
-    // plateNumber: z.string().optional().describe('Current plate number.'), // Removed plateNumber
     typeApprovalNumber: z.string().optional().describe('Current type approval number.'),
     typeAndVariant: z.string().optional().describe('Current type and variant information.'),
     versiyon: z.string().optional().describe('Current version information.'), // Added versiyon
@@ -42,11 +40,10 @@ export type DecideOcrOverrideInput = z.infer<typeof DecideOcrOverrideInputSchema
 const DecideOcrOverrideOutputSchema = z.object({
   override: z.object({
     chassisNumber: z.boolean().describe('Whether to override chassis number with OCR data.'),
-    brand: z.boolean().describe('Whether to override brand with OCR data.'),
+    // brand: z.boolean().describe('Whether to override brand with OCR data.'), // Removed brand
     type: z.boolean().describe('Whether to override type with OCR data.'),
     tradeName: z.boolean().describe('Whether to override trade name with OCR data.'),
     owner: z.boolean().describe('Whether to override owner (Adı Soyadı) with OCR data.'), // Clarified description
-    // plateNumber: z.boolean().describe('Whether to override plate number with OCR data.'), // Removed plateNumber
     typeApprovalNumber: z.boolean().describe('Whether to override type approval number with OCR data.'),
     typeAndVariant: z.boolean().describe('Whether to override type and variant information with OCR data.'),
     versiyon: z.boolean().describe('Whether to override version information with OCR data.'), // Added versiyon
@@ -65,22 +62,20 @@ const prompt = ai.definePrompt({
     schema: z.object({
       ocrData: z.object({
         chassisNumber: z.string().optional().describe('Chassis number extracted from OCR.'),
-        brand: z.string().optional().describe('Brand extracted from OCR.'),
+        // brand: z.string().optional().describe('Brand extracted from OCR.'), // Removed brand
         type: z.string().optional().describe('Type extracted from OCR.'),
         tradeName: z.string().optional().describe('Trade name extracted from OCR.'),
         owner: z.string().optional().describe('Owner (Adı Soyadı) extracted from OCR.'), // Clarified description
-        // plateNumber: z.string().optional().describe('Plate number extracted from OCR.'), // Removed plateNumber
         typeApprovalNumber: z.string().optional().describe('Type approval number extracted from OCR.'),
         typeAndVariant: z.string().optional().describe('Type and variant information extracted from OCR.'),
         versiyon: z.string().optional().describe('Version information extracted from OCR.'), // Added versiyon
       }).describe('Data extracted from OCR.'),
       currentData: z.object({
         chassisNumber: z.string().optional().describe('Current chassis number.'),
-        brand: z.string().optional().describe('Current brand.'),
+        // brand: z.string().optional().describe('Current brand.'), // Removed brand
         type: z.string().optional().describe('Current type.'),
         tradeName: z.string().optional().describe('Current trade name.'),
         owner: z.string().optional().describe('Current owner (Adı Soyadı).'), // Clarified description
-        // plateNumber: z.string().optional().describe('Current plate number.'), // Removed plateNumber
         typeApprovalNumber: z.string().optional().describe('Current type approval number.'),
         typeAndVariant: z.string().optional().describe('Current type and variant information.'),
         versiyon: z.string().optional().describe('Current version information.'), // Added versiyon
@@ -91,11 +86,10 @@ const prompt = ai.definePrompt({
     schema: z.object({
       override: z.object({
         chassisNumber: z.boolean().describe('Whether to override chassis number with OCR data.'),
-        brand: z.boolean().describe('Whether to override brand with OCR data.'),
+        // brand: z.boolean().describe('Whether to override brand with OCR data.'), // Removed brand
         type: z.boolean().describe('Whether to override type with OCR data.'),
         tradeName: z.boolean().describe('Whether to override trade name with OCR data.'),
         owner: z.boolean().describe('Whether to override owner (Adı Soyadı) with OCR data.'), // Clarified description
-        // plateNumber: z.boolean().describe('Whether to override plate number with OCR data.'), // Removed plateNumber
         typeApprovalNumber: z.boolean().describe('Whether to override type approval number with OCR data.'),
         typeAndVariant: z.boolean().describe('Whether to override type and variant information with OCR data.'),
         versiyon: z.boolean().describe('Whether to override version information with OCR data.'), // Added versiyon
@@ -149,3 +143,4 @@ const decideOcrOverrideFlow = ai.defineFlow<
     }
   return output;
 });
+

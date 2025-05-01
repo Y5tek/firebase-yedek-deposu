@@ -29,7 +29,7 @@ const FormSchema = z.object({
   typeApprovalNumber: z.string().optional(),
   typeAndVariant: z.string().optional(),
   labelDocument: z.any().optional(),
-  brand: z.string().optional(), // Add brand field
+  // brand: z.string().optional(), // Removed brand field
   versiyon: z.string().optional(), // Added versiyon field
 });
 
@@ -53,7 +53,7 @@ export default function NewRecordStep2() {
       typeApprovalNumber: recordData.typeApprovalNumber || '',
       typeAndVariant: recordData.typeAndVariant || '',
       labelDocument: recordData.labelDocument || null,
-      brand: recordData.brand || '', // Pre-fill brand
+      // brand: recordData.brand || '', // Removed brand pre-fill
       versiyon: recordData.versiyon || '', // Pre-fill versiyon
     },
   });
@@ -136,14 +136,13 @@ export default function NewRecordStep2() {
          const ocrData = ocrResult.ocrData;
 
          // Get current form data AND data from previous steps for override decision
-         // Removed plateNumber from here
+         // Removed plateNumber and brand from here
          const currentDataForDecision = {
              chassisNumber: recordData.chassisNumber, // Use value from global state (set in Step 1)
-             brand: form.getValues('brand') || recordData.brand, // Use form value first
+             // brand: form.getValues('brand') || recordData.brand, // Removed brand from decision data
              type: recordData.type,
              tradeName: recordData.tradeName,
              owner: recordData.owner,
-             // plateNumber: recordData.plateNumber, // Removed plateNumber
              typeApprovalNumber: form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber, // Use form value first
              typeAndVariant: form.getValues('typeAndVariant') || recordData.typeAndVariant, // Use form value first
              versiyon: form.getValues('versiyon') || recordData.versiyon, // Use form value first
@@ -151,14 +150,13 @@ export default function NewRecordStep2() {
          console.log("Current Data for Override Decision (Step 2):", currentDataForDecision);
 
          // Ensure all fields from OcrData are present in the decision input
-         // Removed plateNumber from here
+         // Removed plateNumber and brand from here
          const ocrDataForDecision = {
            chassisNumber: ocrData.chassisNumber,
-           brand: ocrData.brand,
+           // brand: ocrData.brand, // Removed brand
            type: ocrData.type,
            tradeName: ocrData.tradeName,
            owner: ocrData.owner,
-           // plateNumber: ocrData.plateNumber, // Removed plateNumber
            typeApprovalNumber: ocrData.typeApprovalNumber,
            typeAndVariant: ocrData.typeAndVariant,
            versiyon: ocrData.versiyon, // Include versiyon
@@ -181,12 +179,25 @@ export default function NewRecordStep2() {
 
          // Function to decide if a field should be updated
         const shouldUpdate = (fieldName: keyof typeof override): boolean => {
+            // Removed check for brand field
             const ocrValue = ocrData[fieldName as keyof typeof ocrData];
             // Update if OCR has value AND (current is empty OR override is true)
             const currentValue = form.getValues(fieldName as keyof FormData); // Use FormData keys
              const currentGlobalValue = recordData[fieldName as keyof RecordData]; // Use RecordData keys
             // Removed plateNumber check here, ensure fieldName is valid for FormData
-            if (!(fieldName in form.getValues())) return false; // Don't try to check fields not on this form
+            // Check if the field exists in the form's values before trying to get it
+            if (!(fieldName in form.getValues())) {
+                 // Check if it exists in global state if not in form
+                 if (fieldName in recordData) {
+                    // It's a global state field only, check based on global value
+                    const conditionGlobal = (ocrValue && ocrValue.trim() !== '') && (!currentGlobalValue || currentGlobalValue.trim() === '' || override[fieldName]);
+                    console.log(`shouldUpdate (Global Field: ${fieldName})? OCR: '${ocrValue}', Current Global: '${currentGlobalValue}', Override: ${override[fieldName]}, Result: ${!!conditionGlobal}`);
+                    return !!conditionGlobal;
+                 }
+                 // Field doesn't exist in form or global state (e.g., 'brand'), return false
+                 console.log(`Field ${fieldName} not found in form or global state.`);
+                 return false;
+            }
 
             const condition = (ocrValue && ocrValue.trim() !== '') && (!currentValue || currentValue.trim() === '' || !currentGlobalValue || currentGlobalValue.trim() === '' || override[fieldName]);
 
@@ -217,15 +228,16 @@ export default function NewRecordStep2() {
               updates.chassisNumber = recordData.chassisNumber; // Ensure global state keeps the original value
          }
 
-         // Brand
-         if (shouldUpdate('brand')) {
-             console.log("Updating brand field with label OCR data:", ocrData.brand);
-             form.setValue('brand', ocrData.brand || '');
-             updates.brand = ocrData.brand;
-         } else {
-             console.log("Not overriding brand (Step 2). Override:", override.brand, "OCR Data:", ocrData.brand);
-              updates.brand = form.getValues('brand') || recordData.brand; // Keep current value
-         }
+         // Brand field removed
+         // if (shouldUpdate('brand')) {
+         //     console.log("Updating brand field with label OCR data:", ocrData.brand);
+         //     // form.setValue('brand', ocrData.brand || ''); // Removed setValue
+         //     updates.brand = ocrData.brand;
+         // } else {
+         //     console.log("Not overriding brand (Step 2). Override:", override.brand, "OCR Data:", ocrData.brand);
+         //     // updates.brand = form.getValues('brand') || recordData.brand; // Removed update logic
+         //     updates.brand = recordData.brand; // Keep existing global state value
+         // }
 
 
          // Type Approval Number
@@ -303,10 +315,12 @@ export default function NewRecordStep2() {
                      updates.chassisNumber = ocrDataFallback.chassisNumber;
                  } else { updates.chassisNumber = recordData.chassisNumber;} // Keep existing
 
-                if (!form.getValues('brand') && !recordData.brand && ocrDataFallback.brand) {
-                    form.setValue('brand', ocrDataFallback.brand);
-                    updates.brand = ocrDataFallback.brand;
-                 } else { updates.brand = form.getValues('brand') || recordData.brand; } // Keep existing
+                // Removed brand fallback
+                // if (!form.getValues('brand') && !recordData.brand && ocrDataFallback.brand) {
+                //    // form.setValue('brand', ocrDataFallback.brand); // Removed setValue
+                //     updates.brand = ocrDataFallback.brand;
+                //  } else { updates.brand = form.getValues('brand') || recordData.brand; } // Keep existing
+                 updates.brand = recordData.brand; // Ensure brand from state is preserved
 
                 if (!form.getValues('typeApprovalNumber') && !recordData.typeApprovalNumber && ocrDataFallback.typeApprovalNumber) {
                      form.setValue('typeApprovalNumber', ocrDataFallback.typeApprovalNumber);
@@ -333,7 +347,8 @@ export default function NewRecordStep2() {
              } else {
                  // If AI failed completely, ensure updates reflect current form/global state
                  updates.chassisNumber = recordData.chassisNumber;
-                 updates.brand = form.getValues('brand') || recordData.brand;
+                 // updates.brand = form.getValues('brand') || recordData.brand; // Removed brand update
+                 updates.brand = recordData.brand; // Preserve brand from global state
                  updates.typeApprovalNumber = form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber;
                  updates.typeAndVariant = form.getValues('typeAndVariant') || recordData.typeAndVariant;
                  updates.versiyon = form.getValues('versiyon') || recordData.versiyon; // Preserve versiyon
@@ -452,11 +467,11 @@ export default function NewRecordStep2() {
 
     // Update global state, ensuring the file (or its info) is correctly passed
     // Also update fields that might have been changed by OCR/manual input in this step
-    // Removed plateNumber from update
+    // Removed plateNumber and brand from update
     updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve potentially updated chassis no
-        brand: data.brand, // Update brand from form
-        // plateNumber: recordData.plateNumber, // Removed plateNumber
+        // brand: data.brand, // Removed brand update
+        brand: recordData.brand, // Preserve brand from global state
         type: recordData.type, // Preserve potentially updated type
         tradeName: recordData.tradeName, // Preserve potentially updated tradeName
         owner: recordData.owner, // Preserve potentially updated owner
@@ -470,11 +485,11 @@ export default function NewRecordStep2() {
 
   const goBack = () => {
      // Save current data before going back
-     // Removed plateNumber from update
+     // Removed plateNumber and brand from update
      updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve
-        brand: form.getValues('brand'), // Save brand
-        // plateNumber: recordData.plateNumber, // Removed plateNumber
+        // brand: form.getValues('brand'), // Removed brand save
+        brand: recordData.brand, // Preserve brand from global state
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
         versiyon: form.getValues('versiyon'), // Save versiyon
@@ -489,11 +504,10 @@ export default function NewRecordStep2() {
     }
      // Sync form fields with global state when the component loads or recordData changes
      // This ensures data potentially updated by step 1 OCR/override is reflected here
-     // Removed plateNumber from reset
+     // Removed plateNumber and brand from reset
      form.reset({
         chassisNumber: recordData.chassisNumber || '',
-        brand: recordData.brand || '', // Sync brand
-        // plateNumber: recordData.plateNumber || '', // Removed plateNumber sync
+        // brand: recordData.brand || '', // Removed brand sync
         typeApprovalNumber: recordData.typeApprovalNumber || '',
         typeAndVariant: recordData.typeAndVariant || '',
         versiyon: recordData.versiyon || '', // Sync versiyon
@@ -641,9 +655,8 @@ export default function NewRecordStep2() {
                         </FormItem>
                         )}
                     />
-                     {/* Removed Plate Number Display Field */}
-
-                    <FormField
+                     {/* Removed Brand Field */}
+                     {/* <FormField
                         control={form.control}
                         name="brand"
                         render={({ field }) => (
@@ -655,7 +668,7 @@ export default function NewRecordStep2() {
                             <FormMessage />
                         </FormItem>
                         )}
-                    />
+                    /> */}
                      <FormField
                         control={form.control}
                         name="typeApprovalNumber"
