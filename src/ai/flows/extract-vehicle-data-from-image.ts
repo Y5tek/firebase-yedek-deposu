@@ -21,7 +21,7 @@ const OcrDataSchema = z.object({
     type: z.string().optional().describe('The type of vehicle (Tipi) extracted from the document.'),
     tradeName: z.string().optional().describe('The trade name (Ticari Adı) extracted from the document.'),
     owner: z.string().optional().describe('The owner\'s full name (Adı Soyadı) extracted from the document.'), // Updated description
-    plateNumber: z.string().optional().describe('The license plate number (Plaka) extracted from the document.'), // Added plateNumber
+    // plateNumber removed
     typeApprovalNumber: z.string().optional().describe('The type approval number (Tip Onay No / AT Uygunluk Belge No) extracted from the document.'),
     typeAndVariant: z.string().optional().describe('The type and variant information (Tip ve Varyant) extracted from the document.'),
 });
@@ -55,7 +55,6 @@ const extractDataPrompt = ai.definePrompt({
     prompt: `Analyze the provided image, which could be a vehicle registration document (araç ruhsatı) or a vehicle identification label (araç etiketi) from Turkey. Extract the following information if available:
 
 *   Chassis Number (Şasi No / Araç Kimlik No)
-*   License Plate Number (Plaka) - Usually on registration documents
 *   Brand (Markası) - **CRITICAL: Locate the exact label "Markası" and extract the value immediately following it (often after a colon ':'). Be very precise. Example: If it says "Markası : FIAT", extract "FIAT". Do NOT confuse this with "Ticari Adı".**
 *   Type (Tipi)
 *   Trade Name (Ticari Adı) - This is different from "Markası".

@@ -23,14 +23,13 @@ import type { ExtractVehicleDataOutput } from '@/ai/flows/extract-vehicle-data-f
 import type { DecideOcrOverrideOutput } from '@/ai/flows/decide-ocr-override';
 
 
-// Schema for step 2 fields
+// Schema for step 2 fields (removing plateNumber)
 const FormSchema = z.object({
   chassisNumber: z.string().optional(), // Display only, filled from step 1/OCR
   typeApprovalNumber: z.string().optional(),
   typeAndVariant: z.string().optional(),
   labelDocument: z.any().optional(),
   brand: z.string().optional(), // Add brand field
-  plateNumber: z.string().optional(), // Added plateNumber for consistency
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -54,7 +53,6 @@ export default function NewRecordStep2() {
       typeAndVariant: recordData.typeAndVariant || '',
       labelDocument: recordData.labelDocument || null,
       brand: recordData.brand || '', // Pre-fill brand
-      plateNumber: recordData.plateNumber || '', // Pre-fill plateNumber
     },
   });
 
@@ -66,16 +64,19 @@ export default function NewRecordStep2() {
         const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen bir yapay zeka hatası oluştu.';
 
         // Check for specific AI Service Unavailable error
-        if (errorMessage.includes('AI Service Unavailable') || errorMessage.includes('503')) {
-            setOcrError('Yapay zeka servisi şu anda yoğun veya kullanılamıyor. Lütfen birkaç dakika sonra tekrar deneyin veya bilgileri manuel girin.');
+        if (errorMessage.includes('AI Service Unavailable') || errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable') || errorMessage.includes('500 Internal Server Error')) {
+            const errorTypeMatch = errorMessage.match(/\(([^)]+)\)/); // Extract text within parentheses if available
+            const errorType = errorTypeMatch ? errorTypeMatch[1] : (errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : 'Sunucu Hatası');
+            const userMsg = `Yapay zeka servisinde geçici bir sorun (${errorType}) yaşanıyor. Lütfen birkaç dakika sonra tekrar deneyin veya bilgileri manuel girin.`;
+            setOcrError(userMsg);
             toast({
-                title: 'Servis Kullanılamıyor',
-                description: 'Yapay zeka servisi şu anda yoğun veya geçici olarak devre dışı. Lütfen tekrar deneyin.',
+                title: 'Servis Hatası',
+                description: userMsg,
                 variant: 'destructive',
                 duration: 7000, // Longer duration for service errors
             });
         } else {
-            // Handle other generic errors (like 500 Internal Server Error)
+            // Handle other generic errors
             const userFriendlyMessage = `Etiket okunurken bir hata oluştu (Adım ${step}). Lütfen bilgileri manuel olarak kontrol edin veya tekrar deneyin.`;
             setOcrError(userFriendlyMessage + (errorMessage.includes('AI prompt error:') ? '' : ` Detay: ${errorMessage}`)); // Show technical details only if not already prefixed
             toast({
@@ -124,7 +125,7 @@ export default function NewRecordStep2() {
       try {
          console.log("Calling extractVehicleData flow for label...");
          ocrResult = await extractVehicleData({ imageBase64: base64String });
-         console.log("OCR Result (Step 2 Label):", ocrResult.ocrData);
+         console.log("OCR Result (Step 2 Label):", ocrResult?.ocrData); // Use optional chaining
 
          if (!ocrResult || !ocrResult.ocrData) {
              throw new Error("Etiket OCR veri çıkarma işlemi başarısız oldu veya veri bulunamadı.");
@@ -139,7 +140,7 @@ export default function NewRecordStep2() {
              type: recordData.type,
              tradeName: recordData.tradeName,
              owner: recordData.owner,
-             plateNumber: form.getValues('plateNumber') || recordData.plateNumber, // Added plateNumber
+             // plateNumber removed
              typeApprovalNumber: form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber, // Use form value first
              typeAndVariant: form.getValues('typeAndVariant') || recordData.typeAndVariant, // Use form value first
          };
@@ -152,7 +153,7 @@ export default function NewRecordStep2() {
            type: ocrData.type,
            tradeName: ocrData.tradeName,
            owner: ocrData.owner,
-           plateNumber: ocrData.plateNumber, // Added plateNumber
+           // plateNumber removed
            typeApprovalNumber: ocrData.typeApprovalNumber,
            typeAndVariant: ocrData.typeAndVariant,
          };
@@ -163,7 +164,7 @@ export default function NewRecordStep2() {
             ocrData: ocrDataForDecision,
             currentData: currentDataForDecision
          });
-         console.log("Override Decision (Step 2):", overrideDecision.override);
+         console.log("Override Decision (Step 2):", overrideDecision?.override); // Use optional chaining
 
          if (!overrideDecision || !overrideDecision.override) {
              throw new Error("Geçersiz kılma kararı alınamadı (Etiket).");
@@ -175,7 +176,13 @@ export default function NewRecordStep2() {
          // Function to decide if a field should be updated
         const shouldUpdate = (fieldName: keyof typeof override): boolean => {
             const ocrValue = ocrData[fieldName as keyof typeof ocrData];
-            return !!(override[fieldName] && ocrValue); // Check override flag AND if OCR found a value
+            // Update if OCR has value AND (current is empty OR override is true)
+            const currentValue = form.getValues(fieldName as keyof FormData); // Use FormData keys
+             const currentGlobalValue = recordData[fieldName as keyof RecordData]; // Use RecordData keys
+            const condition = (ocrValue && ocrValue.trim() !== '') && (!currentValue || currentValue.trim() === '' || !currentGlobalValue || currentGlobalValue.trim() === '' || override[fieldName]);
+
+            console.log(`shouldUpdate(${fieldName})? OCR: '${ocrValue}', Current Form: '${currentValue}', Current Global: '${currentGlobalValue}', Override: ${override[fieldName]}, Result: ${!!condition}`);
+            return !!condition;
         };
 
 
@@ -189,6 +196,7 @@ export default function NewRecordStep2() {
                  form.setValue('chassisNumber', ocrData.chassisNumber!); // Update display field
              } else {
                   console.log("AI decided NOT to override chassis number based on label.");
+                   updates.chassisNumber = recordData.chassisNumber; // Ensure global state keeps the original value
              }
          } else if (shouldUpdate('chassisNumber')) {
              // This case handles if step 1 chassis was empty and label has it.
@@ -197,45 +205,41 @@ export default function NewRecordStep2() {
              updates.chassisNumber = ocrData.chassisNumber;
          } else {
              console.log("Not overriding chassisNumber (Step 2). Override:", override.chassisNumber, "OCR Data:", ocrData.chassisNumber);
+              updates.chassisNumber = recordData.chassisNumber; // Ensure global state keeps the original value
          }
 
          // Brand
          if (shouldUpdate('brand')) {
              console.log("Updating brand field with label OCR data:", ocrData.brand);
-             form.setValue('brand', ocrData.brand!);
+             form.setValue('brand', ocrData.brand || '');
              updates.brand = ocrData.brand;
          } else {
              console.log("Not overriding brand (Step 2). Override:", override.brand, "OCR Data:", ocrData.brand);
+              updates.brand = form.getValues('brand') || recordData.brand; // Keep current value
          }
 
 
          // Type Approval Number
          if (shouldUpdate('typeApprovalNumber')) {
             console.log("Updating typeApprovalNumber field with OCR data:", ocrData.typeApprovalNumber);
-            form.setValue('typeApprovalNumber', ocrData.typeApprovalNumber!);
+            form.setValue('typeApprovalNumber', ocrData.typeApprovalNumber || '');
             updates.typeApprovalNumber = ocrData.typeApprovalNumber;
          } else {
              console.log("Not overriding typeApprovalNumber. Override:", override.typeApprovalNumber, "OCR Data:", ocrData.typeApprovalNumber);
+              updates.typeApprovalNumber = form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber; // Keep current value
          }
 
          // Type and Variant
          if (shouldUpdate('typeAndVariant')) {
             console.log("Updating typeAndVariant field with OCR data:", ocrData.typeAndVariant);
-            form.setValue('typeAndVariant', ocrData.typeAndVariant!);
+            form.setValue('typeAndVariant', ocrData.typeAndVariant || '');
             updates.typeAndVariant = ocrData.typeAndVariant;
          } else {
              console.log("Not overriding typeAndVariant. Override:", override.typeAndVariant, "OCR Data:", ocrData.typeAndVariant);
+              updates.typeAndVariant = form.getValues('typeAndVariant') || recordData.typeAndVariant; // Keep current value
          }
 
-         // Plate Number
-          if (shouldUpdate('plateNumber')) {
-              console.log("Updating plateNumber field with label OCR data:", ocrData.plateNumber);
-              form.setValue('plateNumber', ocrData.plateNumber!);
-              updates.plateNumber = ocrData.plateNumber;
-          } else {
-              console.log("Not overriding plateNumber (Step 2). Override:", override.plateNumber, "OCR Data:", ocrData.plateNumber);
-          }
-
+         // Plate Number Removed
 
          // Update potentially other fields in the global state based on label OCR decision
          // These might override Step 1 data if deemed more accurate by the AI
@@ -244,18 +248,21 @@ export default function NewRecordStep2() {
             updates.type = ocrData.type; // Update "tipi"
          } else {
               console.log("Not overriding type (Step 2). Override:", override.type, "OCR Data:", ocrData.type);
+              updates.type = recordData.type; // Keep existing global state value
          }
          if (shouldUpdate('tradeName')) {
              console.log("Preparing update for tradeName in global state (from label):", ocrData.tradeName);
              updates.tradeName = ocrData.tradeName;
          } else {
                 console.log("Not overriding tradeName (Step 2). Override:", override.tradeName, "OCR Data:", ocrData.tradeName);
+                 updates.tradeName = recordData.tradeName; // Keep existing global state value
          }
          if (shouldUpdate('owner')) {
             console.log("Preparing update for owner in global state (from label):", ocrData.owner);
             updates.owner = ocrData.owner;
          } else {
             console.log("Not overriding owner (Step 2). Override:", override.owner, "OCR Data:", ocrData.owner);
+             updates.owner = recordData.owner; // Keep existing global state value
          }
 
 
@@ -270,33 +277,43 @@ export default function NewRecordStep2() {
              if (ocrResult && ocrResult.ocrData && !overrideDecision) {
                 console.warn("Override decision failed (Step 2), populating empty fields with label OCR data as fallback.");
                 const ocrDataFallback = ocrResult.ocrData;
-                if (!form.getValues('typeApprovalNumber') && ocrDataFallback.typeApprovalNumber) {
-                     form.setValue('typeApprovalNumber', ocrDataFallback.typeApprovalNumber);
-                     updates.typeApprovalNumber = ocrDataFallback.typeApprovalNumber;
-                 }
-                if (!form.getValues('typeAndVariant') && ocrDataFallback.typeAndVariant) {
-                    form.setValue('typeAndVariant', ocrDataFallback.typeAndVariant);
-                    updates.typeAndVariant = ocrDataFallback.typeAndVariant;
-                }
-                if (!form.getValues('brand') && ocrDataFallback.brand) { // Fallback for brand
+                // Fallback logic - only populate if the form/global field is currently empty
+                if (!form.getValues('chassisNumber') && !recordData.chassisNumber && ocrDataFallback.chassisNumber) {
+                     form.setValue('chassisNumber', ocrDataFallback.chassisNumber);
+                     updates.chassisNumber = ocrDataFallback.chassisNumber;
+                 } else { updates.chassisNumber = recordData.chassisNumber;} // Keep existing
+
+                if (!form.getValues('brand') && !recordData.brand && ocrDataFallback.brand) {
                     form.setValue('brand', ocrDataFallback.brand);
                     updates.brand = ocrDataFallback.brand;
-                 }
-                 if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) { // Fallback for plate number
-                     form.setValue('plateNumber', ocrDataFallback.plateNumber);
-                     updates.plateNumber = ocrDataFallback.plateNumber;
-                 }
-                // Update global state for potential future use even without decision
-                updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
-                updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
-                // Also fallback for other fields if empty
-                 if (!recordData.chassisNumber && ocrDataFallback.chassisNumber) updates.chassisNumber = ocrDataFallback.chassisNumber;
-                 if (!recordData.brand && ocrDataFallback.brand) updates.brand = ocrDataFallback.brand;
+                 } else { updates.brand = form.getValues('brand') || recordData.brand; } // Keep existing
+
+                if (!form.getValues('typeApprovalNumber') && !recordData.typeApprovalNumber && ocrDataFallback.typeApprovalNumber) {
+                     form.setValue('typeApprovalNumber', ocrDataFallback.typeApprovalNumber);
+                     updates.typeApprovalNumber = ocrDataFallback.typeApprovalNumber;
+                 } else { updates.typeApprovalNumber = form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber; } // Keep existing
+
+                if (!form.getValues('typeAndVariant') && !recordData.typeAndVariant && ocrDataFallback.typeAndVariant) {
+                    form.setValue('typeAndVariant', ocrDataFallback.typeAndVariant);
+                    updates.typeAndVariant = ocrDataFallback.typeAndVariant;
+                } else { updates.typeAndVariant = form.getValues('typeAndVariant') || recordData.typeAndVariant; } // Keep existing
+
+                // Plate Number Removed
+
+                 // Fallback for other global fields if empty
                  if (!recordData.type && ocrDataFallback.type) updates.type = ocrDataFallback.type;
                  if (!recordData.tradeName && ocrDataFallback.tradeName) updates.tradeName = ocrDataFallback.tradeName;
                  if (!recordData.owner && ocrDataFallback.owner) updates.owner = ocrDataFallback.owner;
-                 if (!recordData.plateNumber && ocrDataFallback.plateNumber) updates.plateNumber = ocrDataFallback.plateNumber; // Fallback for plateNumber
 
+             } else {
+                 // If AI failed completely, ensure updates reflect current form/global state
+                 updates.chassisNumber = recordData.chassisNumber;
+                 updates.brand = form.getValues('brand') || recordData.brand;
+                 updates.typeApprovalNumber = form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber;
+                 updates.typeAndVariant = form.getValues('typeAndVariant') || recordData.typeAndVariant;
+                 updates.type = recordData.type;
+                 updates.tradeName = recordData.tradeName;
+                 updates.owner = recordData.owner;
              }
        } finally {
             // Update app state regardless of override success, including the file itself
@@ -411,7 +428,7 @@ export default function NewRecordStep2() {
     updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve potentially updated chassis no
         brand: data.brand, // Update brand from form
-        plateNumber: data.plateNumber, // Update plateNumber from form
+        // plateNumber removed
         type: recordData.type, // Preserve potentially updated type
         tradeName: recordData.tradeName, // Preserve potentially updated tradeName
         owner: recordData.owner, // Preserve potentially updated owner
@@ -427,7 +444,7 @@ export default function NewRecordStep2() {
      updateRecordData({
         chassisNumber: recordData.chassisNumber, // Preserve
         brand: form.getValues('brand'), // Save brand
-        plateNumber: form.getValues('plateNumber'), // Save plate number
+        // plateNumber removed
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
         labelDocument: currentFile || recordData.labelDocument // Save current file/info
@@ -444,7 +461,7 @@ export default function NewRecordStep2() {
      form.reset({
         chassisNumber: recordData.chassisNumber || '',
         brand: recordData.brand || '', // Sync brand
-        plateNumber: recordData.plateNumber || '', // Sync plate number
+        // plateNumber removed
         typeApprovalNumber: recordData.typeApprovalNumber || '',
         typeAndVariant: recordData.typeAndVariant || '',
         labelDocument: recordData.labelDocument || null
@@ -515,6 +532,7 @@ export default function NewRecordStep2() {
                                         style={{ objectFit: 'contain' }}
                                         className="rounded-md"
                                         unoptimized // Use unoptimized for local object URLs
+                                        data-ai-hint="vehicle identification label"
                                     />
                                 </div>
                              ) : (
@@ -590,19 +608,7 @@ export default function NewRecordStep2() {
                         </FormItem>
                         )}
                     />
-                     <FormField
-                        control={form.control}
-                        name="plateNumber"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Plaka</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
+                     {/* Plaka field removed */}
                     <FormField
                         control={form.control}
                         name="brand"

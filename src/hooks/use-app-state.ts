@@ -22,7 +22,7 @@ export interface RecordData {
   owner?: string;
   typeApprovalNumber?: string; // Added Tip Onay No
   typeAndVariant?: string; // Likely holds "VARYANT"
-  plateNumber?: string; // Added plateNumber field
+  // plateNumber removed from Step 1/2 context
   engineNumber?: string; // Added Motor No
 
   // Step 3 Files
@@ -46,7 +46,7 @@ export interface RecordData {
 
   // Step 5 Form Fields (İş Emri Formu)
   projectName?: string; // Relevant for "PROJE ADI"
-  plate?: string; // Plate from İş Emri Form
+  plate?: string; // Plate from İş Emri Form (Kept this one)
   workOrderNumber?: string; // Relevant for "SIRA NO" if different from sequenceNo
   workOrderDate?: string; // ISO String (Could be "TARİH")
   completionDate?: string; // ISO String
@@ -145,7 +145,7 @@ const initialRecordData: RecordData = {
     archive: [], // Initialize archive array
     additionalPhotos: [], // Initialize photos array
     additionalVideos: [], // Initialize videos array
-    plateNumber: '', // Initialize plateNumber
+    // plateNumber removed
     engineNumber: '', // Initialize engineNumber
 };
 
@@ -173,7 +173,7 @@ export const useAppState = create<AppState>()(
                  owner: undefined,
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                 plateNumber: undefined, // Explicitly reset plateNumber
+                 // plateNumber removed
                  engineNumber: undefined,
                  registrationDocument: undefined,
                  labelDocument: undefined,
@@ -300,7 +300,7 @@ export const useAppState = create<AppState>()(
                  owner: undefined,
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                 plateNumber: undefined, // Ensure reset
+                 // plateNumber removed
                  engineNumber: undefined,
                  registrationDocument: undefined,
                  labelDocument: undefined,
@@ -368,7 +368,7 @@ export const useAppState = create<AppState>()(
                  owner: state.recordData.owner,
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
-                 plateNumber: state.recordData.plateNumber, // Persist plateNumber
+                 // plateNumber removed
                  engineNumber: state.recordData.engineNumber,
                  customerName: state.recordData.customerName,
                  formDate: state.recordData.formDate,
@@ -469,7 +469,7 @@ export const useAppState = create<AppState>()(
              mergedRecordData.additionalPhotos = mergedRecordData.additionalPhotos || [];
              mergedRecordData.additionalVideos = mergedRecordData.additionalVideos || [];
              mergedRecordData.offerItems = mergedRecordData.offerItems || [{ ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }];
-             mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Ensure plateNumber is initialized
+             // plateNumber removed
              mergedRecordData.engineNumber = mergedRecordData.engineNumber || ''; // Ensure engineNumber is initialized
 
 
@@ -520,3 +520,4 @@ function mergeFileArrays(
 
     return Array.from(mergedMap.values());
 }
+
