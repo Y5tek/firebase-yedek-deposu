@@ -23,6 +23,7 @@ export interface RecordData {
   plateNumber?: string; // Re-added plateNumber
   typeApprovalNumber?: string; // Added Tip Onay No
   typeAndVariant?: string; // Likely holds "VARYANT"
+  versiyon?: string; // Added VERSİYON field
   engineNumber?: string; // Added Motor No
 
   // Step 3 Files
@@ -72,7 +73,7 @@ export interface RecordData {
   // Step 7 Summary Form Specific Fields (if not covered above)
   typeApprovalType?: string; // Added for "TİP ONAY"
   typeApprovalLevel?: string; // Added for "tip onay seviye"
-  typeApprovalVersion?: string; // Added for "VERSİYON"
+  typeApprovalVersion?: string; // Added for "VERSİYON" (This might duplicate 'versiyon' above, decide which one to keep)
 
   // Offer Form Fields (Conceptually after Step 7 - Keeping for data structure completeness)
   offerAuthorizedName?: string;
@@ -147,6 +148,7 @@ const initialRecordData: RecordData = {
     additionalVideos: [], // Initialize videos array
     plateNumber: '', // Initialize plateNumber
     engineNumber: '', // Initialize engineNumber
+    versiyon: '', // Initialize versiyon
 };
 
 
@@ -174,6 +176,7 @@ export const useAppState = create<AppState>()(
                  plateNumber: undefined, // Reset plateNumber
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
+                 versiyon: undefined, // Reset versiyon
                  engineNumber: undefined,
                  registrationDocument: undefined,
                  labelDocument: undefined,
@@ -301,6 +304,7 @@ export const useAppState = create<AppState>()(
                  plateNumber: undefined, // Reset plateNumber
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
+                 versiyon: undefined, // Reset versiyon
                  engineNumber: undefined,
                  registrationDocument: undefined,
                  labelDocument: undefined,
@@ -369,6 +373,7 @@ export const useAppState = create<AppState>()(
                  plateNumber: state.recordData.plateNumber, // Persist plateNumber
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
+                 versiyon: state.recordData.versiyon, // Persist versiyon
                  engineNumber: state.recordData.engineNumber,
                  customerName: state.recordData.customerName,
                  formDate: state.recordData.formDate,
@@ -409,7 +414,7 @@ export const useAppState = create<AppState>()(
                  // Persist Step 7 Summary fields
                  typeApprovalType: state.recordData.typeApprovalType,
                  typeApprovalLevel: state.recordData.typeApprovalLevel,
-                 typeApprovalVersion: state.recordData.typeApprovalVersion,
+                 typeApprovalVersion: state.recordData.typeApprovalVersion, // Persist this one too (if different from versiyon)
 
                  // Persist Offer Form Fields (if still required)
                  offerAuthorizedName: state.recordData.offerAuthorizedName,
@@ -471,6 +476,7 @@ export const useAppState = create<AppState>()(
              mergedRecordData.offerItems = mergedRecordData.offerItems || [{ ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }];
              mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Ensure plateNumber is initialized
              mergedRecordData.engineNumber = mergedRecordData.engineNumber || ''; // Ensure engineNumber is initialized
+             mergedRecordData.versiyon = mergedRecordData.versiyon || ''; // Ensure versiyon is initialized
 
 
             const merged: AppState = {

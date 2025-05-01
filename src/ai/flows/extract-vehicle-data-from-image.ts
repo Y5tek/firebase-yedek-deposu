@@ -24,6 +24,7 @@ const OcrDataSchema = z.object({
     plateNumber: z.string().optional().describe('The license plate number (Plaka) extracted from the document.'), // Re-added plateNumber
     typeApprovalNumber: z.string().optional().describe('The type approval number (Tip Onay No / AT Uygunluk Belge No) extracted from the document.'),
     typeAndVariant: z.string().optional().describe('The type and variant information (Tip ve Varyant) extracted from the document.'),
+    versiyon: z.string().optional().describe('The version information (Versiyon) extracted from the document, often near Tip ve Varyant.'), // Added Versiyon
 });
 
 
@@ -62,6 +63,7 @@ const extractDataPrompt = ai.definePrompt({
 *   Plate Number (Plaka) - Usually found on the registration document.
 *   Type Approval Number (Tip Onay No / AT Uygunluk Belge No) - Usually on labels or newer documents
 *   Type and Variant (Tip ve Varyant) - Usually on labels or newer documents
+*   Version (Versiyon) - Often found near "Tip ve Varyant" on labels or newer documents.
 
 Return the extracted information in the specified JSON format. If a field is not found, omit it or return null. Pay attention to Turkish characters.
 
@@ -114,6 +116,7 @@ const extractVehicleDataFlow = ai.defineFlow<
     console.log("AI OCR Extracted Brand:", extractedData.brand); // Specific log for brand
     console.log("AI OCR Extracted Owner (Adı Soyadı):", extractedData.owner); // Log owner
     console.log("AI OCR Extracted Plate Number:", extractedData.plateNumber); // Log plateNumber
+    console.log("AI OCR Extracted Versiyon:", extractedData.versiyon); // Log versiyon
 
     // Wrap the extracted data in the expected output format
     return {

@@ -22,6 +22,7 @@ const DecideOcrOverrideInputSchema = z.object({
     plateNumber: z.string().optional().describe('Plate number extracted from OCR.'), // Re-added plateNumber
     typeApprovalNumber: z.string().optional().describe('Type approval number extracted from OCR.'),
     typeAndVariant: z.string().optional().describe('Type and variant information extracted from OCR.'),
+    versiyon: z.string().optional().describe('Version information extracted from OCR.'), // Added versiyon
   }).describe('Data extracted from OCR.'),
   currentData: z.object({
     chassisNumber: z.string().optional().describe('Current chassis number.'),
@@ -32,6 +33,7 @@ const DecideOcrOverrideInputSchema = z.object({
     plateNumber: z.string().optional().describe('Current plate number.'), // Re-added plateNumber
     typeApprovalNumber: z.string().optional().describe('Current type approval number.'),
     typeAndVariant: z.string().optional().describe('Current type and variant information.'),
+    versiyon: z.string().optional().describe('Current version information.'), // Added versiyon
   }).describe('Current data in the form.'),
 });
 
@@ -47,6 +49,7 @@ const DecideOcrOverrideOutputSchema = z.object({
     plateNumber: z.boolean().describe('Whether to override plate number with OCR data.'), // Re-added plateNumber
     typeApprovalNumber: z.boolean().describe('Whether to override type approval number with OCR data.'),
     typeAndVariant: z.boolean().describe('Whether to override type and variant information with OCR data.'),
+    versiyon: z.boolean().describe('Whether to override version information with OCR data.'), // Added versiyon
   }).describe('Decision on whether to override each field.'),
 });
 
@@ -69,6 +72,7 @@ const prompt = ai.definePrompt({
         plateNumber: z.string().optional().describe('Plate number extracted from OCR.'), // Re-added plateNumber
         typeApprovalNumber: z.string().optional().describe('Type approval number extracted from OCR.'),
         typeAndVariant: z.string().optional().describe('Type and variant information extracted from OCR.'),
+        versiyon: z.string().optional().describe('Version information extracted from OCR.'), // Added versiyon
       }).describe('Data extracted from OCR.'),
       currentData: z.object({
         chassisNumber: z.string().optional().describe('Current chassis number.'),
@@ -79,6 +83,7 @@ const prompt = ai.definePrompt({
         plateNumber: z.string().optional().describe('Current plate number.'), // Re-added plateNumber
         typeApprovalNumber: z.string().optional().describe('Current type approval number.'),
         typeAndVariant: z.string().optional().describe('Current type and variant information.'),
+        versiyon: z.string().optional().describe('Current version information.'), // Added versiyon
       }).describe('Current data in the form.'),
     }),
   },
@@ -93,6 +98,7 @@ const prompt = ai.definePrompt({
         plateNumber: z.boolean().describe('Whether to override plate number with OCR data.'), // Re-added plateNumber
         typeApprovalNumber: z.boolean().describe('Whether to override type approval number with OCR data.'),
         typeAndVariant: z.boolean().describe('Whether to override type and variant information with OCR data.'),
+        versiyon: z.boolean().describe('Whether to override version information with OCR data.'), // Added versiyon
       }).describe('Decision on whether to override each field.'),
     }),
   },

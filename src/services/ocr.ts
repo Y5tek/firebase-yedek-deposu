@@ -37,6 +37,10 @@ export interface OcrData {
      * The type and variant information extracted from the document.
      */
     typeAndVariant?: string;
+    /**
+     * The version information extracted from the document.
+     */
+    versiyon?: string; // Added versiyon field
 }
 
 /**

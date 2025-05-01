@@ -31,6 +31,7 @@ const FormSchema = z.object({
   labelDocument: z.any().optional(),
   brand: z.string().optional(), // Add brand field
   plateNumber: z.string().optional(), // Re-added plateNumber for display
+  versiyon: z.string().optional(), // Added versiyon field
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -55,6 +56,7 @@ export default function NewRecordStep2() {
       labelDocument: recordData.labelDocument || null,
       brand: recordData.brand || '', // Pre-fill brand
       plateNumber: recordData.plateNumber || '', // Pre-fill plateNumber from global state
+      versiyon: recordData.versiyon || '', // Pre-fill versiyon
     },
   });
 
@@ -145,6 +147,7 @@ export default function NewRecordStep2() {
              plateNumber: recordData.plateNumber, // Get plateNumber from global state (Step 1)
              typeApprovalNumber: form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber, // Use form value first
              typeAndVariant: form.getValues('typeAndVariant') || recordData.typeAndVariant, // Use form value first
+             versiyon: form.getValues('versiyon') || recordData.versiyon, // Use form value first
          };
          console.log("Current Data for Override Decision (Step 2):", currentDataForDecision);
 
@@ -158,6 +161,7 @@ export default function NewRecordStep2() {
            plateNumber: ocrData.plateNumber, // Re-added plateNumber
            typeApprovalNumber: ocrData.typeApprovalNumber,
            typeAndVariant: ocrData.typeAndVariant,
+           versiyon: ocrData.versiyon, // Include versiyon
          };
          console.log("OCR Data for Override Decision (Step 2 Label):", ocrDataForDecision);
 
@@ -241,6 +245,17 @@ export default function NewRecordStep2() {
               updates.typeAndVariant = form.getValues('typeAndVariant') || recordData.typeAndVariant; // Keep current value
          }
 
+         // Versiyon
+         if (shouldUpdate('versiyon')) {
+            console.log("Updating versiyon field with OCR data:", ocrData.versiyon);
+            form.setValue('versiyon', ocrData.versiyon || '');
+            updates.versiyon = ocrData.versiyon;
+         } else {
+             console.log("Not overriding versiyon. Override:", override.versiyon, "OCR Data:", ocrData.versiyon);
+              updates.versiyon = form.getValues('versiyon') || recordData.versiyon; // Keep current value
+         }
+
+
          // Check plateNumber from label (update global state if needed)
          if (override.plateNumber && ocrData.plateNumber && ocrData.plateNumber !== recordData.plateNumber) {
              console.warn("Plate number on label OCR differs from license OCR:", ocrData.plateNumber);
@@ -318,6 +333,11 @@ export default function NewRecordStep2() {
                     updates.typeAndVariant = ocrDataFallback.typeAndVariant;
                 } else { updates.typeAndVariant = form.getValues('typeAndVariant') || recordData.typeAndVariant; } // Keep existing
 
+                 if (!form.getValues('versiyon') && !recordData.versiyon && ocrDataFallback.versiyon) {
+                    form.setValue('versiyon', ocrDataFallback.versiyon);
+                    updates.versiyon = ocrDataFallback.versiyon;
+                } else { updates.versiyon = form.getValues('versiyon') || recordData.versiyon; } // Keep existing
+
                  // Fallback for plateNumber if empty
                  if (!form.getValues('plateNumber') && !recordData.plateNumber && ocrDataFallback.plateNumber) {
                      form.setValue('plateNumber', ocrDataFallback.plateNumber);
@@ -335,6 +355,7 @@ export default function NewRecordStep2() {
                  updates.brand = form.getValues('brand') || recordData.brand;
                  updates.typeApprovalNumber = form.getValues('typeApprovalNumber') || recordData.typeApprovalNumber;
                  updates.typeAndVariant = form.getValues('typeAndVariant') || recordData.typeAndVariant;
+                 updates.versiyon = form.getValues('versiyon') || recordData.versiyon; // Preserve versiyon
                  updates.plateNumber = recordData.plateNumber; // Keep existing global plateNumber
                  updates.type = recordData.type;
                  updates.tradeName = recordData.tradeName;
@@ -459,6 +480,7 @@ export default function NewRecordStep2() {
         owner: recordData.owner, // Preserve potentially updated owner
         typeApprovalNumber: data.typeApprovalNumber,
         typeAndVariant: data.typeAndVariant,
+        versiyon: data.versiyon, // Save versiyon
         labelDocument: documentToSave // This will be the File or the info object
     });
     router.push('/new-record/step-3'); // Navigate to the NEW step 3 (additional photos/videos)
@@ -472,6 +494,7 @@ export default function NewRecordStep2() {
         plateNumber: recordData.plateNumber, // Preserve plateNumber
         typeApprovalNumber: form.getValues('typeApprovalNumber'),
         typeAndVariant: form.getValues('typeAndVariant'),
+        versiyon: form.getValues('versiyon'), // Save versiyon
         labelDocument: currentFile || recordData.labelDocument // Save current file/info
     });
     router.push('/new-record/step-1');
@@ -489,6 +512,7 @@ export default function NewRecordStep2() {
         plateNumber: recordData.plateNumber || '', // Sync plateNumber
         typeApprovalNumber: recordData.typeApprovalNumber || '',
         typeAndVariant: recordData.typeAndVariant || '',
+        versiyon: recordData.versiyon || '', // Sync versiyon
         labelDocument: recordData.labelDocument || null
      });
      // Re-setup preview based on potentially updated recordData
@@ -685,6 +709,19 @@ export default function NewRecordStep2() {
                         </FormItem>
                         )}
                     />
+                    <FormField
+                        control={form.control}
+                        name="versiyon"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Versiyon</FormLabel>
+                            <FormControl>
+                            <Input placeholder="Etiketi Tara ile doldurulacak..." {...field} disabled={isLoading} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
                 </div>
 
 
@@ -703,4 +740,3 @@ export default function NewRecordStep2() {
     </div>
   );
 }
-
