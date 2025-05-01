@@ -156,7 +156,7 @@ export default function NewRecordStep7() {
              console.log("No unique matching Type Approval Number found starting with AİTM based on criteria.");
              message = "Belirtilen kriterlere uyan ve 'AİTM' ile başlayan Tip Onay Numarası bulunamadı."; // Updated message
              variant = "destructive";
-             // numberToSet remains '' which will clear the field
+             numberToSet = ''; // Clear the field if no match
         }
 
         // Update form and global state
@@ -458,7 +458,7 @@ export default function NewRecordStep7() {
                          name="typeApprovalNumber"
                          render={({ field }) => (
                             <FormItem className="grid grid-cols-[150px_1fr_auto] items-start gap-x-2"> {/* Changed to items-start for multiline description */}
-                                <FormLabel className="pt-2">TİP ONAY NO</FormLabel> {/* Reverted label text */}
+                                <FormLabel className="pt-2">TİP ONAY NO</FormLabel> {/* Reverted label text back */}
                                 <div className="flex flex-col w-full"> {/* Wrap input and message */}
                                     <FormControl>
                                          <Input
