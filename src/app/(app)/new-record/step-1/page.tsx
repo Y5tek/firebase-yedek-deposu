@@ -203,13 +203,14 @@ export default function NewRecordStep1() {
 
       // Update brand field
       if (shouldUpdate('brand')) {
-          console.log("Updating brand field with OCR data:", ocrData.brand);
+          console.log("[OCR Update] Updating brand field with OCR data:", ocrData.brand);
           form.setValue('brand', ocrData.brand || ''); // Use fallback to empty string
           updates.brand = ocrData.brand;
       } else {
-          console.log(`Not updating brand. Override decision: ${override.brand}, OCR Data: ${ocrData.brand}, Current Value: ${form.getValues('brand')}`);
+          console.log(`[OCR Update] Not updating brand. Override decision: ${override.brand}, OCR Data: ${ocrData.brand}, Current Form Value: ${form.getValues('brand')}`);
           // Ensure global state reflects the actual value (either existing or form value)
            updates.brand = form.getValues('brand') || recordData.brand; // Prefer form value if exists, else keep global
+          console.log(`[OCR Update] Brand in updates object set to: ${updates.brand}`);
       }
 
       // Update type field
@@ -303,11 +304,11 @@ export default function NewRecordStep1() {
             } else { updates.chassisNumber = form.getValues('chassisNumber') || recordData.chassisNumber; } // Use current form value or existing
 
             if (!form.getValues('brand') && ocrDataFallback.brand) {
-                console.log("Fallback: Populating brand field with OCR data:", ocrDataFallback.brand);
+                console.log("[Fallback] Populating brand field with OCR data:", ocrDataFallback.brand);
                 form.setValue('brand', ocrDataFallback.brand);
                  updates.brand = ocrDataFallback.brand;
             } else {
-                console.log("Fallback: Brand field not empty or no OCR brand data:", form.getValues('brand'), ocrDataFallback.brand);
+                console.log("[Fallback] Brand field not empty or no OCR brand data:", form.getValues('brand'), ocrDataFallback.brand);
                 updates.brand = form.getValues('brand') || recordData.brand;
             }
 

@@ -17,7 +17,7 @@ import type { OcrData } from '@/services/ocr'; // Import the OcrData type defini
 // Define the schema for the OcrData interface using Zod for runtime validation and description
 const OcrDataSchema = z.object({
     chassisNumber: z.string().optional().describe('The chassis number (Şasi No / Araç Kimlik No) extracted from the document.'),
-    brand: z.string().optional().describe('The brand name (Markası) extracted from the document.'),
+    brand: z.string().optional().describe('The brand name (Markası) extracted from the document. For example: "FIAT".'), // Added example
     type: z.string().optional().describe('The type of vehicle (Tipi) extracted from the document.'),
     tradeName: z.string().optional().describe('The trade name (Ticari Adı) extracted from the document.'),
     owner: z.string().optional().describe('The owner\'s full name (Adı Soyadı) extracted from the document.'), // Updated description
@@ -56,7 +56,7 @@ const extractDataPrompt = ai.definePrompt({
 
 *   Chassis Number (Şasi No / Araç Kimlik No)
 *   License Plate Number (Plaka) - Usually on registration documents
-*   Brand (Markası) - **CRITICAL: Locate the exact label "Markası" and extract the value immediately following it. Be very precise. Example: If it says "Markası : VOLKSWAGEN", extract "VOLKSWAGEN". Do NOT confuse this with "Ticari Adı".**
+*   Brand (Markası) - **CRITICAL: Locate the exact label "Markası" and extract the value immediately following it (often after a colon ':'). Be very precise. Example: If it says "Markası : FIAT", extract "FIAT". Do NOT confuse this with "Ticari Adı".**
 *   Type (Tipi)
 *   Trade Name (Ticari Adı) - This is different from "Markası".
 *   Owner (Adı Soyadı) - **Extract the full name from the "Adı Soyadı" field**. Usually only on registration documents. Example: "AHMET YILMAZ"
