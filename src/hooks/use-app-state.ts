@@ -20,9 +20,9 @@ export interface RecordData {
   type?: string;
   tradeName?: string;
   owner?: string;
+  plateNumber?: string; // Re-added plateNumber
   typeApprovalNumber?: string; // Added Tip Onay No
   typeAndVariant?: string; // Likely holds "VARYANT"
-  // plateNumber removed from Step 1/2 context
   engineNumber?: string; // Added Motor No
 
   // Step 3 Files
@@ -145,7 +145,7 @@ const initialRecordData: RecordData = {
     archive: [], // Initialize archive array
     additionalPhotos: [], // Initialize photos array
     additionalVideos: [], // Initialize videos array
-    // plateNumber removed
+    plateNumber: '', // Initialize plateNumber
     engineNumber: '', // Initialize engineNumber
 };
 
@@ -171,9 +171,9 @@ export const useAppState = create<AppState>()(
                  type: undefined,
                  tradeName: undefined,
                  owner: undefined,
+                 plateNumber: undefined, // Reset plateNumber
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                 // plateNumber removed
                  engineNumber: undefined,
                  registrationDocument: undefined,
                  labelDocument: undefined,
@@ -298,9 +298,9 @@ export const useAppState = create<AppState>()(
                  type: undefined,
                  tradeName: undefined,
                  owner: undefined,
+                 plateNumber: undefined, // Reset plateNumber
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
-                 // plateNumber removed
                  engineNumber: undefined,
                  registrationDocument: undefined,
                  labelDocument: undefined,
@@ -366,9 +366,9 @@ export const useAppState = create<AppState>()(
                  type: state.recordData.type,
                  tradeName: state.recordData.tradeName,
                  owner: state.recordData.owner,
+                 plateNumber: state.recordData.plateNumber, // Persist plateNumber
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
-                 // plateNumber removed
                  engineNumber: state.recordData.engineNumber,
                  customerName: state.recordData.customerName,
                  formDate: state.recordData.formDate,
@@ -469,7 +469,7 @@ export const useAppState = create<AppState>()(
              mergedRecordData.additionalPhotos = mergedRecordData.additionalPhotos || [];
              mergedRecordData.additionalVideos = mergedRecordData.additionalVideos || [];
              mergedRecordData.offerItems = mergedRecordData.offerItems || [{ ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }];
-             // plateNumber removed
+             mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Ensure plateNumber is initialized
              mergedRecordData.engineNumber = mergedRecordData.engineNumber || ''; // Ensure engineNumber is initialized
 
 
@@ -520,4 +520,3 @@ function mergeFileArrays(
 
     return Array.from(mergedMap.values());
 }
-

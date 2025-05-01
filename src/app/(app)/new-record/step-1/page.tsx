@@ -23,14 +23,14 @@ import type { ExtractVehicleDataOutput } from '@/ai/flows/extract-vehicle-data-f
 import type { DecideOcrOverrideOutput } from '@/ai/flows/decide-ocr-override';
 import { getSerializableFileInfo } from '@/lib/utils';
 
-// Schema for the form fields including the initial OCR fields
+// Schema for the form fields including the initial OCR fields and plateNumber
 const FormSchema = z.object({
   chassisNumber: z.string().optional(),
   brand: z.string().optional(),
   type: z.string().optional(), // Corresponds to "tipi" from the document
   tradeName: z.string().optional(),
   owner: z.string().optional(),
-  plateNumber: z.string().optional(), // Added plateNumber
+  plateNumber: z.string().optional(), // Re-added plateNumber
   document: z.any().optional()
 });
 
@@ -54,7 +54,7 @@ export default function NewRecordStep1() {
       type: '',
       tradeName: '',
       owner: '',
-      plateNumber: '',
+      plateNumber: '', // Re-added plateNumber default
       document: null, // Document will be loaded from state in useEffect
     },
   });
@@ -141,6 +141,7 @@ export default function NewRecordStep1() {
       const ocrData = ocrResult.ocrData;
       console.log("OCR Data Extracted (owner):", ocrData.owner); // Log owner specifically
       console.log("OCR Data Extracted (brand):", ocrData.brand); // Log brand specifically
+      console.log("OCR Data Extracted (plateNumber):", ocrData.plateNumber); // Log plateNumber
 
       // --- START: Handle Override Decision ---
       // Get current form values *at the time of scanning* for the decision
@@ -150,7 +151,7 @@ export default function NewRecordStep1() {
         type: form.getValues('type'),
         tradeName: form.getValues('tradeName'),
         owner: form.getValues('owner'),
-        plateNumber: form.getValues('plateNumber'),
+        plateNumber: form.getValues('plateNumber'), // Re-added plateNumber
         // Also include potentially existing data from global state for fields not directly on this form
         typeApprovalNumber: recordData.typeApprovalNumber,
         typeAndVariant: recordData.typeAndVariant,
@@ -158,6 +159,7 @@ export default function NewRecordStep1() {
       console.log("Current Data for Override Decision (Step 1):", currentDataForDecision);
       console.log("Current Brand Value for Override Decision (Step 1):", currentDataForDecision.brand);
       console.log("Current Owner Value for Override Decision (Step 1):", currentDataForDecision.owner); // Log current owner
+      console.log("Current Plate Number for Override Decision (Step 1):", currentDataForDecision.plateNumber); // Log current plate
 
       const ocrDataForDecision = {
         ...ocrData,
@@ -165,6 +167,7 @@ export default function NewRecordStep1() {
       console.log("OCR Data for Override Decision (Step 1):", ocrDataForDecision);
       console.log("OCR Brand for Override Decision (Step 1):", ocrDataForDecision.brand);
       console.log("OCR Owner for Override Decision (Step 1):", ocrDataForDecision.owner); // Log OCR owner
+      console.log("OCR Plate Number for Override Decision (Step 1):", ocrDataForDecision.plateNumber); // Log OCR plate
 
       console.log("Calling decideOcrOverride flow...");
       overrideDecision = await decideOcrOverride({
@@ -174,6 +177,7 @@ export default function NewRecordStep1() {
       console.log("Override Decision (Step 1):", overrideDecision?.override); // Use optional chaining
       console.log("Override Decision for owner:", overrideDecision?.override?.owner); // Log owner decision
       console.log("Override Decision for brand:", overrideDecision?.override?.brand); // Log brand decision
+      console.log("Override Decision for plateNumber:", overrideDecision?.override?.plateNumber); // Log plate decision
 
       if (!overrideDecision || !overrideDecision.override) {
            throw new Error("Geçersiz kılma kararı alınamadı.");
@@ -429,7 +433,7 @@ export default function NewRecordStep1() {
       form.resetField('type');
       form.resetField('tradeName');
       form.resetField('owner');
-      form.resetField('plateNumber');
+      form.resetField('plateNumber'); // Re-added plateNumber reset
       console.log("Cleared text fields after new file upload.");
 
     } else {
@@ -491,7 +495,7 @@ export default function NewRecordStep1() {
         type: form.getValues('type'),
         tradeName: form.getValues('tradeName'),
         owner: form.getValues('owner'),
-        plateNumber: form.getValues('plateNumber'), // Save plateNumber
+        plateNumber: form.getValues('plateNumber'), // Re-added plateNumber save
         registrationDocument: documentToSave // This will be the File or the info object
     });
     router.push('/new-record/step-2');
@@ -511,7 +515,7 @@ export default function NewRecordStep1() {
             type: '',
             tradeName: '',
             owner: '',
-            plateNumber: '',
+            plateNumber: '', // Re-added plateNumber reset
             document: recordData.registrationDocument || null, // Keep doc if exists
         });
 
@@ -737,4 +741,3 @@ export default function NewRecordStep1() {
     </div>
   );
 }
-

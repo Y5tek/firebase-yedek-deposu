@@ -21,7 +21,7 @@ const OcrDataSchema = z.object({
     type: z.string().optional().describe('The type of vehicle (Tipi) extracted from the document.'),
     tradeName: z.string().optional().describe('The trade name (Ticari Adı) extracted from the document.'),
     owner: z.string().optional().describe('The owner\'s full name (Adı Soyadı) extracted from the document.'), // Updated description
-    // plateNumber removed
+    plateNumber: z.string().optional().describe('The license plate number (Plaka) extracted from the document.'), // Re-added plateNumber
     typeApprovalNumber: z.string().optional().describe('The type approval number (Tip Onay No / AT Uygunluk Belge No) extracted from the document.'),
     typeAndVariant: z.string().optional().describe('The type and variant information (Tip ve Varyant) extracted from the document.'),
 });
@@ -59,6 +59,7 @@ const extractDataPrompt = ai.definePrompt({
 *   Type (Tipi)
 *   Trade Name (Ticari Adı) - This is different from "Markası".
 *   Owner (Adı Soyadı) - **CRITICAL: Locate the exact label "Adı Soyadı" and extract the FULL name following it. Example: If it says "Adı Soyadı YILMAZ AHMET", extract "YILMAZ AHMET".** Usually only on registration documents.
+*   Plate Number (Plaka) - Usually found on the registration document.
 *   Type Approval Number (Tip Onay No / AT Uygunluk Belge No) - Usually on labels or newer documents
 *   Type and Variant (Tip ve Varyant) - Usually on labels or newer documents
 
@@ -112,6 +113,7 @@ const extractVehicleDataFlow = ai.defineFlow<
     console.log("AI OCR Extraction Result:", extractedData);
     console.log("AI OCR Extracted Brand:", extractedData.brand); // Specific log for brand
     console.log("AI OCR Extracted Owner (Adı Soyadı):", extractedData.owner); // Log owner
+    console.log("AI OCR Extracted Plate Number:", extractedData.plateNumber); // Log plateNumber
 
     // Wrap the extracted data in the expected output format
     return {
@@ -119,4 +121,3 @@ const extractVehicleDataFlow = ai.defineFlow<
     };
   }
 );
-

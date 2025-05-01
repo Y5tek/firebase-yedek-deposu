@@ -19,7 +19,7 @@ const DecideOcrOverrideInputSchema = z.object({
     type: z.string().optional().describe('Type extracted from OCR.'),
     tradeName: z.string().optional().describe('Trade name extracted from OCR.'),
     owner: z.string().optional().describe('Owner (Adı Soyadı) extracted from OCR.'), // Clarified description
-    // plateNumber removed
+    plateNumber: z.string().optional().describe('Plate number extracted from OCR.'), // Re-added plateNumber
     typeApprovalNumber: z.string().optional().describe('Type approval number extracted from OCR.'),
     typeAndVariant: z.string().optional().describe('Type and variant information extracted from OCR.'),
   }).describe('Data extracted from OCR.'),
@@ -29,7 +29,7 @@ const DecideOcrOverrideInputSchema = z.object({
     type: z.string().optional().describe('Current type.'),
     tradeName: z.string().optional().describe('Current trade name.'),
     owner: z.string().optional().describe('Current owner (Adı Soyadı).'), // Clarified description
-    // plateNumber removed
+    plateNumber: z.string().optional().describe('Current plate number.'), // Re-added plateNumber
     typeApprovalNumber: z.string().optional().describe('Current type approval number.'),
     typeAndVariant: z.string().optional().describe('Current type and variant information.'),
   }).describe('Current data in the form.'),
@@ -44,7 +44,7 @@ const DecideOcrOverrideOutputSchema = z.object({
     type: z.boolean().describe('Whether to override type with OCR data.'),
     tradeName: z.boolean().describe('Whether to override trade name with OCR data.'),
     owner: z.boolean().describe('Whether to override owner (Adı Soyadı) with OCR data.'), // Clarified description
-    // plateNumber removed
+    plateNumber: z.boolean().describe('Whether to override plate number with OCR data.'), // Re-added plateNumber
     typeApprovalNumber: z.boolean().describe('Whether to override type approval number with OCR data.'),
     typeAndVariant: z.boolean().describe('Whether to override type and variant information with OCR data.'),
   }).describe('Decision on whether to override each field.'),
@@ -66,7 +66,7 @@ const prompt = ai.definePrompt({
         type: z.string().optional().describe('Type extracted from OCR.'),
         tradeName: z.string().optional().describe('Trade name extracted from OCR.'),
         owner: z.string().optional().describe('Owner (Adı Soyadı) extracted from OCR.'), // Clarified description
-        // plateNumber removed
+        plateNumber: z.string().optional().describe('Plate number extracted from OCR.'), // Re-added plateNumber
         typeApprovalNumber: z.string().optional().describe('Type approval number extracted from OCR.'),
         typeAndVariant: z.string().optional().describe('Type and variant information extracted from OCR.'),
       }).describe('Data extracted from OCR.'),
@@ -76,7 +76,7 @@ const prompt = ai.definePrompt({
         type: z.string().optional().describe('Current type.'),
         tradeName: z.string().optional().describe('Current trade name.'),
         owner: z.string().optional().describe('Current owner (Adı Soyadı).'), // Clarified description
-        // plateNumber removed
+        plateNumber: z.string().optional().describe('Current plate number.'), // Re-added plateNumber
         typeApprovalNumber: z.string().optional().describe('Current type approval number.'),
         typeAndVariant: z.string().optional().describe('Current type and variant information.'),
       }).describe('Current data in the form.'),
@@ -90,7 +90,7 @@ const prompt = ai.definePrompt({
         type: z.boolean().describe('Whether to override type with OCR data.'),
         tradeName: z.boolean().describe('Whether to override trade name with OCR data.'),
         owner: z.boolean().describe('Whether to override owner (Adı Soyadı) with OCR data.'), // Clarified description
-        // plateNumber removed
+        plateNumber: z.boolean().describe('Whether to override plate number with OCR data.'), // Re-added plateNumber
         typeApprovalNumber: z.boolean().describe('Whether to override type approval number with OCR data.'),
         typeAndVariant: z.boolean().describe('Whether to override type and variant information with OCR data.'),
       }).describe('Decision on whether to override each field.'),
@@ -143,4 +143,3 @@ const decideOcrOverrideFlow = ai.defineFlow<
     }
   return output;
 });
-
