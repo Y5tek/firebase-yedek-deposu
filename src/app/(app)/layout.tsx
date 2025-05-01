@@ -19,7 +19,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton
 } from '@/components/ui/sidebar';
-import { Home, FilePlus, Archive, Building, ClipboardList, FileText, Truck, FileCheck2, FileSignature } from 'lucide-react'; // Added icons
+import { Home, FilePlus, Archive, Building, ClipboardList, FileText, Truck, FileCheck2, FileSignature, ListChecks } from 'lucide-react'; // Added ListChecks icon
 import { Button } from '@/components/ui/button';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -127,19 +127,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                              <Link href="/new-record/step-4"><FileSignature className="mr-2 h-3 w-3"/>Adım 4: Seri Tadilat</Link>
                          </SidebarMenuSubButton>
                      </SidebarMenuSubItem>
+                     {/* Step 5: İş Emri (Removed based on user request) */}
                       <SidebarMenuSubItem>
                          <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-5')}>
-                             <Link href="/new-record/step-5"><ClipboardList className="mr-2 h-3 w-3"/>Adım 5: İş Emri</Link>
+                             <Link href="/new-record/step-5"><FileCheck2 className="mr-2 h-3 w-3"/>Adım 5: Son Kontrol</Link>
                          </SidebarMenuSubButton>
                      </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
                          <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-6')}>
-                             <Link href="/new-record/step-6"><FileCheck2 className="mr-2 h-3 w-3"/>Adım 6: Son Kontrol</Link>
-                         </SidebarMenuSubButton>
-                     </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                         <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-7')}>
-                             <Link href="/new-record/step-7"><Archive className="mr-2 h-3 w-3"/>Adım 7: Özet & Arşiv</Link>
+                             <Link href="/new-record/step-6"><Archive className="mr-2 h-3 w-3"/>Adım 6: Özet & Arşiv</Link>
                          </SidebarMenuSubButton>
                      </SidebarMenuSubItem>
                  </SidebarMenuSub>
@@ -148,7 +144,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={isActive('/archive')}
+                isActive={isActive('/archive', true)} // Exact match for Archive
                 tooltip="Arşiv"
               >
                 <Link href="/archive">
@@ -156,6 +152,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <span>Arşiv</span>
                 </Link>
               </SidebarMenuButton>
+               {/* Sub-menu for Archive Section */}
+               <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                     <SidebarMenuSubButton asChild isActive={isActive('/tip-onay-listesi')}>
+                          <Link href="/tip-onay-listesi"><ListChecks className="mr-2 h-3 w-3"/>Tip Onay Listesi</Link>
+                      </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                   {/* Add more sub-items under Archive if needed */}
+              </SidebarMenuSub>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
