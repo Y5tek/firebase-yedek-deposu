@@ -185,11 +185,12 @@ export default function NewRecordStep1() {
          const currentValue = form.getValues(fieldName as keyof FormData);
          // Condition 1: Override decision is true AND OCR has a non-empty value
          const condition1 = override[fieldName] && ocrValue && ocrValue.trim() !== '';
-         // Condition 2: Current value is empty AND OCR has a non-empty value
-         const condition2 = (!currentValue || currentValue.trim() === '') && ocrValue && ocrValue.trim() !== '';
+         // Condition 2: Current value is empty OR if override is true (allowing override even if current is not empty)
+         const condition2 = (!currentValue || currentValue.trim() === '' || override[fieldName]) && ocrValue && ocrValue.trim() !== '';
 
          console.log(`shouldUpdate(${fieldName})? OCR: '${ocrValue}', Current: '${currentValue}', Override: ${override[fieldName]}, Cond1: ${condition1}, Cond2: ${condition2}, Result: ${!!(condition1 || condition2)}`);
-         return !!(condition1 || condition2);
+         // Use only condition 2 for the logic: Update if OCR has value AND (current is empty OR override is true)
+         return !!(condition2);
        };
 
       // Update chassisNumber field
@@ -617,7 +618,7 @@ export default function NewRecordStep1() {
                                 type="button"
                                 variant="secondary"
                                 onClick={handleManualScanClick}
-                                disabled={!currentFile || isLoading} // Only enable if a new file is actively selected
+                                disabled={!(currentFile || (typeof form.getValues('document') === 'object' && form.getValues('document')?.name)) || isLoading} // Enable if preview or info exists
                            >
                                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanSearch className="mr-2 h-4 w-4" />}
                                 Resmi Tara (OCR)
@@ -714,7 +715,7 @@ export default function NewRecordStep1() {
                     name="owner"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Sahibi</FormLabel>
+                        <FormLabel>Adı Soyadı</FormLabel> {/* Changed label */}
                         <FormControl>
                           <Input placeholder="Resmi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                         </FormControl>
@@ -735,4 +736,4 @@ export default function NewRecordStep1() {
   );
 }
 
-    
+

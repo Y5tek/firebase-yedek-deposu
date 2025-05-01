@@ -20,7 +20,7 @@ const OcrDataSchema = z.object({
     brand: z.string().optional().describe('The brand name (Markası) extracted from the document.'),
     type: z.string().optional().describe('The type of vehicle (Tipi) extracted from the document.'),
     tradeName: z.string().optional().describe('The trade name (Ticari Adı) extracted from the document.'),
-    owner: z.string().optional().describe('The owner\'s full name (Adı, Soyadı) extracted from the document.'), // Updated description
+    owner: z.string().optional().describe('The owner\'s full name (Adı Soyadı) extracted from the document.'), // Updated description
     plateNumber: z.string().optional().describe('The license plate number (Plaka) extracted from the document.'), // Added plateNumber
     typeApprovalNumber: z.string().optional().describe('The type approval number (Tip Onay No / AT Uygunluk Belge No) extracted from the document.'),
     typeAndVariant: z.string().optional().describe('The type and variant information (Tip ve Varyant) extracted from the document.'),
@@ -59,7 +59,7 @@ const extractDataPrompt = ai.definePrompt({
 *   Brand (Markası) - **Specifically look for the value next to the "Markası" label.**
 *   Type (Tipi)
 *   Trade Name (Ticari Adı)
-*   Owner (Adı, Soyadı) - **Extract the full name from the "Adı, Soyadı" field**. Usually only on registration documents. Example: "AHMET YILMAZ"
+*   Owner (Adı Soyadı) - **Extract the full name from the "Adı Soyadı" field**. Usually only on registration documents. Example: "AHMET YILMAZ"
 *   Type Approval Number (Tip Onay No / AT Uygunluk Belge No) - Usually on labels or newer documents
 *   Type and Variant (Tip ve Varyant) - Usually on labels or newer documents
 
@@ -112,6 +112,7 @@ const extractVehicleDataFlow = ai.defineFlow<
 
     console.log("AI OCR Extraction Result:", extractedData);
     console.log("AI OCR Extracted Brand:", extractedData.brand); // Specific log for brand
+    console.log("AI OCR Extracted Owner (Adı Soyadı):", extractedData.owner); // Log owner
 
     // Wrap the extracted data in the expected output format
     return {
