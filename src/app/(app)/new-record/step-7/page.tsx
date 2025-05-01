@@ -104,26 +104,50 @@ export default function NewRecordStep7() {
    React.useEffect(() => {
         let regUrl: string | null = null;
         let lblUrl: string | null = null;
+        let didUpdateReg = false;
+        let didUpdateLbl = false;
 
+        // Handle Registration Document
         if (recordData.registrationDocument instanceof File) {
             regUrl = generatePreviewUrl(recordData.registrationDocument);
-            setRegistrationDocPreview(regUrl);
+            if (regUrl !== registrationDocPreview) {
+                setRegistrationDocPreview(regUrl);
+                didUpdateReg = true;
+            }
         } else {
-            setRegistrationDocPreview(null); // Clear if not a file
+            if (registrationDocPreview !== null) {
+                setRegistrationDocPreview(null); // Clear if not a file and preview exists
+                didUpdateReg = true;
+            }
         }
 
+        // Handle Label Document
         if (recordData.labelDocument instanceof File) {
             lblUrl = generatePreviewUrl(recordData.labelDocument);
-            setLabelDocPreview(lblUrl);
+             if (lblUrl !== labelDocPreview) {
+                setLabelDocPreview(lblUrl);
+                didUpdateLbl = true;
+            }
         } else {
-            setLabelDocPreview(null); // Clear if not a file
+             if (labelDocPreview !== null) {
+                setLabelDocPreview(null); // Clear if not a file and preview exists
+                didUpdateLbl = true;
+            }
         }
 
         // Cleanup function
         return () => {
-            if (regUrl) revokePreviewUrl(regUrl);
-            if (lblUrl) revokePreviewUrl(lblUrl);
+             // Revoke the URL if it was generated in this effect run
+            if (didUpdateReg && regUrl) revokePreviewUrl(regUrl);
+            if (didUpdateLbl && lblUrl) revokePreviewUrl(lblUrl);
+
+            // Also revoke existing state URLs on unmount/dependency change
+            // Only if they weren't just set (avoid double revoke)
+            if (!didUpdateReg && registrationDocPreview) revokePreviewUrl(registrationDocPreview);
+            if (!didUpdateLbl && labelDocPreview) revokePreviewUrl(labelDocPreview);
+
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [recordData.registrationDocument, recordData.labelDocument]);
 
 
@@ -828,5 +852,3 @@ export default function NewRecordStep7() {
     </div>
   );
 }
-
-    
