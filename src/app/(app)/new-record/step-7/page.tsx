@@ -230,6 +230,7 @@ export default function NewRecordStep7() {
            const currentState = useAppState.getState().recordData;
 
             // 2. Create the final data object, merging form data from this step
+            // We don't need validation here as per the request, archive even if data is missing.
             const finalRecordData: RecordData = {
                 ...currentState, // Start with current state
                 // Overwrite with potentially edited fields from this summary form
@@ -331,31 +332,33 @@ export default function NewRecordStep7() {
 
    // Redirect if essential data is missing & sync form on load/data change
    React.useEffect(() => {
-    if (!branch || !recordData.chassisNumber) {
-        toast({ title: "Eksik Bilgi", description: "Şube veya Şase numarası bulunamadı. Başlangıca yönlendiriliyor...", variant: "destructive" });
-        router.push('/select-branch');
-    } else {
-        // Sync form with the latest recordData from state on initial load or when critical data changes
-         form.reset({
-            sequenceNo: recordData.sequenceNo || recordData.workOrderNumber || '',
-            projectName: recordData.projectName || '',
-            typeApprovalType: recordData.typeApprovalType || '',
-            typeApprovalLevel: recordData.typeApprovalLevel || '',
-            typeApprovalVersion: recordData.typeApprovalVersion || '',
-            typeApprovalNumber: recordData.typeApprovalNumber || '', // Sync this as well
-            engineNumber: recordData.engineNumber || '',
-            detailsOfWork: recordData.detailsOfWork || '',
-            projectNo: recordData.projectNo || '',
-         });
-    }
+       // Remove the check for missing branch or chassisNumber
+       // if (!branch || !recordData.chassisNumber) {
+       //     toast({ title: "Eksik Bilgi", description: "Şube veya Şase numarası bulunamadı. Başlangıca yönlendiriliyor...", variant: "destructive" });
+       //     router.push('/select-branch');
+       // } else {
+           // Sync form with the latest recordData from state on initial load or when critical data changes
+            form.reset({
+               sequenceNo: recordData.sequenceNo || recordData.workOrderNumber || '',
+               projectName: recordData.projectName || '',
+               typeApprovalType: recordData.typeApprovalType || '',
+               typeApprovalLevel: recordData.typeApprovalLevel || '',
+               typeApprovalVersion: recordData.typeApprovalVersion || '',
+               typeApprovalNumber: recordData.typeApprovalNumber || '', // Sync this as well
+               engineNumber: recordData.engineNumber || '',
+               detailsOfWork: recordData.detailsOfWork || '',
+               projectNo: recordData.projectNo || '',
+            });
+       // }
    // Only run when branch or chassis number changes, or on mount
    // eslint-disable-next-line react-hooks/exhaustive-deps
    }, [branch, recordData.chassisNumber, router, toast, recordData]); // Added recordData dependency to re-sync on any change
 
 
-  if (!branch || !recordData.chassisNumber) {
-    return <div className="flex min-h-screen items-center justify-center p-4">Gerekli bilgiler eksik, yönlendiriliyorsunuz...</div>;
-  }
+   // Remove the loading check related to missing branch/chassis
+   // if (!branch || !recordData.chassisNumber) {
+   //   return <div className="flex min-h-screen items-center justify-center p-4">Gerekli bilgiler eksik, yönlendiriliyorsunuz...</div>;
+   // }
 
 
   return (
@@ -369,7 +372,7 @@ export default function NewRecordStep7() {
           </CardTitle>
           <CardDescription>
             Lütfen tüm bilgileri kontrol edin ve kaydedin. Gerekirse alanları düzenleyebilirsiniz.
-            (Şube: {branch}, Şase: {recordData.chassisNumber})
+            (Şube: {branch || 'Belirtilmedi'}, Şase: {recordData.chassisNumber || 'Belirtilmedi'})
           </CardDescription>
         </CardHeader>
         <CardContent>
