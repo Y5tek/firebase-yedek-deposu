@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     ColumnDef,
@@ -12,7 +12,7 @@ import {
     SortingState,
     getSortedRowModel,
 } from '@tanstack/react-table';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx'; // Import xlsx library
 
 import { getTypeApprovalRecords, addMultipleTypeApprovalRecords } from '@/services/firestore';
 import type { TypeApprovalRecord } from '@/types'; // Import the type
@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ListChecks, Upload, Loader2, ArrowUpDown } from 'lucide-react';
+import { ListChecks, Upload, Loader2, ArrowUpDown, Download } from 'lucide-react'; // Added Download icon
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // Define columns for the React Table
@@ -72,7 +72,8 @@ const columns: ColumnDef<TypeApprovalRecord>[] = [
     // Removed belge_url column based on request
 ];
 
-// Mapping from Excel headers (case-insensitive) to Firestore field names
+// Define the required headers for the template and mapping
+const templateHeaders = ['ŞUBE ADI', 'PROJE ADI', 'TİP ONAY', 'tip onay seviye', 'VARYANT', 'VERSİYON', 'TİP ONAY NO'];
 const excelHeaderMapping: { [key: string]: keyof Omit<TypeApprovalRecord, 'id'> } = {
     'şube adi': 'sube_adi',
     'proje adi': 'proje_adi',
@@ -159,15 +160,22 @@ export default function TypeApprovalListPage() {
                 const headers = json[0].map(header => String(header).trim().toLowerCase());
                 const recordsToUpload: Omit<TypeApprovalRecord, 'id'>[] = [];
 
-                // Validate headers
-                const requiredHeaders = Object.keys(excelHeaderMapping);
-                const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+                // Validate headers using the templateHeaders' lowercase versions
+                const requiredLowerHeaders = templateHeaders.map(h => h.toLowerCase());
+                const missingHeaders = requiredLowerHeaders.filter(h => !headers.includes(h));
                 if (missingHeaders.length > 0) {
-                    throw new Error(`Eksik Excel sütun başlıkları: ${missingHeaders.join(', ')}`);
+                     // Try to find the original case headers for the error message
+                    const originalMissing = templateHeaders.filter(th => !headers.includes(th.toLowerCase()));
+                    throw new Error(`Eksik Excel sütun başlıkları: ${originalMissing.join(', ')}`);
                 }
 
                 for (let i = 1; i < json.length; i++) {
                     const row = json[i];
+                     // Skip completely empty rows
+                    if (row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) {
+                        console.log(`Skipping empty row ${i + 1}`);
+                        continue;
+                    }
                     const record: Partial<Omit<TypeApprovalRecord, 'id'>> = {};
                     headers.forEach((header, index) => {
                         const firestoreField = excelHeaderMapping[header];
@@ -177,8 +185,8 @@ export default function TypeApprovalListPage() {
                     });
 
                      // Basic validation: check if at least tip_onay_no exists
-                     if (!record.tip_onay_no) {
-                        console.warn(`Skipping row ${i + 1}: 'tip_onay_no' is missing.`);
+                     if (!record.tip_onay_no || String(record.tip_onay_no).trim() === '') {
+                        console.warn(`Skipping row ${i + 1}: 'tip_onay_no' is missing or empty.`);
                         continue; // Skip rows without a type approval number
                      }
 
@@ -221,6 +229,27 @@ export default function TypeApprovalListPage() {
          }
     };
 
+     // Function to handle template download
+     const handleDownloadTemplate = () => {
+         try {
+            const ws = XLSX.utils.aoa_to_sheet([templateHeaders]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "TipOnaySablonu");
+            XLSX.writeFile(wb, "Tip_Onay_Kayit_Sablonu.xlsx");
+            toast({
+                title: "Şablon İndirildi",
+                description: "Excel şablonu başarıyla indirildi.",
+            })
+         } catch (error) {
+              console.error("Error generating Excel template:", error);
+              toast({
+                  title: "Şablon Oluşturma Hatası",
+                  description: "Excel şablonu oluşturulurken bir hata oluştu.",
+                  variant: "destructive",
+              });
+         }
+     };
+
     return (
         <div className="p-4 md:p-6 lg:p-8">
             <Card className="w-full shadow-lg">
@@ -234,35 +263,36 @@ export default function TypeApprovalListPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {/* File Upload Section */}
+                    {/* File Upload & Download Section */}
                     <div className="flex flex-col sm:flex-row items-center gap-4 p-4 border rounded-md bg-secondary/30">
-                        <Input
-                            id="excel-upload"
-                            type="file"
-                            accept=".xlsx, .csv"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                            disabled={uploading}
-                        />
-                        <label htmlFor="excel-upload" className="w-full sm:w-auto">
-                            <Button asChild variant="outline" disabled={uploading} className="w-full sm:w-auto cursor-pointer">
-                                <div>
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    Excel Dosyası Seç (.xlsx, .csv)
-                                </div>
-                            </Button>
-                        </label>
-                        <Button
-                            onClick={() => document.getElementById('excel-upload')?.click()} // Trigger hidden input
-                            disabled={uploading}
-                        >
-                            {uploading ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <Upload className="mr-2 h-4 w-4" />
-                            )}
-                            Excel Yükle
-                        </Button>
+                         {/* Upload Button */}
+                         <label htmlFor="excel-upload" className="w-full sm:w-auto">
+                             <Button asChild variant="outline" disabled={uploading} className="w-full sm:w-auto cursor-pointer">
+                                 <div>
+                                     <Upload className="mr-2 h-4 w-4" />
+                                     Excel Yükle (.xlsx, .csv)
+                                 </div>
+                             </Button>
+                         </label>
+                         <Input
+                             id="excel-upload"
+                             type="file"
+                             accept=".xlsx, .csv"
+                             onChange={handleFileUpload}
+                             className="hidden"
+                             disabled={uploading}
+                         />
+                         {/* Download Template Button */}
+                         <Button
+                             variant="secondary"
+                             onClick={handleDownloadTemplate}
+                             disabled={uploading}
+                             className="w-full sm:w-auto"
+                         >
+                             <Download className="mr-2 h-4 w-4" />
+                             Şablon İndir
+                         </Button>
+                         {uploading && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
                     </div>
                     {uploadError && (
                         <Alert variant="destructive">
@@ -272,7 +302,7 @@ export default function TypeApprovalListPage() {
                     )}
 
                     {/* Data Table Section */}
-                    <div className="rounded-md border">
+                    <div className="rounded-md border overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 {table.getHeaderGroups().map((headerGroup) => (
@@ -334,3 +364,4 @@ export default function TypeApprovalListPage() {
         </div>
     );
 }
+
