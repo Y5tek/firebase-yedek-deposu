@@ -73,7 +73,7 @@ export default function NewRecordStep3() {
   const router = useRouter();
   const { toast } = useToast();
   const { branch, recordData, updateRecordData } = useAppState();
-  const [progress] = React.useState(50); // Step 3 of 7 (approx 43%)
+  const [progress] = React.useState(43); // Step 3 of 7 (approx 43%) - Adjusted progress
   const [mediaFiles, setMediaFiles] = React.useState<MediaFile[]>([]); // For additional photos/videos
   const [typeApprovalDoc, setTypeApprovalDoc] = React.useState<File | null>(null); // Separate state for type approval doc
   const [typeApprovalDocInfo, setTypeApprovalDocInfo] = React.useState<{ name: string; type?: string; size?: number } | null>(null); // For persisted info
@@ -89,9 +89,9 @@ export default function NewRecordStep3() {
   const typeApprovalInputRef = React.useRef<HTMLInputElement>(null);
   const additionalMediaInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Initialize state and setup previews from global state on component mount
+  // Initialize state and setup previews from global state on component mount AND when relevant recordData changes
    React.useEffect(() => {
-        console.log("Step 3 Mounting - Initializing state from recordData:", recordData);
+        console.log("Step 3 Effect - Initializing/Updating previews from recordData:", recordData);
 
         // Initialize Type Approval Document
         const taDoc = recordData.typeApprovalDocument;
@@ -107,57 +107,71 @@ export default function NewRecordStep3() {
         }
 
        // Initialize Additional Media Files from global state (only if they are File objects)
-       const initialMediaFiles: MediaFile[] = [];
-       const processFiles = (files: (File | { name: string; type?: string; size?: number })[] | undefined, type: 'image' | 'video') => {
-           (files || []).forEach(fileData => {
-               if (fileData instanceof File) {
-                   const previewUrl = generatePreviewUrl(fileData);
-                   if (previewUrl) {
-                       initialMediaFiles.push({ file: fileData, previewUrl, type });
-                   }
-               }
-           });
-       };
-       processFiles(recordData.additionalPhotos, 'image');
-       processFiles(recordData.additionalVideos, 'video');
-       setMediaFiles(initialMediaFiles);
+       // This part only runs on mount to avoid regenerating URLs unnecessarily
+       // New files are added via handleAdditionalMediaChange
+       if (mediaFiles.length === 0) { // Only initialize if local state is empty
+            const initialMediaFiles: MediaFile[] = [];
+            const processFiles = (files: (File | { name: string; type?: string; size?: number })[] | undefined, type: 'image' | 'video') => {
+                (files || []).forEach(fileData => {
+                    if (fileData instanceof File) {
+                        const previewUrl = generatePreviewUrl(fileData);
+                        if (previewUrl) {
+                            initialMediaFiles.push({ file: fileData, previewUrl, type });
+                        }
+                    }
+                });
+            };
+            processFiles(recordData.additionalPhotos, 'image');
+            processFiles(recordData.additionalVideos, 'video');
+            setMediaFiles(initialMediaFiles);
+       }
 
 
         // Setup previews for registration and label documents
         let regUrl: string | null = null;
-        if (recordData.registrationDocument instanceof File) {
-            regUrl = generatePreviewUrl(recordData.registrationDocument);
-            setRegistrationDocPreview(regUrl);
-        } else {
-            setRegistrationDocPreview(null); // Clear preview if it's not a file
-        }
-
         let lblUrl: string | null = null;
-        if (recordData.labelDocument instanceof File) {
-            lblUrl = generatePreviewUrl(recordData.labelDocument);
-            setLabelDocPreview(lblUrl);
+        let shouldRevokeRegUrl = registrationDocPreview; // Track if previous URL existed
+        let shouldRevokeLblUrl = labelDocPreview;
+
+        if (recordData.registrationDocument instanceof File) {
+             console.log("Step 3 Effect: Found registration doc File:", recordData.registrationDocument.name);
+             regUrl = generatePreviewUrl(recordData.registrationDocument);
+             setRegistrationDocPreview(regUrl); // Set the new or existing URL
         } else {
-            setLabelDocPreview(null); // Clear preview if it's not a file
+            console.log("Step 3 Effect: No registration doc File found in recordData.");
+             if (registrationDocPreview) {
+                 revokePreviewUrl(registrationDocPreview); // Revoke old URL if exists
+             }
+            setRegistrationDocPreview(null); // Clear preview if not a file
         }
 
 
-        // Cleanup object URLs on unmount
+        if (recordData.labelDocument instanceof File) {
+             console.log("Step 3 Effect: Found label doc File:", recordData.labelDocument.name);
+             lblUrl = generatePreviewUrl(recordData.labelDocument);
+             setLabelDocPreview(lblUrl);
+        } else {
+             console.log("Step 3 Effect: No label doc File found in recordData.");
+             if (labelDocPreview) {
+                 revokePreviewUrl(labelDocPreview);
+             }
+            setLabelDocPreview(null);
+        }
+
+        // Cleanup function for generated preview URLs
         return () => {
-            console.log("Step 3 Unmounting - Cleaning up previews");
-            revokePreviewUrl(regUrl);
-            revokePreviewUrl(lblUrl);
-            initialMediaFiles.forEach(mf => revokePreviewUrl(mf.previewUrl));
-            // Ensure the state variables are also cleared if necessary
-             setRegistrationDocPreview(prev => { revokePreviewUrl(prev); return null; });
-             setLabelDocPreview(prev => { revokePreviewUrl(prev); return null; });
-             setMediaFiles(prev => {
-                 prev.forEach(mf => revokePreviewUrl(mf.previewUrl));
-                 return [];
-             });
+            console.log("Step 3 Effect Cleanup: Revoking temporary preview URLs if they were generated.");
+            if (regUrl && regUrl !== shouldRevokeRegUrl) { // Only revoke newly generated URLs
+                revokePreviewUrl(regUrl);
+            }
+            if (lblUrl && lblUrl !== shouldRevokeLblUrl) {
+                 revokePreviewUrl(lblUrl);
+            }
+            // Cleanup for additional media is handled in its own useEffect
         };
-    // Run only on mount, state updates handled separately
-   // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, []); // Empty dependency array to run only on mount
+    // Add dependencies to re-run when these specific documents change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [recordData.registrationDocument, recordData.labelDocument]);
 
 
     // Revoke object URLs when files are removed from mediaFiles state
@@ -165,8 +179,11 @@ export default function NewRecordStep3() {
         // This effect handles cleanup if the mediaFiles array itself changes
         // (e.g., adding/removing files causes re-render and potential stale URLs)
         // The unmount cleanup handles the final cleanup.
+        // Also handles initial media files cleanup on unmount
+        const currentMediaUrls = mediaFiles.map(mf => mf.previewUrl);
         return () => {
-            mediaFiles.forEach(mf => revokePreviewUrl(mf.previewUrl));
+            console.log("Step 3 mediaFiles Effect Cleanup: Revoking URLs for removed/unmounted media.");
+            currentMediaUrls.forEach(revokePreviewUrl);
         };
     }, [mediaFiles]); // Dependency on mediaFiles
 
@@ -434,7 +451,7 @@ export default function NewRecordStep3() {
                             <FormLabel className="font-semibold">Ruhsat Belgesi (Adım 1)</FormLabel>
                              {registrationDocPreview ? (
                                 <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(registrationDocPreview)}>
-                                    <Image src={registrationDocPreview} alt="Ruhsat Önizleme" fill style={{ objectFit: 'cover' }} className="rounded-md" unoptimized data-ai-hint="vehicle registration document" />
+                                    <Image src={registrationDocPreview} alt="Ruhsat Önizleme" fill style={{ objectFit: 'contain' }} className="rounded-md" unoptimized data-ai-hint="vehicle registration document" />
                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                                         <Eye className="h-8 w-8 text-white" />
                                     </div>
@@ -456,7 +473,7 @@ export default function NewRecordStep3() {
                             <FormLabel className="font-semibold">Etiket Belgesi (Adım 2)</FormLabel>
                             {labelDocPreview ? (
                                 <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(labelDocPreview)}>
-                                    <Image src={labelDocPreview} alt="Etiket Önizleme" fill style={{ objectFit: 'cover' }} className="rounded-md" unoptimized data-ai-hint="vehicle label document" />
+                                    <Image src={labelDocPreview} alt="Etiket Önizleme" fill style={{ objectFit: 'contain' }} className="rounded-md" unoptimized data-ai-hint="vehicle label document" />
                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                                         <Eye className="h-8 w-8 text-white" />
                                     </div>
@@ -670,5 +687,3 @@ export default function NewRecordStep3() {
     </div>
   );
 }
-
-    
