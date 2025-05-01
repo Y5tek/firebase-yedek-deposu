@@ -17,6 +17,9 @@ import { format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { getSerializableFileInfo } from '@/lib/utils';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'; // Import form components
+import { useQuery } from '@tanstack/react-query'; // Import useQuery
+import { getTypeApprovalRecords } from '@/services/firestore'; // Import function to fetch records
+import type { TypeApprovalRecord } from '@/types'; // Import type
 
 
 // Define Zod schema for editable fields on this page
@@ -26,18 +29,10 @@ const FormSchema = z.object({
     typeApprovalType: z.string().optional(), // TİP ONAY
     typeApprovalLevel: z.string().optional(), // tip onay seviye
     typeApprovalVersion: z.string().optional(), // VERSİYON
-    typeApprovalNumber: z.string().optional(), // TİP ONAY NO
+    typeApprovalNumber: z.string().optional(), // TİP ONAY NO - Now potentially auto-filled
     engineNumber: z.string().optional(), // MOTOR NO
     detailsOfWork: z.string().optional(), // YAPILACAK İŞLER (Assuming it's from İş Emri)
     projectNo: z.string().optional(), // PROJE NO
-    // Read-only fields (not part of schema, will be displayed directly)
-    // branch: string | null; // ŞUBE ADI
-    // typeAndVariant: string | undefined; // VARYANT
-    // typeApprovalDocumentUrl: string | null; // TİP ONAY BELGESİ
-    // formDate: string | undefined; // TARİH
-    // chassisNumber: string | undefined; // ŞASİ NO
-    // plateNumber: string | undefined; // PLAKA
-    // customerName: string | undefined; // MÜŞTERİ ADI
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -50,20 +45,106 @@ export default function NewRecordStep7() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [progress] = React.useState(100); // Final Step
 
+  // Fetch Type Approval Records using React Query
+  const { data: typeApprovalList = [], isLoading: isLoadingApprovals } = useQuery<TypeApprovalRecord[], Error>({
+    queryKey: ['typeApprovalRecords'], // Use the same key as the list page
+    queryFn: getTypeApprovalRecords,
+    staleTime: 5 * 60 * 1000, // Cache data for 5 minutes
+  });
+
+
   const form = useForm<FormData>({
     resolver: zodResolver(FormSchema),
     defaultValues: { // Initialize form with data from state
-        sequenceNo: recordData.sequenceNo || recordData.workOrderNumber || '', // Use workOrderNumber as potential SIRA NO
+        sequenceNo: recordData.sequenceNo || recordData.workOrderNumber || '',
         projectName: recordData.projectName || '',
         typeApprovalType: recordData.typeApprovalType || '',
         typeApprovalLevel: recordData.typeApprovalLevel || '',
         typeApprovalVersion: recordData.typeApprovalVersion || '',
-        typeApprovalNumber: recordData.typeApprovalNumber || '',
+        typeApprovalNumber: recordData.typeApprovalNumber || '', // Initialize with current value
         engineNumber: recordData.engineNumber || '',
         detailsOfWork: recordData.detailsOfWork || '',
         projectNo: recordData.projectNo || '',
     },
   });
+
+   // Effect to auto-populate Type Approval Number
+   React.useEffect(() => {
+        if (isLoadingApprovals || !typeApprovalList || typeApprovalList.length === 0) {
+            return; // Don't run if data isn't ready
+        }
+
+        // Define matching criteria (adjust these fields as needed)
+        const criteria = {
+            sube_adi: branch, // Match current branch
+            proje_adi: recordData.projectName, // Match project name
+            tip_onay: recordData.typeApprovalType, // Match type approval type
+            tip_onay_seviye: recordData.typeApprovalLevel, // Match level
+            varyant: recordData.typeAndVariant, // Match variant
+            versiyon: recordData.typeApprovalVersion, // Match version
+        };
+
+        console.log("Attempting to find match with criteria:", criteria);
+
+        const matchedRecords = typeApprovalList.filter(record => {
+            let isMatch = true;
+            // Check each criterion - only compare if the criterion value exists in recordData
+            if (criteria.sube_adi && record.sube_adi !== criteria.sube_adi) isMatch = false;
+            if (criteria.proje_adi && record.proje_adi !== criteria.proje_adi) isMatch = false;
+            if (criteria.tip_onay && record.tip_onay !== criteria.tip_onay) isMatch = false;
+            if (criteria.tip_onay_seviye && record.tip_onay_seviye !== criteria.tip_onay_seviye) isMatch = false;
+            if (criteria.varyant && record.varyant !== criteria.varyant) isMatch = false;
+            if (criteria.versiyon && record.versiyon !== criteria.versiyon) isMatch = false;
+
+            // Also check if tip_onay_no exists and starts with "AİTM"
+            if (!record.tip_onay_no || !record.tip_onay_no.toUpperCase().startsWith('AİTM')) {
+                 isMatch = false;
+             }
+
+            return isMatch;
+        });
+
+        console.log("Matched records found:", matchedRecords);
+
+        // If exactly one match is found, auto-populate the field
+        if (matchedRecords.length === 1) {
+            const matchedNumber = matchedRecords[0].tip_onay_no;
+             // Only update if the field is currently empty or different from the matched number
+             const currentApprovalNo = form.getValues('typeApprovalNumber');
+            if (matchedNumber && (!currentApprovalNo || currentApprovalNo !== matchedNumber)) {
+                 console.log("Auto-populating TİP ONAY NO with:", matchedNumber);
+                 form.setValue('typeApprovalNumber', matchedNumber);
+                 // Also update the global state immediately for consistency
+                 updateRecordData({ typeApprovalNumber: matchedNumber });
+             } else {
+                 console.log("TİP ONAY NO already set or matches the found number. No update needed.");
+             }
+        } else if (matchedRecords.length > 1) {
+            console.warn("Multiple matching Type Approval Numbers found. Cannot auto-populate.");
+            // Optionally, show a message to the user or allow selection
+             // For now, just leave the field as is
+             // form.setValue('typeApprovalNumber', recordData.typeApprovalNumber || ''); // Reset to original or empty
+        } else {
+             console.log("No unique matching Type Approval Number found starting with AİTM.");
+             // Leave the field as is (or reset if needed)
+             // form.setValue('typeApprovalNumber', recordData.typeApprovalNumber || ''); // Reset to original or empty
+        }
+
+   // Dependencies: Run when approval list or relevant recordData changes
+   // form is excluded to prevent loops on setValue
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [
+       typeApprovalList,
+       isLoadingApprovals,
+       branch,
+       recordData.projectName,
+       recordData.typeApprovalType,
+       recordData.typeApprovalLevel,
+       recordData.typeAndVariant,
+       recordData.typeApprovalVersion,
+       recordData.typeApprovalNumber, // Include this to re-evaluate if it changes manually
+       updateRecordData, // Add updateRecordData to dependencies
+   ]);
 
 
   // Format dates safely
@@ -110,28 +191,20 @@ export default function NewRecordStep7() {
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate saving
 
         // Update the recordData state with the edited values from the form
+        // AND ensure all other recordData fields are preserved
+        const currentState = useAppState.getState().recordData;
         updateRecordData({
-             sequenceNo: data.sequenceNo,
-             projectName: data.projectName,
-             typeApprovalType: data.typeApprovalType,
-             typeApprovalLevel: data.typeApprovalLevel,
-             typeApprovalVersion: data.typeApprovalVersion,
-             typeApprovalNumber: data.typeApprovalNumber,
-             engineNumber: data.engineNumber,
-             detailsOfWork: data.detailsOfWork,
-             projectNo: data.projectNo,
-             // Keep other fields from the current state
-             ...recordData, // Spread existing data first
-             // Overwrite with submitted data
-             sequenceNo: data.sequenceNo,
-             projectName: data.projectName,
-             typeApprovalType: data.typeApprovalType,
-             typeApprovalLevel: data.typeApprovalLevel,
-             typeApprovalVersion: data.typeApprovalVersion,
-             typeApprovalNumber: data.typeApprovalNumber,
-             engineNumber: data.engineNumber,
-             detailsOfWork: data.detailsOfWork,
-             projectNo: data.projectNo,
+            ...currentState, // Start with current state
+            // Overwrite with submitted form data
+            sequenceNo: data.sequenceNo,
+            projectName: data.projectName,
+            typeApprovalType: data.typeApprovalType,
+            typeApprovalLevel: data.typeApprovalLevel,
+            typeApprovalVersion: data.typeApprovalVersion,
+            typeApprovalNumber: data.typeApprovalNumber, // Get latest value from form
+            engineNumber: data.engineNumber,
+            detailsOfWork: data.detailsOfWork,
+            projectNo: data.projectNo,
         });
 
          // Access the *updated* state after the updateRecordData call
@@ -149,7 +222,7 @@ export default function NewRecordStep7() {
           // Add metadata
           branch: branch, // Ensure branch is included
           archivedAt: new Date().toISOString(),
-          fileName: `${branch}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}`
+          fileName: `${branch || 'NO-BRANCH'}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}` // Handle null branch
         };
 
         console.log("Archiving final entry:", archiveEntry);
@@ -185,7 +258,7 @@ export default function NewRecordStep7() {
           typeApprovalType: form.getValues('typeApprovalType'),
           typeApprovalLevel: form.getValues('typeApprovalLevel'),
           typeApprovalVersion: form.getValues('typeApprovalVersion'),
-          typeApprovalNumber: form.getValues('typeApprovalNumber'),
+          typeApprovalNumber: form.getValues('typeApprovalNumber'), // Save latest value
           engineNumber: form.getValues('engineNumber'),
           detailsOfWork: form.getValues('detailsOfWork'),
           projectNo: form.getValues('projectNo'),
@@ -199,22 +272,24 @@ export default function NewRecordStep7() {
         toast({ title: "Eksik Bilgi", description: "Şube veya Şase numarası bulunamadı. Başlangıca yönlendiriliyor...", variant: "destructive" });
         router.push('/select-branch');
     } else {
-        // Sync form with latest recordData from state
-         form.reset({
-            sequenceNo: recordData.sequenceNo || recordData.workOrderNumber || '',
-            projectName: recordData.projectName || '',
-            typeApprovalType: recordData.typeApprovalType || '',
-            typeApprovalLevel: recordData.typeApprovalLevel || '',
-            typeApprovalVersion: recordData.typeApprovalVersion || '',
-            typeApprovalNumber: recordData.typeApprovalNumber || '',
-            engineNumber: recordData.engineNumber || '',
-            detailsOfWork: recordData.detailsOfWork || '',
-            projectNo: recordData.projectNo || '',
-         });
+        // Sync form with latest recordData from state, but *after* the auto-populate effect runs
+        // We might not need to reset here if the effect handles the initial population correctly
+         // form.reset({
+         //    sequenceNo: recordData.sequenceNo || recordData.workOrderNumber || '',
+         //    projectName: recordData.projectName || '',
+         //    typeApprovalType: recordData.typeApprovalType || '',
+         //    typeApprovalLevel: recordData.typeApprovalLevel || '',
+         //    typeApprovalVersion: recordData.typeApprovalVersion || '',
+         //    typeApprovalNumber: recordData.typeApprovalNumber || '', // Initialize
+         //    engineNumber: recordData.engineNumber || '',
+         //    detailsOfWork: recordData.detailsOfWork || '',
+         //    projectNo: recordData.projectNo || '',
+         // });
     }
     // Exclude form from dependencies to avoid infinite loops
    // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [branch, recordData, router, toast]);
+   }, [branch, recordData.chassisNumber, router, toast]); // Removed recordData deps managed by auto-populate effect
+
 
   if (!branch || !recordData.chassisNumber) {
     return <div className="flex min-h-screen items-center justify-center p-4">Gerekli bilgiler eksik, yönlendiriliyorsunuz...</div>;
@@ -330,8 +405,15 @@ export default function NewRecordStep7() {
                             <FormItem className="grid grid-cols-[150px_1fr] items-center">
                                 <FormLabel>TİP ONAY NO</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Tip Onay No..." {...field} disabled={isLoading} />
+                                     <Input
+                                         placeholder={isLoadingApprovals ? "Liste yükleniyor..." : "Tip Onay No..."}
+                                         {...field}
+                                         disabled={isLoading || isLoadingApprovals} // Disable while loading list too
+                                    />
                                 </FormControl>
+                                <FormDescription className="col-start-2 text-xs">
+                                    Eşleşen kayıt bulunursa otomatik doldurulur (AİTM ile başlamalıdır).
+                                </FormDescription>
                                 <FormMessage className="col-start-2"/>
                             </FormItem>
                          )}
@@ -433,7 +515,7 @@ export default function NewRecordStep7() {
                 <Button type="button" variant="outline" onClick={goBack} disabled={isLoading}>
                    <ArrowLeft className="mr-2 h-4 w-4"/> Geri
                 </Button>
-                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading}>
+                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading || isLoadingApprovals}>
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Kaydı Tamamla ve Arşivle
                 </Button>
