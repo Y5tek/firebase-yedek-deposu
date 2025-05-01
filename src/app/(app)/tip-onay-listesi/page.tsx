@@ -150,14 +150,21 @@ export default function TypeApprovalListPage() {
                 const data = e.target?.result;
                 const workbook = XLSX.read(data, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
+                console.log("Reading sheet:", sheetName); // Log sheet name
                 const worksheet = workbook.Sheets[sheetName];
                 const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 }); // Read as array of arrays
 
+                console.log("Parsed Excel data (raw):", json); // Log raw parsed data
+                console.log("Number of rows found (including header):", json?.length);
+
                 if (!json || json.length < 2) {
-                    throw new Error("Excel dosyası boş veya sadece başlık satırı içeriyor.");
+                     console.error("Validation failed: json array is null or has less than 2 rows.", json);
+                    throw new Error("Excel dosyası boş veya sadece başlık satırı içeriyor (veya okunamadı).");
                 }
 
                 const headers = json[0].map(header => String(header).trim().toLowerCase());
+                console.log("Found headers:", headers); // Log headers
+
                 const recordsToUpload: Omit<TypeApprovalRecord, 'id'>[] = [];
 
                 // Validate headers using the templateHeaders' lowercase versions
@@ -166,39 +173,57 @@ export default function TypeApprovalListPage() {
                 if (missingHeaders.length > 0) {
                      // Try to find the original case headers for the error message
                     const originalMissing = templateHeaders.filter(th => !headers.includes(th.toLowerCase()));
+                    console.error("Missing headers:", originalMissing);
                     throw new Error(`Eksik Excel sütun başlıkları: ${originalMissing.join(', ')}`);
                 }
 
+                console.log("Processing rows starting from index 1...");
                 for (let i = 1; i < json.length; i++) {
                     const row = json[i];
-                     // Skip completely empty rows
-                    if (row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) {
+                    console.log(`Processing row ${i + 1}:`, row);
+
+                    // Skip completely empty rows more robustly
+                    if (!row || row.length === 0 || row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) {
                         console.log(`Skipping empty row ${i + 1}`);
                         continue;
                     }
+
                     const record: Partial<Omit<TypeApprovalRecord, 'id'>> = {};
+                    let hasData = false; // Flag to check if row has any data in mapped columns
                     headers.forEach((header, index) => {
                         const firestoreField = excelHeaderMapping[header];
                         if (firestoreField && row[index] !== undefined && row[index] !== null) {
-                            // Ensure all values are treated as strings for consistency with Firestore schema
-                            record[firestoreField] = String(row[index]);
+                             const cellValue = String(row[index]).trim(); // Trim whitespace
+                            // Only assign if the trimmed value is not empty
+                             if (cellValue !== '') {
+                                record[firestoreField] = cellValue;
+                                hasData = true; // Mark that this row has some data
+                             }
                         }
                     });
 
-                     // Basic validation: check if at least tip_onay_no exists
-                     if (!record.tip_onay_no || String(record.tip_onay_no).trim() === '') {
+                     // If the row only contained empty strings after trimming, skip it
+                     if (!hasData) {
+                          console.log(`Skipping row ${i + 1} as it only contains empty values after trimming.`);
+                          continue;
+                     }
+
+                     // Basic validation: check if tip_onay_no exists and is not empty after trimming
+                     if (!record.tip_onay_no) { // No need to check for empty string again due to above logic
                         console.warn(`Skipping row ${i + 1}: 'TİP ONAY NO' is missing or empty.`);
                         continue; // Skip rows without a type approval number
                      }
 
                     recordsToUpload.push(record as Omit<TypeApprovalRecord, 'id'>);
+                    console.log(`Added record from row ${i + 1}:`, record);
                 }
 
+                console.log(`Total valid records found: ${recordsToUpload.length}`);
                 if (recordsToUpload.length === 0) {
-                     throw new Error("Excel dosyasında geçerli kayıt bulunamadı (TİP ONAY NO sütununu kontrol edin).");
+                     throw new Error("Excel dosyasında geçerli kayıt bulunamadı (Her satırda 'TİP ONAY NO' olduğundan emin olun ve boş satırları kontrol edin).");
                  }
 
-                console.log("Records to upload:", recordsToUpload);
+                console.log("Records to upload to Firestore:", recordsToUpload);
                 mutation.mutate(recordsToUpload);
 
             } catch (error: any) {
