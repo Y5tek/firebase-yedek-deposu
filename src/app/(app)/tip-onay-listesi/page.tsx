@@ -13,8 +13,11 @@ import {
     getSortedRowModel,
 } from '@tanstack/react-table';
 import * as XLSX from 'xlsx'; // Import xlsx library
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
-import { getTypeApprovalRecords, addMultipleTypeApprovalRecords } from '@/services/firestore';
+import { getTypeApprovalRecords, addMultipleTypeApprovalRecords, addTypeApprovalRecord } from '@/services/firestore';
 import type { TypeApprovalRecord } from '@/types'; // Import the type
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,9 +30,34 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogClose,
+} from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { ListChecks, Upload, Loader2, ArrowUpDown, Download } from 'lucide-react'; // Added Download icon
+import { ListChecks, Upload, Loader2, ArrowUpDown, Download, PlusCircle } from 'lucide-react'; // Added PlusCircle
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+// Schema for the manual entry form
+const ManualEntrySchema = z.object({
+  sube_adi: z.string().optional(),
+  proje_adi: z.string().optional(),
+  tip_onay: z.string().optional(),
+  tip_onay_seviye: z.string().optional(),
+  varyant: z.string().optional(),
+  versiyon: z.string().optional(),
+  tip_onay_no: z.string().min(1, "Tip Onay No zorunludur."), // Required
+});
+
+type ManualEntryFormData = z.infer<typeof ManualEntrySchema>;
+
 
 // Define columns for the React Table
 const columns: ColumnDef<TypeApprovalRecord>[] = [
@@ -67,7 +95,15 @@ const columns: ColumnDef<TypeApprovalRecord>[] = [
     },
     {
         accessorKey: 'tip_onay_no',
-        header: 'Tip Onay No',
+        header: ({ column }) => (
+             <Button
+                 variant="ghost"
+                 onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+             >
+                 Tip Onay No
+                 <ArrowUpDown className="ml-2 h-4 w-4" />
+             </Button>
+         ),
     },
     // Removed belge_url column based on request
 ];
@@ -90,6 +126,7 @@ export default function TypeApprovalListPage() {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
+    const [isManualEntryDialogOpen, setIsManualEntryDialogOpen] = useState(false);
 
     // Fetch data using React Query
     const { data: records = [], isLoading: isLoadingRecords, error: fetchError } = useQuery<TypeApprovalRecord[], Error>({
@@ -97,8 +134,22 @@ export default function TypeApprovalListPage() {
         queryFn: getTypeApprovalRecords,
     });
 
-    // Mutation for adding records
-    const mutation = useMutation<void, Error, Omit<TypeApprovalRecord, 'id'>[]>({
+    // Form for manual entry
+    const manualEntryForm = useForm<ManualEntryFormData>({
+        resolver: zodResolver(ManualEntrySchema),
+        defaultValues: {
+          sube_adi: '',
+          proje_adi: '',
+          tip_onay: '',
+          tip_onay_seviye: '',
+          varyant: '',
+          versiyon: '',
+          tip_onay_no: '',
+        },
+    });
+
+    // Mutation for adding multiple records from Excel
+    const excelUploadMutation = useMutation<void, Error, Omit<TypeApprovalRecord, 'id'>[]>({
         mutationFn: addMultipleTypeApprovalRecords,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['typeApprovalRecords'] });
@@ -109,16 +160,39 @@ export default function TypeApprovalListPage() {
             setUploadError(null);
         },
         onError: (error) => {
-            console.error("Error uploading data:", error);
+            console.error("Error uploading Excel data:", error);
             toast({
-                title: 'Hata!',
+                title: 'Excel Yükleme Hatası!',
                 description: `Veriler yüklenirken bir hata oluştu: ${error.message}`,
                 variant: 'destructive',
             });
-            setUploadError(`Veriler yüklenirken bir hata oluştu: ${error.message}`);
+            setUploadError(`Excel verileri yüklenirken bir hata oluştu: ${error.message}`);
         },
         onSettled: () => {
             setUploading(false);
+        },
+    });
+
+     // Mutation for adding a single manual record
+     const manualEntryMutation = useMutation<void, Error, Omit<TypeApprovalRecord, 'id'>>({
+        mutationFn: addTypeApprovalRecord, // Use the single add function
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['typeApprovalRecords'] });
+            toast({
+                title: 'Başarılı!',
+                description: 'Yeni kayıt başarıyla eklendi.',
+            });
+            setIsManualEntryDialogOpen(false); // Close dialog on success
+            manualEntryForm.reset(); // Reset form fields
+        },
+        onError: (error) => {
+            console.error("Error adding manual record:", error);
+            toast({
+                title: 'Kayıt Ekleme Hatası!',
+                description: `Kayıt eklenirken bir hata oluştu: ${error.message}`,
+                variant: 'destructive',
+            });
+            // Keep dialog open on error for correction
         },
     });
 
@@ -150,20 +224,24 @@ export default function TypeApprovalListPage() {
                 const data = e.target?.result;
                 const workbook = XLSX.read(data, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
-                console.log("Reading sheet:", sheetName); // Log sheet name
+                console.log("Reading sheet:", sheetName);
                 const worksheet = workbook.Sheets[sheetName];
-                const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 }); // Read as array of arrays
+                const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }); // Read as array of arrays, default empty cells to ""
 
-                console.log("Parsed Excel data (raw):", json); // Log raw parsed data
+                console.log("Parsed Excel data (raw):", json);
                 console.log("Number of rows found (including header):", json?.length);
 
-                if (!json || json.length < 2) {
-                     console.error("Validation failed: json array is null or has less than 2 rows.", json);
-                    throw new Error("Excel dosyası boş veya sadece başlık satırı içeriyor (veya okunamadı).");
+                if (!json || json.length < 1) { // Allow files with only headers for validation
+                    console.error("Validation failed: json array is null or empty.", json);
+                    throw new Error("Excel dosyası boş veya okunamadı.");
                 }
 
-                const headers = json[0].map(header => String(header).trim().toLowerCase());
-                console.log("Found headers:", headers); // Log headers
+                const headers = json[0]?.map(header => String(header).trim().toLowerCase());
+                console.log("Found headers:", headers);
+
+                if (!headers || headers.length === 0) {
+                    throw new Error("Excel dosyasında başlık satırı bulunamadı.");
+                }
 
                 const recordsToUpload: Omit<TypeApprovalRecord, 'id'>[] = [];
 
@@ -171,46 +249,45 @@ export default function TypeApprovalListPage() {
                 const requiredLowerHeaders = templateHeaders.map(h => h.toLowerCase());
                 const missingHeaders = requiredLowerHeaders.filter(h => !headers.includes(h));
                 if (missingHeaders.length > 0) {
-                     // Try to find the original case headers for the error message
                     const originalMissing = templateHeaders.filter(th => !headers.includes(th.toLowerCase()));
                     console.error("Missing headers:", originalMissing);
                     throw new Error(`Eksik Excel sütun başlıkları: ${originalMissing.join(', ')}`);
                 }
 
                 console.log("Processing rows starting from index 1...");
+                // Start from index 1 to skip header row
                 for (let i = 1; i < json.length; i++) {
                     const row = json[i];
                     console.log(`Processing row ${i + 1}:`, row);
 
+                    // Ensure row is an array, even if empty
+                    const currentRow = Array.isArray(row) ? row : [];
+
                     // Skip completely empty rows more robustly
-                    if (!row || row.length === 0 || row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) {
+                    if (currentRow.length === 0 || currentRow.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) {
                         console.log(`Skipping empty row ${i + 1}`);
                         continue;
                     }
 
                     const record: Partial<Omit<TypeApprovalRecord, 'id'>> = {};
-                    let hasData = false; // Flag to check if row has any data in mapped columns
+                    let hasRequiredData = false; // Flag for the required field
                     headers.forEach((header, index) => {
                         const firestoreField = excelHeaderMapping[header];
-                        if (firestoreField && row[index] !== undefined && row[index] !== null) {
-                             const cellValue = String(row[index]).trim(); // Trim whitespace
-                            // Only assign if the trimmed value is not empty
-                             if (cellValue !== '') {
-                                record[firestoreField] = cellValue;
-                                hasData = true; // Mark that this row has some data
-                             }
+                        const cellValue = currentRow[index] !== undefined && currentRow[index] !== null ? String(currentRow[index]).trim() : ''; // Trim whitespace, handle null/undefined
+
+                        if (firestoreField) {
+                            record[firestoreField] = cellValue; // Store trimmed value (even if empty for optional fields)
+                            // Check if the required field has data
+                            if (firestoreField === 'tip_onay_no' && cellValue !== '') {
+                                hasRequiredData = true;
+                            }
                         }
                     });
 
-                     // If the row only contained empty strings after trimming, skip it
-                     if (!hasData) {
-                          console.log(`Skipping row ${i + 1} as it only contains empty values after trimming.`);
-                          continue;
-                     }
-
-                     // Basic validation: check if tip_onay_no exists and is not empty after trimming
-                     if (!record.tip_onay_no) { // No need to check for empty string again due to above logic
+                     // Basic validation: check if tip_onay_no exists and is not empty
+                     if (!hasRequiredData) {
                         console.warn(`Skipping row ${i + 1}: 'TİP ONAY NO' is missing or empty.`);
+                        // Optionally inform the user about skipped rows later
                         continue; // Skip rows without a type approval number
                      }
 
@@ -219,16 +296,18 @@ export default function TypeApprovalListPage() {
                 }
 
                 console.log(`Total valid records found: ${recordsToUpload.length}`);
-                if (recordsToUpload.length === 0) {
+                if (recordsToUpload.length === 0 && json.length > 1) { // Error only if rows existed but were invalid
                      throw new Error("Excel dosyasında geçerli kayıt bulunamadı (Her satırda 'TİP ONAY NO' olduğundan emin olun ve boş satırları kontrol edin).");
+                 } else if (recordsToUpload.length === 0 && json.length <= 1) {
+                      throw new Error("Excel dosyasında yüklenecek veri bulunamadı (sadece başlık satırı var veya dosya boş).");
                  }
 
                 console.log("Records to upload to Firestore:", recordsToUpload);
-                mutation.mutate(recordsToUpload);
+                excelUploadMutation.mutate(recordsToUpload);
 
             } catch (error: any) {
                 console.error("Error processing Excel file:", error);
-                const userFriendlyMessage = error.message.includes("Excel dosyası boş") || error.message.includes("geçerli kayıt bulunamadı") || error.message.includes("Eksik Excel sütun başlıkları")
+                const userFriendlyMessage = error.message.includes("Excel dosyası boş") || error.message.includes("geçerli kayıt bulunamadı") || error.message.includes("Eksik Excel sütun başlıkları") || error.message.includes("başlık satırı bulunamadı") || error.message.includes("yüklenecek veri bulunamadı")
                     ? error.message // Use specific error message if it's about content/headers
                     : `Dosya okunamadı veya formatı hatalı: ${error.message}`; // Generic message otherwise
 
@@ -280,6 +359,12 @@ export default function TypeApprovalListPage() {
          }
      };
 
+     // Handle manual entry form submission
+     const onManualSubmit = (data: ManualEntryFormData) => {
+         console.log("Submitting manual entry:", data);
+         manualEntryMutation.mutate(data); // Pass data to the mutation
+     };
+
     return (
         <div className="p-4 md:p-6 lg:p-8">
             <Card className="w-full shadow-lg">
@@ -289,40 +374,93 @@ export default function TypeApprovalListPage() {
                         Tip Onay Listesi
                     </CardTitle>
                     <CardDescription>
-                        Mevcut tip onay kayıtlarını görüntüleyin veya Excel'den yeni kayıtlar yükleyin. Şablonu indirip doldurduktan sonra yükleyebilirsiniz.
+                        Mevcut tip onay kayıtlarını görüntüleyin, Excel'den toplu yükleyin veya manuel olarak yeni kayıt ekleyin.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {/* File Upload & Download Section */}
-                    <div className="flex flex-col sm:flex-row items-center gap-4 p-4 border rounded-md bg-secondary/30">
+                    {/* File Upload, Download & Manual Entry Section */}
+                    <div className="flex flex-col sm:flex-row items-center flex-wrap gap-4 p-4 border rounded-md bg-secondary/30">
                          {/* Upload Button */}
                          <label htmlFor="excel-upload" className="w-full sm:w-auto">
-                             <Button asChild variant="outline" disabled={uploading} className="w-full sm:w-auto cursor-pointer">
+                             <Button asChild variant="outline" disabled={uploading || manualEntryMutation.isPending} className="w-full sm:w-auto cursor-pointer">
                                  <div>
-                                     <Upload className="mr-2 h-4 w-4" />
-                                     Excel Yükle (.xlsx)
+                                     {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
+                                     Excel Yükle
                                  </div>
                              </Button>
                          </label>
                          <Input
                              id="excel-upload"
                              type="file"
-                             accept=".xlsx, .csv" //.csv support can be tricky with encodings, .xlsx preferred
+                             accept=".xlsx, .csv"
                              onChange={handleFileUpload}
                              className="hidden"
-                             disabled={uploading}
+                             disabled={uploading || manualEntryMutation.isPending}
                          />
                          {/* Download Template Button */}
                          <Button
                              variant="secondary"
                              onClick={handleDownloadTemplate}
-                             disabled={uploading}
+                             disabled={uploading || manualEntryMutation.isPending}
                              className="w-full sm:w-auto"
                          >
                              <Download className="mr-2 h-4 w-4" />
                              Şablon İndir
                          </Button>
-                         {uploading && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+                         {/* Manual Entry Button */}
+                          <Dialog open={isManualEntryDialogOpen} onOpenChange={setIsManualEntryDialogOpen}>
+                             <DialogTrigger asChild>
+                                 <Button variant="default" className="w-full sm:w-auto" disabled={uploading || manualEntryMutation.isPending}>
+                                     <PlusCircle className="mr-2 h-4 w-4" />
+                                     Manuel Kayıt Ekle
+                                 </Button>
+                             </DialogTrigger>
+                             <DialogContent className="sm:max-w-[600px]">
+                                 <DialogHeader>
+                                     <DialogTitle>Manuel Tip Onay Kaydı Ekle</DialogTitle>
+                                     <DialogDescription>
+                                         Yeni tip onay kaydı bilgilerini girin. Tip Onay No alanı zorunludur.
+                                     </DialogDescription>
+                                 </DialogHeader>
+                                  <Form {...manualEntryForm}>
+                                     <form onSubmit={manualEntryForm.handleSubmit(onManualSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                                         {/* Map through fields for cleaner code */}
+                                         {(Object.keys(ManualEntrySchema.shape) as Array<keyof ManualEntryFormData>).map((fieldName) => (
+                                            <FormField
+                                                key={fieldName}
+                                                control={manualEntryForm.control}
+                                                name={fieldName}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                         {/* Find original case header for label */}
+                                                         <FormLabel>
+                                                             {templateHeaders.find(h => excelHeaderMapping[h.toLowerCase()] === fieldName) || fieldName}
+                                                              {fieldName === 'tip_onay_no' && <span className="text-destructive">*</span>}
+                                                         </FormLabel>
+                                                        <FormControl>
+                                                            <Input placeholder={`${templateHeaders.find(h => excelHeaderMapping[h.toLowerCase()] === fieldName) || fieldName}...`} {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                         ))}
+                                     </form>
+                                 </Form>
+                                 <DialogFooter>
+                                     <DialogClose asChild>
+                                        <Button type="button" variant="outline">İptal</Button>
+                                    </DialogClose>
+                                     <Button type="submit" form="manualEntryForm" disabled={manualEntryMutation.isPending} onClick={manualEntryForm.handleSubmit(onManualSubmit)}>
+                                         {manualEntryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                         Kaydet
+                                     </Button>
+                                 </DialogFooter>
+                             </DialogContent>
+                         </Dialog>
+
+                         {/* Loading indicator can be shared or specific */}
+                          {uploading && <span className="text-sm text-muted-foreground">Yükleniyor...</span>}
                     </div>
                     {uploadError && (
                         <Alert variant="destructive">
@@ -354,7 +492,7 @@ export default function TypeApprovalListPage() {
                                 {isLoadingRecords ? (
                                     <TableRow>
                                         <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            Yükleniyor...
+                                            <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary"/>
                                         </TableCell>
                                     </TableRow>
                                 ) : fetchError ? (
@@ -382,7 +520,7 @@ export default function TypeApprovalListPage() {
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            Kayıt bulunamadı. Excel'den yükleme yapabilirsiniz.
+                                            Kayıt bulunamadı. Excel'den yükleme yapabilir veya manuel kayıt ekleyebilirsiniz.
                                         </TableCell>
                                     </TableRow>
                                 )}
