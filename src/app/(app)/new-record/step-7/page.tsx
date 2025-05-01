@@ -3,16 +3,44 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { useAppState } from '@/hooks/use-app-state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Save, ArrowLeft, ExternalLink, FileText, Loader2 } from 'lucide-react'; // Added Loader2
+import { Save, ArrowLeft, ExternalLink, FileText, Loader2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { getSerializableFileInfo } from '@/lib/utils';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'; // Import form components
+
+
+// Define Zod schema for editable fields on this page
+const FormSchema = z.object({
+    sequenceNo: z.string().optional(), // SIRA NO (Assuming it's linked to workOrderNumber or sequenceNo)
+    projectName: z.string().optional(), // PROJE ADI
+    typeApprovalType: z.string().optional(), // TİP ONAY
+    typeApprovalLevel: z.string().optional(), // tip onay seviye
+    typeApprovalVersion: z.string().optional(), // VERSİYON
+    typeApprovalNumber: z.string().optional(), // TİP ONAY NO
+    engineNumber: z.string().optional(), // MOTOR NO
+    detailsOfWork: z.string().optional(), // YAPILACAK İŞLER (Assuming it's from İş Emri)
+    projectNo: z.string().optional(), // PROJE NO
+    // Read-only fields (not part of schema, will be displayed directly)
+    // branch: string | null; // ŞUBE ADI
+    // typeAndVariant: string | undefined; // VARYANT
+    // typeApprovalDocumentUrl: string | null; // TİP ONAY BELGESİ
+    // formDate: string | undefined; // TARİH
+    // chassisNumber: string | undefined; // ŞASİ NO
+    // plateNumber: string | undefined; // PLAKA
+    // customerName: string | undefined; // MÜŞTERİ ADI
+});
+
+type FormData = z.infer<typeof FormSchema>;
 
 
 export default function NewRecordStep7() {
@@ -21,6 +49,22 @@ export default function NewRecordStep7() {
   const { branch, recordData, updateRecordData, resetRecordData } = useAppState();
   const [isLoading, setIsLoading] = React.useState(false);
   const [progress] = React.useState(100); // Final Step
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: { // Initialize form with data from state
+        sequenceNo: recordData.sequenceNo || recordData.workOrderNumber || '', // Use workOrderNumber as potential SIRA NO
+        projectName: recordData.projectName || '',
+        typeApprovalType: recordData.typeApprovalType || '',
+        typeApprovalLevel: recordData.typeApprovalLevel || '',
+        typeApprovalVersion: recordData.typeApprovalVersion || '',
+        typeApprovalNumber: recordData.typeApprovalNumber || '',
+        engineNumber: recordData.engineNumber || '',
+        detailsOfWork: recordData.detailsOfWork || '',
+        projectNo: recordData.projectNo || '',
+    },
+  });
+
 
   // Format dates safely
    const formatDateSafe = (dateString: string | undefined, formatStr: string = 'dd.MM.yyyy'): string => {
@@ -45,28 +89,53 @@ export default function NewRecordStep7() {
   // Helper to get document URL or handle missing/invalid data
   // TODO: Replace with actual Firebase URL retrieval logic
   const getTypeApprovalDocumentUrl = (): string | null => {
-      // Placeholder: Assuming typeApprovalDocument is stored in recordData.
       const docInfo = getSerializableFileInfo(recordData.typeApprovalDocument);
        if (docInfo) {
-          // In a real app, you would fetch the URL from Firebase Storage using docInfo.name or a stored path.
-          // Example: return getDownloadURL(ref(storage, `documents/${docInfo.name}`));
            console.warn("Placeholder URL generation for Type Approval Document.");
            // Return a dummy URL for now, replace with actual Firebase logic
-           return `https://firebasestorage.googleapis.com/v0/b/your-project-id.appspot.com/o/documents%2F${encodeURIComponent(docInfo.name)}?alt=media`; // Replace with your bucket/path
+           // Construct a generic placeholder URL or use the actual URL if available
+           // Example: return `https://your-storage-provider.com/path/to/${encodeURIComponent(docInfo.name)}`;
+            // Using a generic placeholder that looks like a Firebase URL structure
+            return `https://firebasestorage.googleapis.com/v0/b/placeholder-bucket.appspot.com/o/documents%2F${encodeURIComponent(docInfo.name)}?alt=media`;
        }
       return null; // Return null if no document info found
   };
 
   const typeApprovalDocumentUrl = getTypeApprovalDocumentUrl();
 
-  const handleArchive = async () => {
+  const onSubmit = async (data: FormData) => { // Use form data
     setIsLoading(true);
 
     try {
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate saving
 
-        // Use the latest data from the state
-        const finalRecordData = { ...recordData }; // Copy current state
+        // Update the recordData state with the edited values from the form
+        updateRecordData({
+             sequenceNo: data.sequenceNo,
+             projectName: data.projectName,
+             typeApprovalType: data.typeApprovalType,
+             typeApprovalLevel: data.typeApprovalLevel,
+             typeApprovalVersion: data.typeApprovalVersion,
+             typeApprovalNumber: data.typeApprovalNumber,
+             engineNumber: data.engineNumber,
+             detailsOfWork: data.detailsOfWork,
+             projectNo: data.projectNo,
+             // Keep other fields from the current state
+             ...recordData, // Spread existing data first
+             // Overwrite with submitted data
+             sequenceNo: data.sequenceNo,
+             projectName: data.projectName,
+             typeApprovalType: data.typeApprovalType,
+             typeApprovalLevel: data.typeApprovalLevel,
+             typeApprovalVersion: data.typeApprovalVersion,
+             typeApprovalNumber: data.typeApprovalNumber,
+             engineNumber: data.engineNumber,
+             detailsOfWork: data.detailsOfWork,
+             projectNo: data.projectNo,
+        });
+
+         // Access the *updated* state after the updateRecordData call
+         const finalRecordData = useAppState.getState().recordData;
 
         const archiveEntry = {
           // Spread all existing fields from the final state
@@ -86,7 +155,9 @@ export default function NewRecordStep7() {
         console.log("Archiving final entry:", archiveEntry);
 
         const currentArchive = finalRecordData.archive || [];
+        // Use the state setter function to ensure atomicity if needed, though direct update is usually fine here
         updateRecordData({ archive: [...currentArchive, archiveEntry] });
+
 
         toast({
           title: 'Kayıt Tamamlandı ve Arşivlendi',
@@ -107,32 +178,48 @@ export default function NewRecordStep7() {
   };
 
   const goBack = () => {
-    // No state update needed as this is a summary page
+     // Save current form data to state before going back
+     updateRecordData({
+          sequenceNo: form.getValues('sequenceNo'),
+          projectName: form.getValues('projectName'),
+          typeApprovalType: form.getValues('typeApprovalType'),
+          typeApprovalLevel: form.getValues('typeApprovalLevel'),
+          typeApprovalVersion: form.getValues('typeApprovalVersion'),
+          typeApprovalNumber: form.getValues('typeApprovalNumber'),
+          engineNumber: form.getValues('engineNumber'),
+          detailsOfWork: form.getValues('detailsOfWork'),
+          projectNo: form.getValues('projectNo'),
+     });
     router.push('/new-record/step-6');
   };
 
-   // Redirect if essential data is missing
+   // Redirect if essential data is missing & sync form on load/data change
    React.useEffect(() => {
     if (!branch || !recordData.chassisNumber) {
         toast({ title: "Eksik Bilgi", description: "Şube veya Şase numarası bulunamadı. Başlangıca yönlendiriliyor...", variant: "destructive" });
         router.push('/select-branch');
+    } else {
+        // Sync form with latest recordData from state
+         form.reset({
+            sequenceNo: recordData.sequenceNo || recordData.workOrderNumber || '',
+            projectName: recordData.projectName || '',
+            typeApprovalType: recordData.typeApprovalType || '',
+            typeApprovalLevel: recordData.typeApprovalLevel || '',
+            typeApprovalVersion: recordData.typeApprovalVersion || '',
+            typeApprovalNumber: recordData.typeApprovalNumber || '',
+            engineNumber: recordData.engineNumber || '',
+            detailsOfWork: recordData.detailsOfWork || '',
+            projectNo: recordData.projectNo || '',
+         });
     }
-   }, [branch, recordData.chassisNumber, router, toast]);
+    // Exclude form from dependencies to avoid infinite loops
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [branch, recordData, router, toast]);
 
   if (!branch || !recordData.chassisNumber) {
     return <div className="flex min-h-screen items-center justify-center p-4">Gerekli bilgiler eksik, yönlendiriliyorsunuz...</div>;
   }
 
-  // Helper component for read-only form rows
-  const ReadOnlyRow = ({ label, value }: { label: string; value?: string | number | null }) => (
-    <div className="grid grid-cols-[150px_1fr] items-center border-b py-2 last:border-b-0">
-      <span className="font-medium text-sm text-muted-foreground">{label}</span>
-      {/* Use a div instead of Input for better read-only display */}
-      <div className="text-sm bg-secondary/30 px-3 py-2 rounded-md min-h-[40px] flex items-center">
-          {value ?? '-'}
-      </div>
-    </div>
-  );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 md:p-6 lg:p-8">
@@ -144,69 +231,215 @@ export default function NewRecordStep7() {
             Kayıt Özeti ve Tamamlama
           </CardTitle>
           <CardDescription>
-            Lütfen tüm bilgileri kontrol edin ve kaydı tamamlayın. Bu sayfadaki alanlar düzenlenemez.
+            Lütfen tüm bilgileri kontrol edin ve kaydedin. Gerekirse alanları düzenleyebilirsiniz.
             (Şube: {branch}, Şase: {recordData.chassisNumber})
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-            {/* Section 1 */}
-            <div className="border rounded-md p-4 space-y-0"> {/* Reduced space-y */}
-                <ReadOnlyRow label="SIRA NO" value={recordData.sequenceNo || recordData.workOrderNumber} /> {/* Show sequence or work order */}
-                <ReadOnlyRow label="ŞUBE ADI" value={branch} />
-                <ReadOnlyRow label="PROJE ADI" value={recordData.projectName} />
-                <ReadOnlyRow label="TİP ONAY" value={recordData.typeApprovalType} />
-                <ReadOnlyRow label="TİP ONAY SEVİYE" value={recordData.typeApprovalLevel} />
-                <ReadOnlyRow label="VARYANT" value={recordData.typeAndVariant} />
-                <ReadOnlyRow label="VERSİYON" value={recordData.typeApprovalVersion} />
-            </div>
-
-            {/* Section 2 */}
-             <div className="border rounded-md p-4 space-y-0">
-                 <ReadOnlyRow label="TİP ONAY NO" value={recordData.typeApprovalNumber} />
-                 {/* Document Link */}
-                <div className="grid grid-cols-[150px_1fr] items-center py-2">
-                    <span className="font-medium text-sm text-muted-foreground">TİP ONAY BELGESİ</span>
-                     {typeApprovalDocumentUrl ? (
-                        <Button
-                            variant="link"
-                            asChild
-                            className="p-0 h-auto justify-start text-primary hover:underline"
-                        >
-                             <a href={typeApprovalDocumentUrl} target="_blank" rel="noopener noreferrer">
-                                 <FileText className="mr-2 h-4 w-4" />
-                                Tip Onay Belgesine erişmek için tıklayınız
-                                <ExternalLink className="ml-2 h-3 w-3 opacity-70"/>
-                            </a>
-                        </Button>
-                    ) : (
-                         <span className="text-sm text-muted-foreground italic">(Tip Onay Belgesi Yüklenmedi)</span>
-                    )}
+        <CardContent>
+           <Form {...form}>
+             {/* Pass form instance to FormProvider */}
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Section 1 */}
+                 <div className="border rounded-md p-4 space-y-4">
+                     <FormField
+                         control={form.control}
+                         name="sequenceNo"
+                         render={({ field }) => (
+                            <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                                <FormLabel>SIRA NO</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Sıra No..." {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage className="col-start-2"/>
+                            </FormItem>
+                         )}
+                     />
+                      <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                          <FormLabel>ŞUBE ADI</FormLabel>
+                          <FormControl>
+                              {/* Display only, not editable */}
+                              <Input value={branch || '-'} disabled className="bg-secondary/30"/>
+                           </FormControl>
+                       </FormItem>
+                       <FormField
+                         control={form.control}
+                         name="projectName"
+                         render={({ field }) => (
+                            <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                                <FormLabel>PROJE ADI</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Proje Adı..." {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage className="col-start-2"/>
+                            </FormItem>
+                         )}
+                      />
+                      <FormField
+                         control={form.control}
+                         name="typeApprovalType"
+                         render={({ field }) => (
+                            <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                                <FormLabel>TİP ONAY</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Tip Onay..." {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage className="col-start-2"/>
+                            </FormItem>
+                         )}
+                      />
+                       <FormField
+                         control={form.control}
+                         name="typeApprovalLevel"
+                         render={({ field }) => (
+                            <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                                <FormLabel>TİP ONAY SEVİYE</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Onay Seviyesi..." {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage className="col-start-2"/>
+                            </FormItem>
+                         )}
+                      />
+                      <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                           <FormLabel>VARYANT</FormLabel>
+                           <FormControl>
+                              <Input value={recordData.typeAndVariant || '-'} disabled className="bg-secondary/30"/>
+                           </FormControl>
+                       </FormItem>
+                       <FormField
+                         control={form.control}
+                         name="typeApprovalVersion"
+                         render={({ field }) => (
+                            <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                                <FormLabel>VERSİYON</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Versiyon..." {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage className="col-start-2"/>
+                            </FormItem>
+                         )}
+                      />
                  </div>
-            </div>
+
+                {/* Section 2 */}
+                <div className="border rounded-md p-4 space-y-4">
+                     <FormField
+                         control={form.control}
+                         name="typeApprovalNumber"
+                         render={({ field }) => (
+                            <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                                <FormLabel>TİP ONAY NO</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Tip Onay No..." {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage className="col-start-2"/>
+                            </FormItem>
+                         )}
+                     />
+                     {/* Document Link */}
+                     <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                        <FormLabel>TİP ONAY BELGESİ</FormLabel>
+                         {typeApprovalDocumentUrl ? (
+                             <Button
+                                 type="button" // Important: Prevent form submission
+                                 variant="link"
+                                 asChild
+                                 className="p-0 h-auto justify-start text-primary hover:underline"
+                             >
+                                 <a href={typeApprovalDocumentUrl} target="_blank" rel="noopener noreferrer">
+                                     <FileText className="mr-2 h-4 w-4" />
+                                     Tip Onay Belgesine erişmek için tıklayınız
+                                     <ExternalLink className="ml-2 h-3 w-3 opacity-70"/>
+                                 </a>
+                             </Button>
+                         ) : (
+                             <span className="text-sm text-muted-foreground italic">(Tip Onay Belgesi Yüklenmedi)</span>
+                         )}
+                     </FormItem>
+                 </div>
 
 
-            {/* Section 3 */}
-            <div className="border rounded-md p-4 space-y-0">
-                <ReadOnlyRow label="TARİH" value={formatDateSafe(recordData.formDate || recordData.workOrderDate || recordData.finalCheckDate)} /> {/* Use any available date */}
-                <ReadOnlyRow label="ŞASİ NO" value={recordData.chassisNumber} />
-                <ReadOnlyRow label="MOTOR NO" value={recordData.engineNumber} />
-                <ReadOnlyRow label="PLAKA" value={recordData.plateNumber || recordData.plate} /> {/* Show plate from step 1/2 or step 5 */}
-                <ReadOnlyRow label="MÜŞTERİ ADI" value={recordData.customerName} />
-                <ReadOnlyRow label="YAPILACAK İŞLER" value={recordData.detailsOfWork} />
-                <ReadOnlyRow label="PROJE NO" value={recordData.projectNo} />
-            </div>
+                {/* Section 3 */}
+                <div className="border rounded-md p-4 space-y-4">
+                    <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                        <FormLabel>TARİH</FormLabel>
+                        <FormControl>
+                            <Input value={formatDateSafe(recordData.formDate || recordData.workOrderDate || recordData.finalCheckDate)} disabled className="bg-secondary/30"/>
+                        </FormControl>
+                    </FormItem>
+                     <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                         <FormLabel>ŞASİ NO</FormLabel>
+                         <FormControl>
+                             <Input value={recordData.chassisNumber || '-'} disabled className="bg-secondary/30"/>
+                         </FormControl>
+                     </FormItem>
+                     <FormField
+                         control={form.control}
+                         name="engineNumber"
+                         render={({ field }) => (
+                            <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                                <FormLabel>MOTOR NO</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Motor No..." {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage className="col-start-2"/>
+                            </FormItem>
+                         )}
+                     />
+                      <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                         <FormLabel>PLAKA</FormLabel>
+                          <FormControl>
+                             <Input value={recordData.plateNumber || recordData.plate || '-'} disabled className="bg-secondary/30"/>
+                          </FormControl>
+                      </FormItem>
+                      <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                         <FormLabel>MÜŞTERİ ADI</FormLabel>
+                         <FormControl>
+                             <Input value={recordData.customerName || '-'} disabled className="bg-secondary/30"/>
+                         </FormControl>
+                      </FormItem>
+                      <FormField
+                         control={form.control}
+                         name="detailsOfWork"
+                         render={({ field }) => (
+                            <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                                <FormLabel>YAPILACAK İŞLER</FormLabel>
+                                <FormControl>
+                                     {/* Using Input for consistency, could use Textarea if needed */}
+                                    <Input placeholder="Yapılacak İşler..." {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage className="col-start-2"/>
+                            </FormItem>
+                         )}
+                      />
+                       <FormField
+                         control={form.control}
+                         name="projectNo"
+                         render={({ field }) => (
+                            <FormItem className="grid grid-cols-[150px_1fr] items-center">
+                                <FormLabel>PROJE NO</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Proje No..." {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage className="col-start-2"/>
+                            </FormItem>
+                         )}
+                     />
+                 </div>
 
 
-          {/* Action Buttons */}
-          <div className="flex justify-between pt-6">
-            <Button type="button" variant="outline" onClick={goBack} disabled={isLoading}>
-               <ArrowLeft className="mr-2 h-4 w-4"/> Geri
-            </Button>
-            <Button type="button" onClick={handleArchive} className="bg-primary hover:bg-primary/90" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Kaydı Tamamla ve Arşivle
-            </Button>
-          </div>
+              {/* Action Buttons */}
+              <div className="flex justify-between pt-6">
+                <Button type="button" variant="outline" onClick={goBack} disabled={isLoading}>
+                   <ArrowLeft className="mr-2 h-4 w-4"/> Geri
+                </Button>
+                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Kaydı Tamamla ve Arşivle
+                </Button>
+              </div>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
