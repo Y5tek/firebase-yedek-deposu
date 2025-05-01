@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -438,11 +437,11 @@ export default function ArchivePage() {
                          </details>
 
                           {/* File Info */}
-                        <details className="border rounded p-2">
-                           <summary className="cursor-pointer font-medium">Yüklenen Dosyalar (Adım 3)</summary>
+                        <details className="border rounded p-2" open>
+                           <summary className="cursor-pointer font-medium">Yüklenen Dosyalar (Adım 1-3)</summary>
                            <ul className="list-none space-y-1 pt-2">
                                 <li>
-                                    <strong className="font-medium">Ruhsat:</strong>
+                                    <strong className="font-medium">Ruhsat (Adım 1):</strong>
                                     {viewingDetailsEntry.registrationDocument ? (
                                         <span className="ml-2 text-muted-foreground">
                                              {getFileName(viewingDetailsEntry.registrationDocument)}
@@ -453,7 +452,7 @@ export default function ArchivePage() {
                                     ) : ' Yok'}
                                 </li>
                                 <li>
-                                    <strong className="font-medium">Etiket:</strong>
+                                    <strong className="font-medium">Etiket (Adım 2):</strong>
                                     {viewingDetailsEntry.labelDocument ? (
                                          <span className="ml-2 text-muted-foreground">
                                              {getFileName(viewingDetailsEntry.labelDocument)}
@@ -464,7 +463,7 @@ export default function ArchivePage() {
                                     ) : ' Yok'}
                                 </li>
                                 <li>
-                                    <strong className="font-medium">Tip Onay Belgesi:</strong>
+                                    <strong className="font-medium">Tip Onay Belgesi (Adım 3):</strong>
                                     {viewingDetailsEntry.typeApprovalDocument ? (
                                          <span className="ml-2 text-muted-foreground">
                                             {getFileName(viewingDetailsEntry.typeApprovalDocument)}
@@ -475,7 +474,7 @@ export default function ArchivePage() {
                                     ) : ' Yok'}
                                 </li>
                                 <li>
-                                    <strong className="font-medium">Ek Fotoğraflar ({viewingDetailsEntry.additionalPhotos?.length || 0}):</strong>
+                                    <strong className="font-medium">Ek Fotoğraflar (Adım 3) ({viewingDetailsEntry.additionalPhotos?.length || 0}):</strong>
                                     {viewingDetailsEntry.additionalPhotos && viewingDetailsEntry.additionalPhotos.length > 0 ? (
                                         <ul className="list-disc list-inside ml-4">
                                             {viewingDetailsEntry.additionalPhotos.map((f, i) => (
@@ -492,7 +491,7 @@ export default function ArchivePage() {
                                     ) : ' Yok'}
                                 </li>
                                 <li>
-                                    <strong className="font-medium">Ek Videolar ({viewingDetailsEntry.additionalVideos?.length || 0}):</strong>
+                                    <strong className="font-medium">Ek Videolar (Adım 3) ({viewingDetailsEntry.additionalVideos?.length || 0}):</strong>
                                     {viewingDetailsEntry.additionalVideos && viewingDetailsEntry.additionalVideos.length > 0 ? (
                                         <ul className="list-disc list-inside ml-4">
                                             {viewingDetailsEntry.additionalVideos.map((f, i) => (
