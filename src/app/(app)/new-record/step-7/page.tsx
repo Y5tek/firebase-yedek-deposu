@@ -98,12 +98,14 @@ export default function NewRecordStep7() {
         const matchedRecords = typeApprovalList.filter(record => {
             let isMatch = true;
             // Compare each criterion, only if the criterion has a value
-            if (criteria.sube_adi && record.sube_adi !== criteria.sube_adi) isMatch = false;
-            if (criteria.proje_adi && record.proje_adi !== criteria.proje_adi) isMatch = false;
-            if (criteria.tip_onay && record.tip_onay !== criteria.tip_onay) isMatch = false;
-            if (criteria.tip_onay_seviye && record.tip_onay_seviye !== criteria.tip_onay_seviye) isMatch = false;
-            if (criteria.varyant && record.varyant !== criteria.varyant) isMatch = false;
-            if (criteria.versiyon && record.versiyon !== criteria.versiyon) isMatch = false;
+            // Use optional chaining and nullish coalescing for safer access
+             if (criteria.sube_adi && record.sube_adi !== criteria.sube_adi) isMatch = false;
+             if (criteria.proje_adi && record.proje_adi !== criteria.proje_adi) isMatch = false;
+             if (criteria.tip_onay && record.tip_onay !== criteria.tip_onay) isMatch = false;
+             if (criteria.tip_onay_seviye && record.tip_onay_seviye !== criteria.tip_onay_seviye) isMatch = false;
+             if (criteria.varyant && record.varyant !== criteria.varyant) isMatch = false;
+             if (criteria.versiyon && record.versiyon !== criteria.versiyon) isMatch = false;
+
 
             // Also check if tip_onay_no exists and starts with "AİTM"
             if (!record.tip_onay_no || !record.tip_onay_no.toUpperCase().startsWith('AİTM')) {
@@ -140,10 +142,16 @@ export default function NewRecordStep7() {
             console.warn("Multiple matching Type Approval Numbers found. Cannot auto-populate.");
             message = `Birden fazla (${matchedRecords.length}) eşleşen Tip Onay Numarası bulundu. Otomatik doldurma yapılamadı. Lütfen kriterleri daraltın veya manuel giriş yapın.`;
             variant = "destructive";
+            // Clear the field if multiple matches are found
+            // form.setValue('typeApprovalNumber', ''); // Consider if this behavior is desired
+            // updateRecordData({ typeApprovalNumber: '' });
         } else {
              console.log("No unique matching Type Approval Number found starting with AİTM based on criteria.");
              message = "Belirtilen kriterlere uyan ve 'AİTM' ile başlayan Tip Onay Numarası bulunamadı.";
              variant = "destructive";
+             // Clear the field if no match is found
+             form.setValue('typeApprovalNumber', '');
+             updateRecordData({ typeApprovalNumber: '' });
         }
 
          toast({
@@ -159,7 +167,11 @@ export default function NewRecordStep7() {
        isLoadingApprovals,
        branch,
        form, // Include form instance as getValues is used
-       recordData.typeAndVariant, // Dependency from previous step
+       recordData.projectName, // Include individual fields used in criteria
+       recordData.typeApprovalType,
+       recordData.typeApprovalLevel,
+       recordData.typeAndVariant,
+       recordData.typeApprovalVersion,
        updateRecordData,
        toast
    ]);
