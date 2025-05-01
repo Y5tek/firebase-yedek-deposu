@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -111,32 +110,44 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <SidebarMenuSub>
                       <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-1')}>
+                              {/* Adım 1: Ruhsat - matches title: Yeni Kayıt - Adım 1: Araç Ruhsatı */}
                               <Link href="/new-record/step-1"><FileText className="mr-2 h-3 w-3"/>Adım 1: Ruhsat</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-2')}>
+                               {/* Adım 2: Etiket - matches title: Yeni Kayıt - Adım 2: Etiket Bilgileri */}
                               <Link href="/new-record/step-2"><FileText className="mr-2 h-3 w-3"/>Adım 2: Etiket</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-3')}>
+                               {/* Adım 3: Ek Dosya - matches title: Yeni Kayıt - Adım 3: Ek Dosya Yükleme */}
                               <Link href="/new-record/step-3"><FilePlus className="mr-2 h-3 w-3"/>Adım 3: Ek Dosya</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-4')}>
+                               {/* Adım 4: Seri Tadilat - matches title: Seri Tadilat Uygunluk Formu */}
                               <Link href="/new-record/step-4"><FileSignature className="mr-2 h-3 w-3"/>Adım 4: Seri Tadilat</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-5')}>
-                              <Link href="/new-record/step-5"><FileCheck2 className="mr-2 h-3 w-3"/>Adım 5: Son Kontrol</Link>
+                               {/* Adım 5: İş Emri - matches title: İş Emri */}
+                              <Link href="/new-record/step-5"><ClipboardList className="mr-2 h-3 w-3"/>Adım 5: İş Emri</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
+                       <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-6')}>
-                              <Link href="/new-record/step-6"><Archive className="mr-2 h-3 w-3"/>Adım 6: Özet & Arşiv</Link>
+                              {/* Adım 6: Son Kontrol - matches title: ARA VE SON KONTROL FORMU */}
+                              <Link href="/new-record/step-6"><FileCheck2 className="mr-2 h-3 w-3"/>Adım 6: Son Kontrol</Link>
+                          </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                       <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-7')}>
+                               {/* Adım 7: Özet & Arşiv - matches title: Kayıt Özeti ve Tamamlama */}
+                              <Link href="/new-record/step-7"><Archive className="mr-2 h-3 w-3"/>Adım 7: Özet & Arşiv</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                   </SidebarMenuSub>
