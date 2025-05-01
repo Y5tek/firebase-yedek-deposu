@@ -304,7 +304,6 @@ export default function ArchivePage() {
                         <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
-                                {/* Remove whitespace inside this TableRow */}
                                 <TableRow>
                                     <TableHead>Dosya Adı (Şube/Şase)</TableHead>
                                     <TableHead>Müşteri/Firma</TableHead>
@@ -318,79 +317,78 @@ export default function ArchivePage() {
                             <TableBody>
                             {groupedArchive[groupKey].map((entry) => (
                                 <TableRow key={entry.fileName}>
-                                <TableCell className="font-medium">{entry.fileName}</TableCell>
-                                <TableCell>
-                                    {/* Show customer from step 4 or company from step 6 */}
-                                    {entry.customerName || entry.offerCompanyName || '-'}
-                                    {entry.customerName && entry.offerCompanyName && <span className="text-xs text-muted-foreground block">(Form: {entry.customerName} / Teklif: {entry.offerCompanyName})</span>}
-                                </TableCell>
-                                <TableCell>{entry.brand || '-'}</TableCell>
-                                <TableCell>{entry.plateNumber || entry.plate || '-'}</TableCell> {/* Show plate from either source */}
-                                <TableCell>{formatDateSafe(entry.archivedAt)}</TableCell>
-                                <TableCell>
-                                    <div className="flex flex-wrap gap-2 items-center">
-                                    {entry.registrationDocument && (
-                                        <div title={`Ruhsat: ${getFileName(entry.registrationDocument)}`} className="flex items-center gap-1 text-green-600">
-                                        <FileText className="h-4 w-4" />
-                                        <span className="text-xs hidden sm:inline">Ruhsat</span>
-                                        </div>
-                                    )}
-                                    {entry.labelDocument && (
-                                        <div title={`Etiket: ${getFileName(entry.labelDocument)}`} className="flex items-center gap-1 text-blue-600">
-                                        <FileText className="h-4 w-4" />
-                                        <span className="text-xs hidden sm:inline">Etiket</span>
-                                        </div>
-                                    )}
-                                     {entry.typeApprovalDocument && ( // Display Type Approval Doc presence
-                                        <div title={`Tip Onay: ${getFileName(entry.typeApprovalDocument)}`} className="flex items-center gap-1 text-indigo-600">
+                                    <TableCell className="font-medium">{entry.fileName}</TableCell>
+                                    <TableCell>
+                                        {/* Show customer from step 4 or company from step 6 */}
+                                        {entry.customerName || entry.offerCompanyName || '-'}
+                                        {entry.customerName && entry.offerCompanyName && <span className="text-xs text-muted-foreground block">(Form: {entry.customerName} / Teklif: {entry.offerCompanyName})</span>}
+                                    </TableCell>
+                                    <TableCell>{entry.brand || '-'}</TableCell>
+                                    <TableCell>{entry.plateNumber || entry.plate || '-'}</TableCell> {/* Show plate from either source */}
+                                    <TableCell>{formatDateSafe(entry.archivedAt)}</TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-wrap gap-2 items-center">
+                                        {entry.registrationDocument && (
+                                            <div title={`Ruhsat: ${getFileName(entry.registrationDocument)}`} className="flex items-center gap-1 text-green-600">
                                             <FileText className="h-4 w-4" />
-                                            <span className="text-xs hidden sm:inline">Tip Onay</span>
+                                            <span className="text-xs hidden sm:inline">Ruhsat</span>
+                                            </div>
+                                        )}
+                                        {entry.labelDocument && (
+                                            <div title={`Etiket: ${getFileName(entry.labelDocument)}`} className="flex items-center gap-1 text-blue-600">
+                                            <FileText className="h-4 w-4" />
+                                            <span className="text-xs hidden sm:inline">Etiket</span>
+                                            </div>
+                                        )}
+                                        {entry.typeApprovalDocument && ( // Display Type Approval Doc presence
+                                            <div title={`Tip Onay: ${getFileName(entry.typeApprovalDocument)}`} className="flex items-center gap-1 text-indigo-600">
+                                                <FileText className="h-4 w-4" />
+                                                <span className="text-xs hidden sm:inline">Tip Onay</span>
+                                            </div>
+                                        )}
+                                        {entry.additionalPhotos && entry.additionalPhotos.length > 0 && (
+                                            <div title={`${entry.additionalPhotos.length} Ek Fotoğraf`} className="flex items-center gap-1 text-purple-600">
+                                                <Camera className="h-4 w-4" />
+                                                <span className="text-xs">{entry.additionalPhotos.length}</span>
+                                            </div>
+                                        )}
+                                        {entry.additionalVideos && entry.additionalVideos.length > 0 && (
+                                            <div title={`${entry.additionalVideos.length} Ek Video`} className="flex items-center gap-1 text-orange-600">
+                                                <Video className="h-4 w-4" />
+                                                <span className="text-xs">{entry.additionalVideos.length}</span>
+                                            </div>
+                                        )}
                                         </div>
-                                     )}
-                                    {entry.additionalPhotos && entry.additionalPhotos.length > 0 && (
-                                        <div title={`${entry.additionalPhotos.length} Ek Fotoğraf`} className="flex items-center gap-1 text-purple-600">
-                                            <Camera className="h-4 w-4" />
-                                            <span className="text-xs">{entry.additionalPhotos.length}</span>
-                                        </div>
-                                    )}
-                                    {entry.additionalVideos && entry.additionalVideos.length > 0 && (
-                                        <div title={`${entry.additionalVideos.length} Ek Video`} className="flex items-center gap-1 text-orange-600">
-                                            <Video className="h-4 w-4" />
-                                            <span className="text-xs">{entry.additionalVideos.length}</span>
-                                        </div>
-                                    )}
-                                    </div>
-                                </TableCell>
-
-                                <TableCell className="text-right space-x-1">
-                                    <Button variant="ghost" size="icon" onClick={() => handleViewDetails(entry)} title="Detayları Gör">
-                                        <Info className="h-4 w-4" /> {/* Changed to Info icon */}
-                                    </Button>
-                                     <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Düzenle">
-                                        <Pencil className="h-4 w-4 text-blue-600" /> {/* Edit Icon */}
-                                    </Button>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" title="Sil">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                            <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Bu işlem geri alınamaz. '{entry.fileName}' kaydını ve ilişkili tüm verileri kalıcı olarak silmek istediğinizden emin misiniz?
-                                            </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                            <AlertDialogCancel>İptal</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDelete(entry.fileName)} className="bg-destructive hover:bg-destructive/90">
-                                                Sil
-                                            </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </TableCell>
+                                    </TableCell>
+                                    <TableCell className="text-right space-x-1">
+                                        <Button variant="ghost" size="icon" onClick={() => handleViewDetails(entry)} title="Detayları Gör">
+                                            <Info className="h-4 w-4" /> {/* Changed to Info icon */}
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Düzenle">
+                                            <Pencil className="h-4 w-4 text-blue-600" /> {/* Edit Icon */}
+                                        </Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" title="Sil">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Bu işlem geri alınamaz. '{entry.fileName}' kaydını ve ilişkili tüm verileri kalıcı olarak silmek istediğinizden emin misiniz?
+                                                </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                <AlertDialogCancel>İptal</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDelete(entry.fileName)} className="bg-destructive hover:bg-destructive/90">
+                                                    Sil
+                                                </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                             </TableBody>
