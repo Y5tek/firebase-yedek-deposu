@@ -236,14 +236,12 @@ export const useAppState = create<AppState>()(
        },
         resetRecordData: () => {
              const currentArchive = get().recordData.archive || [];
-             console.log('useAppState: Resetting record data, preserving archive:', currentArchive);
-             // Keep archive, reset everything else to initial defaults
+             const currentBranch = get().branch; // Get current branch
+             console.log('useAppState: Resetting record data, preserving archive:', currentArchive, 'and branch:', currentBranch);
+             // Keep archive and branch, reset everything else to initial defaults
              set({
                  recordData: {
-                     ...initialRecordData,
-                     archive: currentArchive, // Preserve the existing archive
-                     branch: get().branch, // Preserve the current branch
-                     // Explicitly reset non-default fields to undefined/initial state
+                     // Step 1 & 2
                      chassisNumber: undefined,
                      brand: undefined,
                      type: undefined,
@@ -254,24 +252,38 @@ export const useAppState = create<AppState>()(
                      typeAndVariant: undefined,
                      versiyon: '',
                      engineNumber: '',
+                     // Step 3 Files
                      registrationDocument: undefined,
                      labelDocument: undefined,
                      typeApprovalDocument: undefined,
                      additionalPhotos: [], // Reset arrays
                      additionalVideos: [], // Reset arrays
+                     // Step 4
                      customerName: undefined,
                      formDate: undefined,
-                     sequenceNo: '3',
-                     q1_suitable: 'olumlu',
-                     q2_typeApprovalMatch: 'olumlu',
-                     q3_scopeExpansion: 'olumlu',
-                     q4_unaffectedPartsDefect: 'olumlu',
+                     sequenceNo: '3', // Default
+                     q1_suitable: 'olumlu', // Default
+                     q2_typeApprovalMatch: 'olumlu', // Default
+                     q3_scopeExpansion: 'olumlu', // Default
+                     q4_unaffectedPartsDefect: 'olumlu', // Default
                      notes: undefined,
                      controllerName: undefined,
                      authorityName: undefined,
+                     // Step 5
+                     offerAuthorizedName: undefined,
+                     offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK', // Default
+                     offerCompanyAddress: undefined,
+                     offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97', // Default
+                     offerPhoneNumber: undefined,
+                     offerEmailAddress: undefined,
+                     offerDate: undefined,
+                     offerItems: [ // Reset offer items
+                          {...defaultOfferItem, id: Math.random().toString(36).substring(2, 15)}
+                      ],
+                     offerAcceptance: 'accepted', // Default
                      projectName: undefined,
                      plate: '',
-                     workOrderNumber: '3',
+                     workOrderNumber: '3', // Default
                      workOrderDate: undefined,
                      completionDate: undefined,
                      detailsOfWork: undefined,
@@ -280,35 +292,30 @@ export const useAppState = create<AppState>()(
                      vehicleAcceptanceSignature: undefined,
                      customerSignature: undefined,
                      projectNo: undefined,
-                     offerAuthorizedName: undefined,
-                     offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK',
-                     offerCompanyAddress: undefined,
-                     offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97',
-                     offerPhoneNumber: undefined,
-                     offerEmailAddress: undefined,
-                     offerDate: undefined,
-                     offerItems: [ // Reset offer items
-                          {...defaultOfferItem, id: Math.random().toString(36).substring(2, 15)}
-                      ],
-                     offerAcceptance: 'accepted',
+                     // Step 6
                      finalCheckDate: undefined,
-                     check1_exposedParts_ara: true,
-                     check1_exposedParts_son: true,
-                     check2_isofixSeat_ara: true,
-                     check2_isofixSeat_son: true,
-                     check3_seatBelts_ara: true,
-                     check3_seatBelts_son: true,
-                     check4_windowApprovals_ara: true,
-                     check4_windowApprovals_son: true,
+                     check1_exposedParts_ara: true, // Default
+                     check1_exposedParts_son: true, // Default
+                     check2_isofixSeat_ara: true, // Default
+                     check2_isofixSeat_son: true, // Default
+                     check3_seatBelts_ara: true, // Default
+                     check3_seatBelts_son: true, // Default
+                     check4_windowApprovals_ara: true, // Default
+                     check4_windowApprovals_son: true, // Default
                      finalControllerName: undefined,
+                     // Step 7
                      typeApprovalType: undefined,
                      typeApprovalLevel: undefined,
-                     typeApprovalVersion: undefined,
+                     typeApprovalVersion: undefined, // Reset this as well (might duplicate versiyon)
+                     // Metadata / Legacy
                      archivedAt: undefined,
                      fileName: undefined,
                      additionalNotes: undefined,
                      inspectionDate: undefined,
                      inspectorName: undefined,
+                     // Preserved data
+                     archive: currentArchive, // Preserve the existing archive
+                     branch: currentBranch, // Preserve the current branch
                  },
                  editingArchiveId: null, // Reset editing ID as well
              });
@@ -429,21 +436,21 @@ function handleFileMerge(
 ): File | { name: string; type?: string; size?: number } | undefined {
     // If newFile is explicitly undefined, clear the field
     if (newFile === undefined && arguments.length > 1) { // Check arguments.length to differentiate missing prop vs explicit undefined
-      console.log(`handleFileMerge: Clearing file field because newFile is undefined.`);
+      // console.log(`handleFileMerge: Clearing file field because newFile is undefined.`);
       return undefined;
     }
     // If newFile is a File, use it
     if (newFile instanceof File) {
-       console.log(`handleFileMerge: Using new File: ${newFile.name}`);
+       // console.log(`handleFileMerge: Using new File: ${newFile.name}`);
       return newFile;
     }
     // If newFile is info and current is a File, keep the current File
     if (currentFile instanceof File && typeof newFile === 'object' && newFile !== null && 'name' in newFile) {
-        console.log(`handleFileMerge: Keeping current File (${currentFile.name}) because new value is info.`);
+        // console.log(`handleFileMerge: Keeping current File (${currentFile.name}) because new value is info.`);
         return currentFile;
     }
     // Otherwise, use the new value (which could be info or undefined if not provided)
-     console.log(`handleFileMerge: Using new value (info or undefined): ${newFile ? (newFile as any).name : 'undefined'}`);
+     // console.log(`handleFileMerge: Using new value (info or undefined): ${newFile ? (newFile as any).name : 'undefined'}`);
     return newFile ?? currentFile;
 }
 
@@ -508,3 +515,5 @@ function mergeFileArrays(
     // console.log(`mergeFileArrays: Final merged map size: ${mergedMap.size}`);
     return Array.from(mergedMap.values());
 }
+
+    

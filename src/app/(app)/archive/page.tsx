@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X, Info, Download } from 'lucide-react'; // Added Check, X, Info, Download icons
+import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X, Info, Download, Eye, Film } from 'lucide-react'; // Added Check, X, Info, Download, Eye, Film icons
 import { format, parseISO, getMonth, getYear } from 'date-fns';
 import { tr } from 'date-fns/locale'; // Import Turkish locale
 import {
@@ -23,6 +24,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogClose,
+} from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { getSerializableFileInfo } from '@/lib/utils'; // Import helper
 
@@ -34,6 +43,7 @@ export default function ArchivePage() {
   const router = useRouter(); // Initialize router
   const [searchTerm, setSearchTerm] = React.useState('');
   const [viewingDetailsEntry, setViewingDetailsEntry] = React.useState<ArchiveEntry | null>(null); // State for viewing details
+  const [previewMedia, setPreviewMedia] = React.useState<{ url: string; type: 'image' | 'video'; name: string } | null>(null); // State for media preview modal
 
   // Use recordData.archive or default to empty array
   React.useEffect(() => {
@@ -66,7 +76,7 @@ export default function ArchivePage() {
          entry.owner?.toLowerCase().includes(lowerSearchTerm) ||
          entry.branch?.toLowerCase().includes(lowerSearchTerm) ||
          entry.customerName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 4 customer
-         entry.offerCompanyName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 6 company
+         entry.offerCompanyName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 5 company
          entry.plateNumber?.toLowerCase().includes(lowerSearchTerm) || // Search plateNumber (Step 1)
          entry.plate?.toLowerCase().includes(lowerSearchTerm) // Search plate (Step 5 iş emri)
        );
@@ -192,6 +202,7 @@ export default function ArchivePage() {
         updateRecordData({
             ...(entryToEdit as Omit<RecordData, 'archive' | 'registrationDocument' | 'labelDocument' | 'typeApprovalDocument' | 'additionalPhotos' | 'additionalVideos'>), // Load all non-file fields first
             // Explicitly set the files to their stored info format
+            // NOTE: This means we don't have the actual File objects for OCR re-scan on edit
             registrationDocument: entryToEdit.registrationDocument,
             labelDocument: entryToEdit.labelDocument,
             typeApprovalDocument: entryToEdit.typeApprovalDocument,
@@ -207,7 +218,7 @@ export default function ArchivePage() {
 
    // Helper to get file name (since we store info)
    const getFileName = (fileInfo: { name: string } | undefined): string => {
-     console.log("Getting file name for:", fileInfo); // Log file info retrieval
+     // console.log("Getting file name for:", fileInfo); // Log file info retrieval - commented out for cleaner logs
      return fileInfo?.name || 'Yok';
    };
 
@@ -260,16 +271,28 @@ export default function ArchivePage() {
         return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(numValue);
     };
 
-    // Placeholder function to generate a "download link" (replace with actual logic)
-    // In a real application, this would fetch the actual file from storage (e.g., Firebase)
-    // For now, it returns a placeholder to indicate the file exists.
-    const getDownloadLink = (fileInfo: { name: string; type?: string; size?: number } | undefined): string | null => {
+    // Placeholder function to get a viewable URL for archived files
+    // In a real app, this would fetch the actual file URL from Firebase Storage
+    const getFileViewUrl = (fileInfo: { name: string; type?: string; size?: number } | undefined): string | null => {
         if (!fileInfo || !fileInfo.name) return null;
-        // In a real app, this might fetch a temporary download URL from Firebase Storage
-        console.warn("Placeholder: Cannot generate real download link for:", fileInfo.name, "from local state.");
-        // Return a non-functional placeholder or null
-        return `#${encodeURIComponent(fileInfo.name)}`; // Indicates presence but doesn't download
-        // return null; // Or return null if you don't want a link at all
+        // Placeholder - replace with actual Firebase Storage URL generation
+        console.warn("Placeholder: Using placeholder URL for viewing file:", fileInfo.name);
+        // Example placeholder structure (adjust to your Firebase setup)
+        return `https://firebasestorage.googleapis.com/v0/b/your-project-id.appspot.com/o/archive_files%2F${encodeURIComponent(fileInfo.name)}?alt=media`;
+        // return null; // Or return null if viewing isn't implemented yet
+    };
+
+    const openMediaPreview = (fileInfo: { name: string; type?: string; size?: number } | undefined) => {
+        const url = getFileViewUrl(fileInfo);
+        if (url && fileInfo?.type) {
+            const mediaType = fileInfo.type.startsWith('video/') ? 'video' : 'image';
+            setPreviewMedia({ url, type: mediaType, name: fileInfo.name });
+        } else if (url) {
+             // Assume image if type is unknown but URL exists
+             setPreviewMedia({ url, type: 'image', name: fileInfo.name });
+        } else {
+            toast({ title: "Hata", description: "Dosya görüntüleme URL'si alınamadı.", variant: "destructive" });
+        }
     };
 
 
@@ -322,7 +345,7 @@ export default function ArchivePage() {
                                 <TableRow key={entry.fileName}>
                                     <TableCell className="font-medium">{entry.fileName}</TableCell>
                                     <TableCell>
-                                        {/* Show customer from step 4 or company from step 6 */}
+                                        {/* Show customer from step 4 or company from step 5 */}
                                         {entry.customerName || entry.offerCompanyName || '-'}
                                         {entry.customerName && entry.offerCompanyName && <span className="text-xs text-muted-foreground block">(Form: {entry.customerName} / Teklif: {entry.offerCompanyName})</span>}
                                     </TableCell>
@@ -333,14 +356,14 @@ export default function ArchivePage() {
                                         <div className="flex flex-wrap gap-2 items-center">
                                         {entry.registrationDocument && (
                                             <div title={`Ruhsat: ${getFileName(entry.registrationDocument)}`} className="flex items-center gap-1 text-green-600">
-                                            <FileText className="h-4 w-4" />
-                                            <span className="text-xs hidden sm:inline">Ruhsat</span>
+                                                <FileText className="h-4 w-4" />
+                                                <span className="text-xs hidden sm:inline">Ruhsat</span>
                                             </div>
                                         )}
                                         {entry.labelDocument && (
                                             <div title={`Etiket: ${getFileName(entry.labelDocument)}`} className="flex items-center gap-1 text-blue-600">
-                                            <FileText className="h-4 w-4" />
-                                            <span className="text-xs hidden sm:inline">Etiket</span>
+                                                <FileText className="h-4 w-4" />
+                                                <span className="text-xs hidden sm:inline">Etiket</span>
                                             </div>
                                         )}
                                         {entry.typeApprovalDocument && ( // Display Type Approval Doc presence
@@ -365,10 +388,10 @@ export default function ArchivePage() {
                                     </TableCell>
                                     <TableCell className="text-right space-x-1">
                                         <Button variant="ghost" size="icon" onClick={() => handleViewDetails(entry)} title="Detayları Gör">
-                                            <Info className="h-4 w-4" /> {/* Changed to Info icon */}
+                                            <Info className="h-4 w-4" />
                                         </Button>
                                         <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Düzenle">
-                                            <Pencil className="h-4 w-4 text-blue-600" /> {/* Edit Icon */}
+                                            <Pencil className="h-4 w-4 text-blue-600" />
                                         </Button>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
@@ -399,121 +422,112 @@ export default function ArchivePage() {
                         </div>
                     </AccordionContent>
                     </AccordionItem>
-                 ) : null // Render nothing if group is empty or doesn't exist
+                 ) : null
               ))}
             </Accordion>
           )}
         </CardContent>
       </Card>
 
-      {/* View Details Modal */}
+       {/* View Details Modal - Restructured by Step */}
        {viewingDetailsEntry && (
            <AlertDialog open={!!viewingDetailsEntry} onOpenChange={() => setViewingDetailsEntry(null)}>
-               <AlertDialogContent className="max-w-4xl"> {/* Increased width */}
+               <AlertDialogContent className="max-w-4xl">
                    <AlertDialogHeader>
                        <AlertDialogTitle>Kayıt Detayları: {viewingDetailsEntry.fileName}</AlertDialogTitle>
                        <AlertDialogDescription>
-                           Bu kaydın arşivlenmiş tüm verilerini aşağıda görebilirsiniz.
+                           Bu kaydın arşivlenmiş tüm verilerini aşağıda adım adım görebilirsiniz.
                        </AlertDialogDescription>
                    </AlertDialogHeader>
-                    {/* Display Archived Data - Using details for sections */}
-                     <div className="mt-4 max-h-[70vh] overflow-auto rounded-md border p-4 bg-secondary/30 text-sm space-y-4">
-                         {/* Basic Vehicle Info */}
-                         <details className="border rounded p-2" open>
-                            <summary className="cursor-pointer font-medium">Araç Temel Bilgileri (Adım 1-2)</summary>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2">
-                                <p><strong className="font-medium">Şube:</strong> {viewingDetailsEntry.branch || '-'}</p>
-                                <p><strong className="font-medium">Şasi No:</strong> {viewingDetailsEntry.chassisNumber || '-'}</p>
-                                <p><strong className="font-medium">Plaka (Ruhsat):</strong> {viewingDetailsEntry.plateNumber || '-'}</p>
-                                <p><strong className="font-medium">Marka:</strong> {viewingDetailsEntry.brand || '-'}</p>
-                                <p><strong className="font-medium">Tip:</strong> {viewingDetailsEntry.type || '-'}</p>
-                                <p><strong className="font-medium">Ticari Adı:</strong> {viewingDetailsEntry.tradeName || '-'}</p>
-                                <p><strong className="font-medium">Sahip (Adı Soyadı):</strong> {viewingDetailsEntry.owner || '-'}</p>
-                                <p><strong className="font-medium">Tip Onay No:</strong> {viewingDetailsEntry.typeApprovalNumber || '-'}</p>
-                                <p><strong className="font-medium">Varyant:</strong> {viewingDetailsEntry.typeAndVariant || '-'}</p>
-                                <p><strong className="font-medium">Versiyon:</strong> {viewingDetailsEntry.versiyon || '-'}</p>
-                                <p><strong className="font-medium">Motor No:</strong> {viewingDetailsEntry.engineNumber || '-'}</p>
-                            </div>
-                         </details>
+                   <div className="mt-4 max-h-[70vh] overflow-y-auto rounded-md border p-4 bg-secondary/30 text-sm space-y-4">
 
-                          {/* File Info */}
-                        <details className="border rounded p-2" open>
-                           <summary className="cursor-pointer font-medium">Yüklenen Dosyalar (Adım 1-3)</summary>
-                           <ul className="list-none space-y-1 pt-2">
-                                <li>
-                                    <strong className="font-medium">Ruhsat (Adım 1):</strong>
-                                    {viewingDetailsEntry.registrationDocument ? (
-                                        <span className="ml-2 text-muted-foreground">
-                                             {getFileName(viewingDetailsEntry.registrationDocument)}
-                                             <Button variant="link" size="sm" className="h-auto p-0 ml-2" disabled>
-                                                 <Download className="inline h-3 w-3 mr-1" /> İndir (Yakında)
-                                             </Button>
-                                        </span>
+                       {/* Step 1: Araç Ruhsatı */}
+                       <details className="border rounded p-2" open>
+                           <summary className="cursor-pointer font-medium">Adım 1: Araç Ruhsatı</summary>
+                           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2">
+                               <p><strong className="font-medium">Şube:</strong> {viewingDetailsEntry.branch || '-'}</p>
+                               <p><strong className="font-medium">Şasi No:</strong> {viewingDetailsEntry.chassisNumber || '-'}</p>
+                               <p><strong className="font-medium">Plaka:</strong> {viewingDetailsEntry.plateNumber || '-'}</p>
+                               <p><strong className="font-medium">Markası:</strong> {viewingDetailsEntry.brand || '-'}</p>
+                               <p><strong className="font-medium">Tipi:</strong> {viewingDetailsEntry.type || '-'}</p>
+                               <p><strong className="font-medium">Ticari Adı:</strong> {viewingDetailsEntry.tradeName || '-'}</p>
+                               <p><strong className="font-medium">Adı Soyadı (Sahip):</strong> {viewingDetailsEntry.owner || '-'}</p>
+                               <p><strong className="font-medium">Motor No:</strong> {viewingDetailsEntry.engineNumber || '-'}</p>
+                                <div className="col-span-full pt-1">
+                                    <strong className="font-medium">Ruhsat Belgesi:</strong>
+                                     {viewingDetailsEntry.registrationDocument ? (
+                                        <Button variant="link" size="sm" className="h-auto p-0 ml-2" onClick={() => openMediaPreview(viewingDetailsEntry.registrationDocument)}>
+                                            <Eye className="inline h-3 w-3 mr-1" /> {getFileName(viewingDetailsEntry.registrationDocument)}
+                                        </Button>
                                     ) : ' Yok'}
-                                </li>
-                                <li>
-                                    <strong className="font-medium">Etiket (Adım 2):</strong>
-                                    {viewingDetailsEntry.labelDocument ? (
-                                         <span className="ml-2 text-muted-foreground">
-                                             {getFileName(viewingDetailsEntry.labelDocument)}
-                                             <Button variant="link" size="sm" className="h-auto p-0 ml-2" disabled>
-                                                 <Download className="inline h-3 w-3 mr-1" /> İndir (Yakında)
-                                             </Button>
-                                        </span>
+                                </div>
+                           </div>
+                       </details>
+
+                       {/* Step 2: Etiket Bilgileri */}
+                       <details className="border rounded p-2">
+                           <summary className="cursor-pointer font-medium">Adım 2: Etiket Bilgileri (İsteğe Bağlı)</summary>
+                           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2">
+                               <p><strong className="font-medium">Tip Onay No:</strong> {viewingDetailsEntry.typeApprovalNumber || '-'}</p>
+                               <p><strong className="font-medium">Varyant:</strong> {viewingDetailsEntry.typeAndVariant || '-'}</p>
+                               <p><strong className="font-medium">Versiyon:</strong> {viewingDetailsEntry.versiyon || '-'}</p>
+                                <div className="col-span-full pt-1">
+                                    <strong className="font-medium">Etiket Belgesi:</strong>
+                                     {viewingDetailsEntry.labelDocument ? (
+                                        <Button variant="link" size="sm" className="h-auto p-0 ml-2" onClick={() => openMediaPreview(viewingDetailsEntry.labelDocument)}>
+                                             <Eye className="inline h-3 w-3 mr-1" /> {getFileName(viewingDetailsEntry.labelDocument)}
+                                         </Button>
                                     ) : ' Yok'}
-                                </li>
-                                <li>
-                                    <strong className="font-medium">Tip Onay Belgesi (Adım 3):</strong>
+                                </div>
+                           </div>
+                       </details>
+
+                       {/* Step 3: Ek Dosya Yükleme */}
+                       <details className="border rounded p-2">
+                           <summary className="cursor-pointer font-medium">Adım 3: Ek Dosyalar (İsteğe Bağlı)</summary>
+                           <div className="pt-2 space-y-1">
+                               <div>
+                                   <strong className="font-medium">Tip Onay Belgesi:</strong>
                                     {viewingDetailsEntry.typeApprovalDocument ? (
-                                         <span className="ml-2 text-muted-foreground">
-                                            {getFileName(viewingDetailsEntry.typeApprovalDocument)}
-                                             <Button variant="link" size="sm" className="h-auto p-0 ml-2" disabled>
-                                                 <Download className="inline h-3 w-3 mr-1" /> İndir (Yakında)
-                                             </Button>
-                                        </span>
-                                    ) : ' Yok'}
-                                </li>
-                                <li>
-                                    <strong className="font-medium">Ek Fotoğraflar (Adım 3) ({viewingDetailsEntry.additionalPhotos?.length || 0}):</strong>
-                                    {viewingDetailsEntry.additionalPhotos && viewingDetailsEntry.additionalPhotos.length > 0 ? (
-                                        <ul className="list-disc list-inside ml-4">
-                                            {viewingDetailsEntry.additionalPhotos.map((f, i) => (
-                                                <li key={i}>
-                                                    <span className="ml-1 text-muted-foreground">
-                                                        {f.name}
-                                                        <Button variant="link" size="sm" className="h-auto p-0 ml-2" disabled>
-                                                            <Download className="inline h-3 w-3 mr-1" /> İndir (Yakında)
-                                                        </Button>
-                                                    </span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : ' Yok'}
-                                </li>
-                                <li>
-                                    <strong className="font-medium">Ek Videolar (Adım 3) ({viewingDetailsEntry.additionalVideos?.length || 0}):</strong>
-                                    {viewingDetailsEntry.additionalVideos && viewingDetailsEntry.additionalVideos.length > 0 ? (
-                                        <ul className="list-disc list-inside ml-4">
-                                            {viewingDetailsEntry.additionalVideos.map((f, i) => (
-                                                <li key={i}>
-                                                    <span className="ml-1 text-muted-foreground">
-                                                        {f.name}
-                                                         <Button variant="link" size="sm" className="h-auto p-0 ml-2" disabled>
-                                                             <Download className="inline h-3 w-3 mr-1" /> İndir (Yakında)
-                                                         </Button>
-                                                    </span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : ' Yok'}
-                                </li>
-                           </ul>
-                        </details>
+                                        <Button variant="link" size="sm" className="h-auto p-0 ml-2" onClick={() => openMediaPreview(viewingDetailsEntry.typeApprovalDocument)}>
+                                            <Eye className="inline h-3 w-3 mr-1" /> {getFileName(viewingDetailsEntry.typeApprovalDocument)}
+                                        </Button>
+                                   ) : ' Yok'}
+                               </div>
+                               <div>
+                                   <strong className="font-medium">Ek Fotoğraflar ({viewingDetailsEntry.additionalPhotos?.length || 0}):</strong>
+                                   {viewingDetailsEntry.additionalPhotos && viewingDetailsEntry.additionalPhotos.length > 0 ? (
+                                       <ul className="list-none ml-4 space-y-1">
+                                           {viewingDetailsEntry.additionalPhotos.map((f, i) => (
+                                               <li key={i}>
+                                                   <Button variant="link" size="sm" className="h-auto p-0 ml-1" onClick={() => openMediaPreview(f)}>
+                                                        <Eye className="inline h-3 w-3 mr-1" /> {f.name}
+                                                   </Button>
+                                               </li>
+                                           ))}
+                                       </ul>
+                                   ) : ' Yok'}
+                               </div>
+                               <div>
+                                   <strong className="font-medium">Ek Videolar ({viewingDetailsEntry.additionalVideos?.length || 0}):</strong>
+                                   {viewingDetailsEntry.additionalVideos && viewingDetailsEntry.additionalVideos.length > 0 ? (
+                                       <ul className="list-none ml-4 space-y-1">
+                                           {viewingDetailsEntry.additionalVideos.map((f, i) => (
+                                               <li key={i}>
+                                                   <Button variant="link" size="sm" className="h-auto p-0 ml-1" onClick={() => openMediaPreview(f)}>
+                                                        <Eye className="inline h-3 w-3 mr-1" /> {f.name}
+                                                    </Button>
+                                               </li>
+                                           ))}
+                                       </ul>
+                                   ) : ' Yok'}
+                               </div>
+                           </div>
+                       </details>
 
-
-                         {/* Seri Tadilat Uygunluk Form Data */}
-                         <details className="border rounded p-2">
-                           <summary className="cursor-pointer font-medium">Seri Tadilat Uygunluk Formu (Adım 4)</summary>
+                       {/* Step 4: Seri Tadilat Uygunluk Formu */}
+                       <details className="border rounded p-2">
+                           <summary className="cursor-pointer font-medium">Adım 4: Seri Tadilat Uygunluk Formu</summary>
                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
                               <p><strong className="font-medium">Müşteri Adı:</strong> {viewingDetailsEntry.customerName || '-'}</p>
                               <p><strong className="font-medium">Form Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.formDate, 'dd.MM.yyyy')}</p>
@@ -528,10 +542,11 @@ export default function ArchivePage() {
                            </div>
                         </details>
 
-                         {/* Teklif Formu Data */}
+                        {/* Step 5: Teklif Formu */}
                          <details className="border rounded p-2">
-                            <summary className="cursor-pointer font-medium">Teklif Formu (Adım 5)</summary>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
+                            <summary className="cursor-pointer font-medium">Adım 5: Teklif Formu</summary>
+                            {/* Company Details */}
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2 border-b pb-2 mb-2">
                                 <p><strong className="font-medium">Yetkili Adı:</strong> {viewingDetailsEntry.offerAuthorizedName || '-'}</p>
                                 <p><strong className="font-medium">Firma Adı:</strong> {viewingDetailsEntry.offerCompanyName || '-'}</p>
                                 <p className="col-span-2"><strong className="font-medium">Açık Adres:</strong> {viewingDetailsEntry.offerCompanyAddress || '-'}</p>
@@ -539,21 +554,25 @@ export default function ArchivePage() {
                                 <p><strong className="font-medium">Telefon:</strong> {viewingDetailsEntry.offerPhoneNumber || '-'}</p>
                                 <p><strong className="font-medium">E-posta:</strong> {viewingDetailsEntry.offerEmailAddress || '-'}</p>
                                 <p><strong className="font-medium">Teklif Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.offerDate, 'dd.MM.yyyy')}</p>
-                                <p><strong className="font-medium">İş Emri No:</strong> {viewingDetailsEntry.workOrderNumber || '-'}</p>
-                                <p><strong className="font-medium">Proje No:</strong> {viewingDetailsEntry.projectNo || '-'}</p>
+                            </div>
+                             {/* İş Emri Details */}
+                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2 border-b pb-2 mb-2">
+                                <p><strong className="font-medium">Proje Adı:</strong> {viewingDetailsEntry.projectName || '-'}</p>
                                 <p><strong className="font-medium">Plaka (Teklif):</strong> {viewingDetailsEntry.plate || '-'}</p>
                                 <p><strong className="font-medium">İş Emri Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.workOrderDate, 'dd.MM.yyyy')}</p>
+                                <p><strong className="font-medium">İş Emri No:</strong> {viewingDetailsEntry.workOrderNumber || '-'}</p>
                                 <p><strong className="font-medium">İşin Bitiş Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.completionDate, 'dd.MM.yyyy')}</p>
+                                <p><strong className="font-medium">Proje No:</strong> {viewingDetailsEntry.projectNo || '-'}</p>
                                 <p className="col-span-2"><strong className="font-medium">Yapılacak İşler:</strong> {viewingDetailsEntry.detailsOfWork || '-'}</p>
-                                <p className="col-span-2"><strong className="font-medium">Yedek Parçalar:</strong> {viewingDetailsEntry.sparePartsUsed || '-'}</p>
+                                <p className="col-span-2"><strong className="font-medium">Yedek Parçalar/Açık.:</strong> {viewingDetailsEntry.sparePartsUsed || '-'}</p>
                                 <p className="col-span-2"><strong className="font-medium">Ücretlendirme:</strong> {viewingDetailsEntry.pricing || '-'}</p>
                                 <p><strong className="font-medium">Araç Kabul (İmza):</strong> {viewingDetailsEntry.vehicleAcceptanceSignature || '-'}</p>
                                 <p><strong className="font-medium">Müşteri (İmza):</strong> {viewingDetailsEntry.customerSignature || '-'}</p>
-                                <p className="col-span-2"><strong className="font-medium">Teklif Durumu:</strong> {renderOfferAcceptanceStatus(viewingDetailsEntry.offerAcceptance)}</p>
-                            </div>
-                             {/* Offer Items Table */}
+                             </div>
+                              {/* Offer Items Table */}
                               {viewingDetailsEntry.offerItems && viewingDetailsEntry.offerItems.length > 0 && (
-                                <div className="mt-4 overflow-x-auto">
+                                <div className="mt-2 overflow-x-auto">
+                                     <h4 className="font-medium mb-1">Teklif Kalemleri:</h4>
                                     <Table className="bg-background">
                                         <TableHeader>
                                             <TableRow>
@@ -578,11 +597,14 @@ export default function ArchivePage() {
                                     </Table>
                                 </div>
                               )}
+                              <div className="mt-2 pt-2 border-t">
+                                  <p><strong className="font-medium">Teklif Durumu:</strong> {renderOfferAcceptanceStatus(viewingDetailsEntry.offerAcceptance)}</p>
+                              </div>
                          </details>
 
-                        {/* Ara ve Son Kontrol Formu Data */}
+                        {/* Step 6: Ara ve Son Kontrol Formu */}
                          <details className="border rounded p-2">
-                             <summary className="cursor-pointer font-medium">Ara ve Son Kontrol Formu (Adım 6)</summary>
+                             <summary className="cursor-pointer font-medium">Adım 6: Ara ve Son Kontrol Formu</summary>
                              <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
                                  <p><strong className="font-medium">Son Kontrol Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.finalCheckDate, 'dd.MM.yyyy')}</p>
                                  <p><strong className="font-medium">Kontrol Eden:</strong> {viewingDetailsEntry.finalControllerName || '-'}</p>
@@ -597,32 +619,78 @@ export default function ArchivePage() {
                              </div>
                          </details>
 
+                        {/* Step 7: Özet & Arşiv Bilgileri (Read-Only from Summary Page) */}
+                        <details className="border rounded p-2">
+                            <summary className="cursor-pointer font-medium">Adım 7: Özet Bilgileri</summary>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
+                                <p><strong className="font-medium">Sıra No (Özet):</strong> {viewingDetailsEntry.sequenceNo || '-'}</p>
+                                {/* Branch and Project Name likely already shown */}
+                                <p><strong className="font-medium">Tip Onay (Özet):</strong> {viewingDetailsEntry.typeApprovalType || '-'}</p>
+                                <p><strong className="font-medium">Onay Seviye (Özet):</strong> {viewingDetailsEntry.typeApprovalLevel || '-'}</p>
+                                {/* Variant already shown */}
+                                <p><strong className="font-medium">Versiyon (Özet):</strong> {viewingDetailsEntry.typeApprovalVersion || '-'}</p>
+                                <p><strong className="font-medium">Tip Onay No (Özet):</strong> {viewingDetailsEntry.typeApprovalNumber || '-'}</p>
+                                {/* Type Approval Document link already shown */}
+                                {/* Date already shown */}
+                                {/* Chassis No already shown */}
+                                <p><strong className="font-medium">Motor No (Özet):</strong> {viewingDetailsEntry.engineNumber || '-'}</p>
+                                {/* Plate already shown */}
+                                {/* Customer Name already shown */}
+                                <p><strong className="font-medium">Yapılacak İşler (Özet):</strong> {viewingDetailsEntry.detailsOfWork || '-'}</p>
+                                <p><strong className="font-medium">Proje No (Özet):</strong> {viewingDetailsEntry.projectNo || '-'}</p>
+                            </div>
+                        </details>
+
+
                         {/* Metadata */}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-2 mt-2">
                            <p><strong className="font-medium">Arşivlenme Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.archivedAt)}</p>
                            <p><strong className="font-medium">Dosya Adı:</strong> {viewingDetailsEntry.fileName}</p>
                         </div>
 
-                         {/* Optional: Display legacy fields if they exist */}
-                          {(viewingDetailsEntry.additionalNotes || viewingDetailsEntry.inspectionDate || viewingDetailsEntry.inspectorName) && (
-                             <details className="border rounded p-2">
-                                <summary className="cursor-pointer font-medium text-muted-foreground">Eski Veriler (Opsiyonel)</summary>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                                    {viewingDetailsEntry.inspectionDate && <p><strong className="font-medium">Muayene Tarihi (Eski):</strong> {formatDateSafe(viewingDetailsEntry.inspectionDate, 'dd.MM.yyyy')}</p>}
-                                    {viewingDetailsEntry.inspectorName && <p><strong className="font-medium">Muayene Yapan (Eski):</strong> {viewingDetailsEntry.inspectorName}</p>}
-                                    {viewingDetailsEntry.additionalNotes && <p className="col-span-2"><strong className="font-medium">Ek Notlar (Eski):</strong> {viewingDetailsEntry.additionalNotes}</p>}
-                                </div>
-                            </details>
-                          )}
 
                     </div>
                    <AlertDialogFooter>
                        <AlertDialogCancel onClick={() => setViewingDetailsEntry(null)}>Kapat</AlertDialogCancel>
-                       {/* <AlertDialogAction disabled>Değişiklikleri Kaydet (Yakında)</AlertDialogAction> */}
                    </AlertDialogFooter>
                </AlertDialogContent>
            </AlertDialog>
        )}
+
+        {/* Media Preview Dialog */}
+        {previewMedia && (
+             <Dialog open={!!previewMedia} onOpenChange={() => setPreviewMedia(null)}>
+                <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle className="truncate">{previewMedia.name}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 relative overflow-auto flex items-center justify-center">
+                        {previewMedia.type === 'image' ? (
+                            <Image
+                                src={previewMedia.url}
+                                alt={`Önizleme - ${previewMedia.name}`}
+                                width={1200} // Adjust width as needed
+                                height={800} // Adjust height as needed
+                                style={{ objectFit: 'contain', maxWidth: '100%', maxHeight: '100%' }}
+                                unoptimized // If using external/placeholder URLs
+                                data-ai-hint="archived document image"
+                            />
+                        ) : (
+                            <video controls className="max-w-full max-h-full">
+                                <source src={previewMedia.url} type={previewMedia.name.endsWith('.mp4') ? 'video/mp4' : previewMedia.name.endsWith('.webm') ? 'video/webm' : 'video/ogg'} />
+                                Tarayıcınız video etiketini desteklemiyor.
+                            </video>
+                        )}
+                    </div>
+                     <DialogClose asChild>
+                        <Button type="button" variant="outline" className="mt-4">Kapat</Button>
+                     </DialogClose>
+                </DialogContent>
+            </Dialog>
+        )}
+
     </div>
   );
 }
+
+    
