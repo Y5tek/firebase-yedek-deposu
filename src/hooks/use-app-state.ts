@@ -319,10 +319,26 @@ export const useAppState = create<AppState>()(
       name: 'arsiv-asistani-storage', // Name of the item in storage (must be unique)
       storage: createJSONStorage(() => localStorage), // Use localStorage
        partialize: (state) => {
-            console.log('useAppState: Partializing state for persistence:', state);
+            // console.log('useAppState: Partializing state for persistence:', state);
             // Ensure recordData and archive exist before accessing them
             const recordDataToPersist = state.recordData || {};
             const archiveToPersist = recordDataToPersist.archive || [];
+
+            // Function to safely get serializable file info
+            const safeGetFileInfo = (file: any) => {
+                const info = getSerializableFileInfo(file);
+                // console.log(`Partializing file: ${info?.name ?? 'N/A'}, Type: ${info?.type ?? 'N/A'}, Size: ${info?.size ?? 'N/A'}`);
+                return info;
+            };
+
+             // Function to safely map file arrays
+             const safeMapFiles = (files: any[] | undefined) => {
+                const infos = files?.map(safeGetFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined;
+                // console.log(`Partializing file array: ${infos ? infos.map(f => f.name).join(', ') : 'Empty'}`);
+                 return infos;
+            };
+
+
             const partialData = {
                 branch: state.branch,
                 editingArchiveId: state.editingArchiveId, // Persist the editing ID
@@ -339,17 +355,17 @@ export const useAppState = create<AppState>()(
                      }, {} as Partial<RecordData>),
 
                      // Convert File objects to serializable info
-                     registrationDocument: getSerializableFileInfo(recordDataToPersist.registrationDocument),
-                     labelDocument: getSerializableFileInfo(recordDataToPersist.labelDocument),
-                     typeApprovalDocument: getSerializableFileInfo(recordDataToPersist.typeApprovalDocument),
-                     additionalPhotos: recordDataToPersist.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-                     additionalVideos: recordDataToPersist.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
+                     registrationDocument: safeGetFileInfo(recordDataToPersist.registrationDocument),
+                     labelDocument: safeGetFileInfo(recordDataToPersist.labelDocument),
+                     typeApprovalDocument: safeGetFileInfo(recordDataToPersist.typeApprovalDocument),
+                     additionalPhotos: safeMapFiles(recordDataToPersist.additionalPhotos),
+                     additionalVideos: safeMapFiles(recordDataToPersist.additionalVideos),
 
                      // Persist the archive array (already contains serialized data)
                      archive: archiveToPersist,
                  }
             };
-            console.log('useAppState: Data being persisted:', partialData);
+            // console.log('useAppState: Data being persisted:', partialData);
             return partialData;
        },
         // When rehydrating, merge persisted data with current runtime state, preserving File objects
@@ -413,17 +429,21 @@ function handleFileMerge(
 ): File | { name: string; type?: string; size?: number } | undefined {
     // If newFile is explicitly undefined, clear the field
     if (newFile === undefined && arguments.length > 1) { // Check arguments.length to differentiate missing prop vs explicit undefined
+      console.log(`handleFileMerge: Clearing file field because newFile is undefined.`);
       return undefined;
     }
     // If newFile is a File, use it
     if (newFile instanceof File) {
+       console.log(`handleFileMerge: Using new File: ${newFile.name}`);
       return newFile;
     }
     // If newFile is info and current is a File, keep the current File
     if (currentFile instanceof File && typeof newFile === 'object' && newFile !== null && 'name' in newFile) {
+        console.log(`handleFileMerge: Keeping current File (${currentFile.name}) because new value is info.`);
         return currentFile;
     }
     // Otherwise, use the new value (which could be info or undefined if not provided)
+     console.log(`handleFileMerge: Using new value (info or undefined): ${newFile ? (newFile as any).name : 'undefined'}`);
     return newFile ?? currentFile;
 }
 
@@ -434,9 +454,11 @@ function handleFileRehydration(
 ): File | { name: string; type?: string; size?: number } | undefined {
     // If a File object exists in the current runtime state, keep it.
     if (currentFile instanceof File) {
+        // console.log(`handleFileRehydration: Keeping current File: ${currentFile.name}`);
         return currentFile;
     }
     // Otherwise, use the persisted file info (which might be undefined).
+    // console.log(`handleFileRehydration: Using persisted info: ${persistedFileInfo?.name ?? 'undefined'}`);
     return persistedFileInfo;
 }
 
@@ -450,31 +472,39 @@ function mergeFileArrays(
 
     // Add current files (prioritize File objects)
     (currentFiles || []).forEach(f => {
+        const key = `${f?.name}-${f && 'size' in f ? f.size : ''}`; // Handle potential missing size
         if (f instanceof File) {
-            mergedMap.set(`${f.name}-${f.size}`, f); // Use name and size as key for uniqueness
+             // console.log(`mergeFileArrays (Current): Adding File with key: ${key}`);
+            mergedMap.set(key, f);
         } else if (f && f.name) {
             // If it's info, add it only if a File with the same key doesn't exist yet
-            const key = `${f.name}-${f.size ?? ''}`;
+             // console.log(`mergeFileArrays (Current): Checking info with key: ${key}`);
             if (!mergedMap.has(key) || !(mergedMap.get(key) instanceof File)) {
+                // console.log(`mergeFileArrays (Current): Adding info with key: ${key}`);
                  mergedMap.set(key, f);
+            } else {
+                 // console.log(`mergeFileArrays (Current): Skipping info, File exists for key: ${key}`);
             }
         }
     });
 
      // Add new files or info (prioritize File objects)
      (newFilesOrInfo || []).forEach(f => {
+         const key = `${f?.name}-${f && 'size' in f ? f.size : ''}`; // Handle potential missing size
          if (f instanceof File) {
-             mergedMap.set(`${f.name}-${f.size}`, f); // Overwrite info with File object if present
+              // console.log(`mergeFileArrays (New): Adding/Overwriting File with key: ${key}`);
+             mergedMap.set(key, f); // Overwrite info with File object if present
          } else if (f && f.name) {
             // If it's info, add it only if a File with the same key doesn't exist yet
-            const key = `${f.name}-${f.size ?? ''}`;
+             // console.log(`mergeFileArrays (New): Checking info with key: ${key}`);
              if (!mergedMap.has(key) || !(mergedMap.get(key) instanceof File)) {
+                 // console.log(`mergeFileArrays (New): Adding info with key: ${key}`);
                  mergedMap.set(key, f);
+             } else {
+                 // console.log(`mergeFileArrays (New): Skipping info, File exists for key: ${key}`);
              }
          }
      });
-
+    // console.log(`mergeFileArrays: Final merged map size: ${mergedMap.size}`);
     return Array.from(mergedMap.values());
 }
-
-    

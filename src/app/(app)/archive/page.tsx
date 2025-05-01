@@ -191,7 +191,7 @@ export default function ArchivePage() {
         //    For now, we'll load the serialized data. A more complex solution would involve fetching original Files if stored elsewhere.
         console.log("Loading entry for editing:", entryToEdit);
         updateRecordData({
-            ...(entryToEdit as RecordData), // Load all fields from the archive entry
+            ...(entryToEdit as Omit<RecordData, 'archive' | 'registrationDocument' | 'labelDocument' | 'typeApprovalDocument' | 'additionalPhotos' | 'additionalVideos'>), // Load all non-file fields first
             // Explicitly set the files to their stored info format
             registrationDocument: entryToEdit.registrationDocument,
             labelDocument: entryToEdit.labelDocument,
@@ -208,6 +208,7 @@ export default function ArchivePage() {
 
    // Helper to get file name (since we store info)
    const getFileName = (fileInfo: { name: string } | undefined): string => {
+     console.log("Getting file name for:", fileInfo); // Log file info retrieval
      return fileInfo?.name || 'Yok';
    };
 
@@ -261,12 +262,15 @@ export default function ArchivePage() {
     };
 
     // Placeholder function to generate a "download link" (replace with actual logic)
+    // In a real application, this would fetch the actual file from storage (e.g., Firebase)
+    // For now, it returns a placeholder to indicate the file exists.
     const getDownloadLink = (fileInfo: { name: string; type?: string; size?: number } | undefined): string | null => {
-        if (!fileInfo) return null;
-        // In a real app, this would generate a signed URL or link to a file server
-        console.warn("Placeholder download link generated for:", fileInfo.name);
-        // Simulate a link - this won't actually download the file from localStorage persistence
-        return `#download-${encodeURIComponent(fileInfo.name)}`;
+        if (!fileInfo || !fileInfo.name) return null;
+        // In a real app, this might fetch a temporary download URL from Firebase Storage
+        console.warn("Placeholder: Cannot generate real download link for:", fileInfo.name, "from local state.");
+        // Return a non-functional placeholder or null
+        return `#${encodeURIComponent(fileInfo.name)}`; // Indicates presence but doesn't download
+        // return null; // Or return null if you don't want a link at all
     };
 
 
@@ -440,25 +444,34 @@ export default function ArchivePage() {
                                 <li>
                                     <strong className="font-medium">Ruhsat:</strong>
                                     {viewingDetailsEntry.registrationDocument ? (
-                                        <a href={getDownloadLink(viewingDetailsEntry.registrationDocument)} download={viewingDetailsEntry.registrationDocument.name} className="ml-2 text-primary hover:underline" title="İndir">
-                                             {getFileName(viewingDetailsEntry.registrationDocument)} <Download className="inline h-3 w-3 ml-1" />
-                                        </a>
+                                        <span className="ml-2 text-muted-foreground">
+                                             {getFileName(viewingDetailsEntry.registrationDocument)}
+                                             <Button variant="link" size="sm" className="h-auto p-0 ml-2" disabled>
+                                                 <Download className="inline h-3 w-3 mr-1" /> İndir (Yakında)
+                                             </Button>
+                                        </span>
                                     ) : ' Yok'}
                                 </li>
                                 <li>
                                     <strong className="font-medium">Etiket:</strong>
                                     {viewingDetailsEntry.labelDocument ? (
-                                         <a href={getDownloadLink(viewingDetailsEntry.labelDocument)} download={viewingDetailsEntry.labelDocument.name} className="ml-2 text-primary hover:underline" title="İndir">
-                                             {getFileName(viewingDetailsEntry.labelDocument)} <Download className="inline h-3 w-3 ml-1" />
-                                        </a>
+                                         <span className="ml-2 text-muted-foreground">
+                                             {getFileName(viewingDetailsEntry.labelDocument)}
+                                             <Button variant="link" size="sm" className="h-auto p-0 ml-2" disabled>
+                                                 <Download className="inline h-3 w-3 mr-1" /> İndir (Yakında)
+                                             </Button>
+                                        </span>
                                     ) : ' Yok'}
                                 </li>
                                 <li>
                                     <strong className="font-medium">Tip Onay Belgesi:</strong>
                                     {viewingDetailsEntry.typeApprovalDocument ? (
-                                        <a href={getDownloadLink(viewingDetailsEntry.typeApprovalDocument)} download={viewingDetailsEntry.typeApprovalDocument.name} className="ml-2 text-primary hover:underline" title="İndir">
-                                            {getFileName(viewingDetailsEntry.typeApprovalDocument)} <Download className="inline h-3 w-3 ml-1" />
-                                        </a>
+                                         <span className="ml-2 text-muted-foreground">
+                                            {getFileName(viewingDetailsEntry.typeApprovalDocument)}
+                                             <Button variant="link" size="sm" className="h-auto p-0 ml-2" disabled>
+                                                 <Download className="inline h-3 w-3 mr-1" /> İndir (Yakında)
+                                             </Button>
+                                        </span>
                                     ) : ' Yok'}
                                 </li>
                                 <li>
@@ -467,9 +480,12 @@ export default function ArchivePage() {
                                         <ul className="list-disc list-inside ml-4">
                                             {viewingDetailsEntry.additionalPhotos.map((f, i) => (
                                                 <li key={i}>
-                                                    <a href={getDownloadLink(f)} download={f.name} className="ml-1 text-primary hover:underline" title="İndir">
-                                                        {f.name} <Download className="inline h-3 w-3 ml-1" />
-                                                    </a>
+                                                    <span className="ml-1 text-muted-foreground">
+                                                        {f.name}
+                                                        <Button variant="link" size="sm" className="h-auto p-0 ml-2" disabled>
+                                                            <Download className="inline h-3 w-3 mr-1" /> İndir (Yakında)
+                                                        </Button>
+                                                    </span>
                                                 </li>
                                             ))}
                                         </ul>
@@ -481,9 +497,12 @@ export default function ArchivePage() {
                                         <ul className="list-disc list-inside ml-4">
                                             {viewingDetailsEntry.additionalVideos.map((f, i) => (
                                                 <li key={i}>
-                                                    <a href={getDownloadLink(f)} download={f.name} className="ml-1 text-primary hover:underline" title="İndir">
-                                                        {f.name} <Download className="inline h-3 w-3 ml-1" />
-                                                    </a>
+                                                    <span className="ml-1 text-muted-foreground">
+                                                        {f.name}
+                                                         <Button variant="link" size="sm" className="h-auto p-0 ml-2" disabled>
+                                                             <Download className="inline h-3 w-3 mr-1" /> İndir (Yakında)
+                                                         </Button>
+                                                    </span>
                                                 </li>
                                             ))}
                                         </ul>
@@ -608,5 +627,3 @@ export default function ArchivePage() {
     </div>
   );
 }
-
-    
