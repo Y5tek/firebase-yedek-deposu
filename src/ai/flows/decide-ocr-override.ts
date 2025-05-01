@@ -96,12 +96,15 @@ const prompt = ai.definePrompt({
       }).describe('Decision on whether to override each field.'),
     }),
   },
-  prompt: `You are an AI assistant that helps decide whether to override existing data with new OCR data. For each field, consider the following:
+  prompt: `You are an AI assistant that helps decide whether to override existing data with new OCR data. For each field, consider the following general rules:
 
-*   If the current data is empty or obviously less complete/correct, you should override it with the OCR data.
-*   If the OCR data is more complete or accurate (e.g., longer, fewer typos, standard format for plate number like '34 ABC 123') than the current data, you should override it.
-*   If the OCR data is less complete, less accurate, or clearly wrong compared to the current data, you should not override it.
-*   If the OCR data and the current data are effectively the same (ignoring minor case/whitespace differences), you should not override it.
+*   **Prioritize Filling Empty Fields:** If the current data field is empty or null, and the OCR data field has a value, you should **always override** it.
+*   **Completeness/Accuracy:** If the OCR data is more complete or looks more accurate (e.g., longer, fewer typos, standard format like '34 ABC 123' for plate number) than the current data, you should override it.
+*   **Incorrect OCR:** If the OCR data is less complete, less accurate, or clearly wrong compared to the current data, you should not override it.
+*   **Same Data:** If the OCR data and the current data are effectively the same (ignoring minor case/whitespace differences), you should not override it.
+
+**Specific Instructions for 'owner':**
+*   If the current 'owner' field is empty and the OCR 'owner' has a name (e.g., "AHMET YILMAZ"), set 'override.owner' to true.
 
 Given the following OCR data and current data, decide whether to override each field. Return a JSON object indicating whether to override each field:
 
@@ -126,9 +129,10 @@ const decideOcrOverrideFlow = ai.defineFlow<
     } catch (error) {
         console.error("Error calling decideOcrOverridePrompt:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
-         if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable')) {
-             // Re-throw a specific error for service unavailability
-             throw new Error("AI Service Unavailable: The model is overloaded. Please try again later.");
+         if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable') || errorMessage.includes('500 Internal Server Error')) {
+             // Re-throw a specific error for service unavailability or internal server error
+             const errorType = errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : 'Sunucu Hatası';
+             throw new Error(`AI Service Unavailable: The model experienced an issue (${errorType}). Please try again later.`);
          }
          // Re-throw other errors
          throw new Error(`AI prompt error: ${errorMessage}`);
@@ -139,3 +143,4 @@ const decideOcrOverrideFlow = ai.defineFlow<
     }
   return output;
 });
+

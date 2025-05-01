@@ -135,6 +135,7 @@ export default function NewRecordStep1() {
       }
 
       const ocrData = ocrResult.ocrData;
+      console.log("OCR Data Extracted (owner):", ocrData.owner); // Log owner specifically
 
       // --- START: Handle Override Decision ---
       // Get current form values *at the time of scanning* for the decision
@@ -162,6 +163,7 @@ export default function NewRecordStep1() {
         currentData: currentDataForDecision
       });
       console.log("Override Decision (Step 1):", overrideDecision.override);
+      console.log("Override Decision for owner:", overrideDecision.override.owner); // Log owner decision
 
       if (!overrideDecision || !overrideDecision.override) {
            throw new Error("Geçersiz kılma kararı alınamadı.");
@@ -313,7 +315,11 @@ export default function NewRecordStep1() {
             if (!form.getValues('owner') && ocrDataFallback.owner) {
                  form.setValue('owner', ocrDataFallback.owner);
                  updates.owner = ocrDataFallback.owner;
-            } else { updates.owner = form.getValues('owner') || recordData.owner; }
+                 console.log("Fallback: Populating owner field with OCR data:", ocrDataFallback.owner);
+            } else {
+                updates.owner = form.getValues('owner') || recordData.owner;
+                 console.log("Fallback: Owner field not empty or no OCR owner data:", form.getValues('owner'), ocrDataFallback.owner);
+            }
 
              if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) {
                  form.setValue('plateNumber', ocrDataFallback.plateNumber);
@@ -717,5 +723,6 @@ export default function NewRecordStep1() {
     </div>
   );
 }
+
 
 

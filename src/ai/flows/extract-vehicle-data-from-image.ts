@@ -20,7 +20,7 @@ const OcrDataSchema = z.object({
     brand: z.string().optional().describe('The brand name (Markası) extracted from the document.'),
     type: z.string().optional().describe('The type of vehicle (Tipi) extracted from the document.'),
     tradeName: z.string().optional().describe('The trade name (Ticari Adı) extracted from the document.'),
-    owner: z.string().optional().describe('The owner\'s name (Sahibi) extracted from the document.'),
+    owner: z.string().optional().describe('The owner\'s full name (Adı, Soyadı) extracted from the document.'), // Updated description
     plateNumber: z.string().optional().describe('The license plate number (Plaka) extracted from the document.'), // Added plateNumber
     typeApprovalNumber: z.string().optional().describe('The type approval number (Tip Onay No / AT Uygunluk Belge No) extracted from the document.'),
     typeAndVariant: z.string().optional().describe('The type and variant information (Tip ve Varyant) extracted from the document.'),
@@ -59,7 +59,7 @@ const extractDataPrompt = ai.definePrompt({
 *   Brand (Markası)
 *   Type (Tipi)
 *   Trade Name (Ticari Adı)
-*   Owner (Sahibi) - Usually only on registration documents
+*   Owner (Adı, Soyadı) - **Extract the full name from the "Adı, Soyadı" field**. Usually only on registration documents. Example: "AHMET YILMAZ"
 *   Type Approval Number (Tip Onay No / AT Uygunluk Belge No) - Usually on labels or newer documents
 *   Type and Variant (Tip ve Varyant) - Usually on labels or newer documents
 
@@ -91,14 +91,16 @@ const extractVehicleDataFlow = ai.defineFlow<
     try {
         // Call the AI prompt with the image data URI and destructure the output
         const { output } = await extractDataPrompt(input);
-        extractedData = output; // Output directly matches OcrDataSchema
+        // Correctly access the structured output from the Genkit 1.x response
+        extractedData = output;
 
     } catch (error) {
         console.error("Error calling extractDataPrompt:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
-         if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable')) {
-             // Re-throw a specific error for service unavailability
-             throw new Error("AI Service Unavailable: The model is overloaded. Please try again later.");
+         if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable') || errorMessage.includes('500 Internal Server Error')) {
+            // Re-throw a specific error for service unavailability or internal server error
+            const errorType = errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : 'Sunucu Hatası';
+            throw new Error(`AI Service Unavailable: The model experienced an issue (${errorType}). Please try again later.`);
          }
          // Re-throw other errors
          throw new Error(`AI prompt error: ${errorMessage}`);
@@ -116,3 +118,4 @@ const extractVehicleDataFlow = ai.defineFlow<
     };
   }
 );
+
