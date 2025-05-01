@@ -132,10 +132,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                               <Link href="/new-record/step-4"><FileSignature className="mr-2 h-3 w-3"/>Adım 4: Seri Tadilat</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
+                       <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/new-record/step-5')}>
-                               {/* Adım 5: İş Emri - matches title: İş Emri */}
-                              <Link href="/new-record/step-5"><ClipboardList className="mr-2 h-3 w-3"/>Adım 5: İş Emri</Link>
+                               {/* Adım 5: Teklif */}
+                              <Link href="/new-record/step-5"><ClipboardList className="mr-2 h-3 w-3"/>Adım 5: Teklif</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                        <SidebarMenuSubItem>
@@ -164,15 +164,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <span>Arşiv</span>
                   </Link>
                 </SidebarMenuButton>
-                {/* Sub-menu for Archive Section */}
+                {/* Sub-menu for Archive Section - Removed */}
+                {/*
                 <SidebarMenuSub>
                     <SidebarMenuSubItem>
                       <SidebarMenuSubButton asChild isActive={isActive('/tip-onay-listesi')}>
                             <Link href="/tip-onay-listesi"><ListChecks className="mr-2 h-3 w-3"/>Tip Onay Listesi</Link>
                         </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
-                    {/* Add more sub-items under Archive if needed */}
                 </SidebarMenuSub>
+                */}
+              </SidebarMenuItem>
+               {/* Moved Tip Onay Listesi to top level */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/tip-onay-listesi', true)}
+                  tooltip="Tip Onay Listesi"
+                >
+                    <Link href="/tip-onay-listesi">
+                        <ListChecks />
+                        <span>Tip Onay Listesi</span>
+                    </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
