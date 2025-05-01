@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import Image from 'next/image'; // Import Image component
-import { useAppState, OfferItem } from '@/hooks/use-app-state'; // Import OfferItem
+import { useAppState, OfferItem, RecordData } from '@/hooks/use-app-state'; // Import OfferItem and RecordData
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -26,77 +26,30 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 // Update ArchiveEntry to include all fields from RecordData + metadata
-interface ArchiveEntry {
-  branch: string;
-  // Step 1 & 2
-  chassisNumber?: string;
-  brand?: string;
-  type?: string;
-  tradeName?: string;
-  owner?: string;
-  typeApprovalNumber?: string;
-  typeAndVariant?: string;
-  plateNumber?: string; // Added plateNumber
-  // Step 3 (File Info)
-  registrationDocument?: { name: string; type?: string; size?: number };
-  labelDocument?: { name: string; type?: string; size?: number };
-  additionalPhotos?: { name: string; type?: string; size?: number }[];
-  additionalVideos?: { name: string; type?: string; size?: number }[];
-  // Step 4 Form (Seri Tadilat Uygunluk)
-  customerName?: string;
-  formDate?: string; // ISO String
-  sequenceNo?: string;
-  q1_suitable?: 'olumlu' | 'olumsuz';
-  q2_typeApprovalMatch?: 'olumlu' | 'olumsuz';
-  q3_scopeExpansion?: 'olumlu' | 'olumsuz';
-  q4_unaffectedPartsDefect?: 'olumlu' | 'olumsuz';
-  notes?: string; // Step 4 notes
-  controllerName?: string;
-  authorityName?: string;
-  // Step 5 Form (İş Emri)
-  projectName?: string;
-  workOrderNumber?: string;
-  plate?: string; // Duplicate plate?
-  workOrderDate?: string; // ISO String
-  completionDate?: string; // ISO String
-  detailsOfWork?: string;
-  sparePartsUsed?: string;
-  pricing?: string;
-  vehicleAcceptanceSignature?: string; // Signature placeholder/name
-  customerSignature?: string; // Signature placeholder/name
-  projectNo?: string; // Added from İş Emri
-
-  // Step 6 Form (Teklif)
-  offerAuthorizedName?: string;
-  offerCompanyName?: string;
-  offerCompanyAddress?: string;
-  offerTaxOfficeAndNumber?: string;
-  offerPhoneNumber?: string;
-  offerEmailAddress?: string;
-  offerDate?: string; // ISO String
-  offerItems?: OfferItem[];
-  offerAcceptance?: 'accepted' | 'rejected';
-  // Metadata
+// Use RecordData as base and add archive-specific metadata
+type ArchiveEntry = Omit<RecordData, 'archive'> & { // Exclude the 'archive' field itself from the entry
   archivedAt: string; // ISO string format
   fileName: string;
-
-   // Keep legacy fields if they exist in older archive data
-   additionalNotes?: string;
-   inspectionDate?: string;
-   inspectorName?: string;
+  // Files are stored as { name: string; type?: string; size?: number } after serialization
+  registrationDocument?: { name: string; type?: string; size?: number };
+  labelDocument?: { name: string; type?: string; size?: number };
+  typeApprovalDocument?: { name: string; type?: string; size?: number };
+  additionalPhotos?: { name: string; type?: string; size?: number }[];
+  additionalVideos?: { name: string; type?: string; size?: number }[];
 }
 
 export default function ArchivePage() {
   const { recordData, updateRecordData } = useAppState();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [editingEntry, setEditingEntry] = React.useState<ArchiveEntry | null>(null); // State for editing
+  const [editingEntry, setEditingEntry] = React.useState<ArchiveEntry | null>(null); // State for viewing details
 
   // Use recordData.archive or default to empty array
   const archive: ArchiveEntry[] = recordData.archive || [];
 
   const filteredArchive = archive.filter((entry: ArchiveEntry) => {
     const lowerSearchTerm = searchTerm.toLowerCase();
+    // Ensure fields exist before calling toLowerCase()
     return (
       entry.fileName?.toLowerCase().includes(lowerSearchTerm) ||
       entry.chassisNumber?.toLowerCase().includes(lowerSearchTerm) ||
@@ -105,8 +58,8 @@ export default function ArchivePage() {
       entry.branch?.toLowerCase().includes(lowerSearchTerm) ||
       entry.customerName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 4 customer
       entry.offerCompanyName?.toLowerCase().includes(lowerSearchTerm) || // Search Step 6 company
-      entry.plateNumber?.toLowerCase().includes(lowerSearchTerm) || // Search plateNumber (more common)
-      entry.plate?.toLowerCase().includes(lowerSearchTerm) // Search plate (from iş emri)
+      entry.plateNumber?.toLowerCase().includes(lowerSearchTerm) || // Search plateNumber (Step 1)
+      entry.plate?.toLowerCase().includes(lowerSearchTerm) // Search plate (Step 5 iş emri)
     );
   });
 
@@ -119,7 +72,7 @@ export default function ArchivePage() {
          }
         const date = parseISO(entry.archivedAt);
         const year = getYear(date);
-        const month = getMonth(date); // 0-indexed month
+        // const month = getMonth(date); // 0-indexed month (unused)
         const monthName = format(date, 'LLLL', { locale: tr }); // Full month name in Turkish
         const key = `${year}-${monthName}`;
 
@@ -186,15 +139,8 @@ export default function ArchivePage() {
      });
   };
 
-   const handleEdit = (entry: ArchiveEntry) => {
-       setEditingEntry(entry); // Set the entry to be edited
-        toast({
-            title: "Detay Görüntüleme", // Changed title
-            description: `${entry.fileName} için detaylar gösteriliyor. Düzenleme özelliği henüz aktif değil.`,
-            variant: "default" // Use default variant
-        });
-       // Future: Navigate to a pre-filled form
-       // router.push(`/edit-record/${encodeURIComponent(entry.fileName)}`);
+   const handleViewDetails = (entry: ArchiveEntry) => {
+       setEditingEntry(entry); // Set the entry to be viewed
    };
 
    // Helper to get file name (since we store info)
@@ -206,8 +152,17 @@ export default function ArchivePage() {
    const formatDateSafe = (dateString: string | undefined, formatStr: string = 'dd MMMM yyyy HH:mm'): string => {
        if (!dateString) return '-';
        try {
+           // Ensure the date string is valid ISO format before parsing
+           if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(dateString)) {
+              const parsedDate = new Date(dateString);
+              if (isNaN(parsedDate.getTime())) {
+                   return 'Geçersiz Tarih';
+              }
+              return format(parsedDate, formatStr, { locale: tr });
+           }
            return format(parseISO(dateString), formatStr, { locale: tr });
        } catch (error) {
+           console.error("Date formatting error:", error, "Input:", dateString);
            return 'Geçersiz Tarih';
        }
    };
@@ -219,6 +174,14 @@ export default function ArchivePage() {
        return <span className="text-muted-foreground">-</span>;
    };
 
+    // Helper to display boolean checklist status (from Step 6)
+   const renderBooleanChecklistStatus = (status: boolean | undefined) => {
+       if (status === true) return <Check className="h-4 w-4 text-green-600" />;
+       if (status === false) return <X className="h-4 w-4 text-red-600" />; // Assuming false means olumsuz
+       return <span className="text-muted-foreground">-</span>;
+   };
+
+
    // Helper to display Offer Acceptance status
     const renderOfferAcceptanceStatus = (status: 'accepted' | 'rejected' | undefined) => {
         if (status === 'accepted') return <span className="text-green-600 font-medium">Kabul Edildi</span>;
@@ -227,9 +190,11 @@ export default function ArchivePage() {
     };
 
    // Helper to format currency
-    const formatCurrency = (value: number | undefined): string => {
-        if (value === undefined || value === null) return '-';
-        return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value);
+    const formatCurrency = (value: number | undefined | string | null): string => {
+         if (value === undefined || value === null || value === '') return '-';
+         const numValue = typeof value === 'string' ? parseFloat(value) : value;
+         if (isNaN(numValue)) return '-';
+        return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(numValue);
     };
 
 
@@ -303,6 +268,12 @@ export default function ArchivePage() {
                                         <span className="text-xs hidden sm:inline">Etiket</span>
                                         </div>
                                     )}
+                                     {entry.typeApprovalDocument && ( // Display Type Approval Doc presence
+                                        <div title={`Tip Onay: ${getFileName(entry.typeApprovalDocument)}`} className="flex items-center gap-1 text-indigo-600">
+                                            <FileText className="h-4 w-4" />
+                                            <span className="text-xs hidden sm:inline">Tip Onay</span>
+                                        </div>
+                                     )}
                                     {entry.additionalPhotos && entry.additionalPhotos.length > 0 && (
                                         <div title={`${entry.additionalPhotos.length} Ek Fotoğraf`} className="flex items-center gap-1 text-purple-600">
                                             <Camera className="h-4 w-4" />
@@ -319,7 +290,7 @@ export default function ArchivePage() {
                                 </TableCell>
 
                                 <TableCell className="text-right space-x-1">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Detayları Gör">
+                                    <Button variant="ghost" size="icon" onClick={() => handleViewDetails(entry)} title="Detayları Gör">
                                         <Info className="h-4 w-4" /> {/* Changed to Info icon */}
                                     </Button>
                                     <AlertDialog>
@@ -361,11 +332,11 @@ export default function ArchivePage() {
       {/* View Details Modal */}
        {editingEntry && (
            <AlertDialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
-               <AlertDialogContent className="max-w-4xl"> {/* Increased width further */}
+               <AlertDialogContent className="max-w-4xl"> {/* Increased width */}
                    <AlertDialogHeader>
                        <AlertDialogTitle>Kayıt Detayları: {editingEntry.fileName}</AlertDialogTitle>
                        <AlertDialogDescription>
-                           Bu kaydın arşivlenmiş tüm verilerini aşağıda görebilirsiniz. Düzenleme özelliği henüz aktif değildir.
+                           Bu kaydın arşivlenmiş tüm verilerini aşağıda görebilirsiniz.
                        </AlertDialogDescription>
                    </AlertDialogHeader>
                     {/* Display Archived Data - Using details for sections */}
@@ -374,15 +345,17 @@ export default function ArchivePage() {
                          <details className="border rounded p-2" open>
                             <summary className="cursor-pointer font-medium">Araç Temel Bilgileri (Adım 1-2)</summary>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2">
-                                <p><strong className="font-medium">Şube:</strong> {editingEntry.branch}</p>
+                                <p><strong className="font-medium">Şube:</strong> {editingEntry.branch || '-'}</p>
                                 <p><strong className="font-medium">Şasi No:</strong> {editingEntry.chassisNumber || '-'}</p>
-                                <p><strong className="font-medium">Plaka:</strong> {editingEntry.plateNumber || editingEntry.plate || '-'}</p>
+                                <p><strong className="font-medium">Plaka (Ruhsat):</strong> {editingEntry.plateNumber || '-'}</p>
                                 <p><strong className="font-medium">Marka:</strong> {editingEntry.brand || '-'}</p>
                                 <p><strong className="font-medium">Tip:</strong> {editingEntry.type || '-'}</p>
                                 <p><strong className="font-medium">Ticari Adı:</strong> {editingEntry.tradeName || '-'}</p>
-                                <p><strong className="font-medium">Sahip:</strong> {editingEntry.owner || '-'}</p>
+                                <p><strong className="font-medium">Sahip (Adı Soyadı):</strong> {editingEntry.owner || '-'}</p>
                                 <p><strong className="font-medium">Tip Onay No:</strong> {editingEntry.typeApprovalNumber || '-'}</p>
-                                <p><strong className="font-medium">Tip/Varyant:</strong> {editingEntry.typeAndVariant || '-'}</p>
+                                <p><strong className="font-medium">Varyant:</strong> {editingEntry.typeAndVariant || '-'}</p>
+                                <p><strong className="font-medium">Versiyon:</strong> {editingEntry.versiyon || '-'}</p>
+                                <p><strong className="font-medium">Motor No:</strong> {editingEntry.engineNumber || '-'}</p>
                             </div>
                          </details>
 
@@ -392,8 +365,9 @@ export default function ArchivePage() {
                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
                                <p><strong className="font-medium">Ruhsat:</strong> {getFileName(editingEntry.registrationDocument)}</p>
                                <p><strong className="font-medium">Etiket:</strong> {getFileName(editingEntry.labelDocument)}</p>
-                               <p><strong className="font-medium">Ek Fotoğraflar ({editingEntry.additionalPhotos?.length || 0}):</strong> {editingEntry.additionalPhotos?.map(f => f.name).join(', ') || 'Yok'}</p>
-                               <p><strong className="font-medium">Ek Videolar ({editingEntry.additionalVideos?.length || 0}):</strong> {editingEntry.additionalVideos?.map(f => f.name).join(', ') || 'Yok'}</p>
+                               <p><strong className="font-medium">Tip Onay Belgesi:</strong> {getFileName(editingEntry.typeApprovalDocument)}</p>
+                               <p className="col-span-2"><strong className="font-medium">Ek Fotoğraflar ({editingEntry.additionalPhotos?.length || 0}):</strong> {editingEntry.additionalPhotos?.map(f => f.name).join(', ') || 'Yok'}</p>
+                               <p className="col-span-2"><strong className="font-medium">Ek Videolar ({editingEntry.additionalVideos?.length || 0}):</strong> {editingEntry.additionalVideos?.map(f => f.name).join(', ') || 'Yok'}</p>
                            </div>
                         </details>
 
@@ -404,10 +378,10 @@ export default function ArchivePage() {
                               <p><strong className="font-medium">Müşteri Adı:</strong> {editingEntry.customerName || '-'}</p>
                               <p><strong className="font-medium">Form Tarihi:</strong> {formatDateSafe(editingEntry.formDate, 'dd.MM.yyyy')}</p>
                               <p><strong className="font-medium">Sıra No:</strong> {editingEntry.sequenceNo || '-'}</p>
-                              <p><strong className="font-medium">Tadilat Uygun mu?:</strong> {renderChecklistStatus(editingEntry.q1_suitable)}</p>
-                              <p><strong className="font-medium">Tip Onay Uygun mu?:</strong> {renderChecklistStatus(editingEntry.q2_typeApprovalMatch)}</p>
-                              <p><strong className="font-medium">Kapsam Gen. Uygun mu?:</strong> {renderChecklistStatus(editingEntry.q3_scopeExpansion)}</p>
-                              <p><strong className="font-medium">Diğer Kusur Var mı?:</strong> {renderChecklistStatus(editingEntry.q4_unaffectedPartsDefect)}</p>
+                              <p><strong className="font-medium">1. Tadilat Uygun mu?:</strong> {renderChecklistStatus(editingEntry.q1_suitable)}</p>
+                              <p><strong className="font-medium">2. Tip Onay Tutuyor mu?:</strong> {renderChecklistStatus(editingEntry.q2_typeApprovalMatch)}</p>
+                              <p><strong className="font-medium">3. Kapsam Gen. Uygun mu?:</strong> {renderChecklistStatus(editingEntry.q3_scopeExpansion)}</p>
+                              <p><strong className="font-medium">4. Diğer Kusur Var mı?:</strong> {renderChecklistStatus(editingEntry.q4_unaffectedPartsDefect)}</p>
                               <p className="col-span-2"><strong className="font-medium">Kontrol Eden:</strong> {editingEntry.controllerName || '-'}</p>
                               <p className="col-span-2"><strong className="font-medium">Yetkili:</strong> {editingEntry.authorityName || '-'}</p>
                               <p className="col-span-2"><strong className="font-medium">Notlar:</strong> {editingEntry.notes || '-'}</p>
@@ -420,6 +394,8 @@ export default function ArchivePage() {
                              <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
                                  <p><strong className="font-medium">Proje Adı:</strong> {editingEntry.projectName || '-'}</p>
                                  <p><strong className="font-medium">İş Emri No:</strong> {editingEntry.workOrderNumber || '-'}</p>
+                                  <p><strong className="font-medium">Proje No:</strong> {editingEntry.projectNo || '-'}</p>
+                                  <p><strong className="font-medium">Plaka (İş Emri):</strong> {editingEntry.plate || '-'}</p>
                                  <p><strong className="font-medium">İş Emri Tarihi:</strong> {formatDateSafe(editingEntry.workOrderDate, 'dd.MM.yyyy')}</p>
                                  <p><strong className="font-medium">İşin Bitiş Tarihi:</strong> {formatDateSafe(editingEntry.completionDate, 'dd.MM.yyyy')}</p>
                                  <p className="col-span-2"><strong className="font-medium">Yapılacak İşler:</strong> {editingEntry.detailsOfWork || '-'}</p>
@@ -472,6 +448,22 @@ export default function ArchivePage() {
                               )}
                          </details>
 
+                        {/* Ara ve Son Kontrol Formu Data */}
+                         <details className="border rounded p-2">
+                             <summary className="cursor-pointer font-medium">Ara ve Son Kontrol Formu (Adım 7)</summary>
+                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
+                                 <p><strong className="font-medium">Son Kontrol Tarihi:</strong> {formatDateSafe(editingEntry.finalCheckDate, 'dd.MM.yyyy')}</p>
+                                 <p><strong className="font-medium">Kontrol Eden:</strong> {editingEntry.finalControllerName || '-'}</p>
+                                 <p><strong className="font-medium">1. Açıkta Aksam (Ara):</strong> {renderBooleanChecklistStatus(editingEntry.check1_exposedParts_ara)}</p>
+                                 <p><strong className="font-medium">1. Açıkta Aksam (Son):</strong> {renderBooleanChecklistStatus(editingEntry.check1_exposedParts_son)}</p>
+                                 <p><strong className="font-medium">2. Isofix/Koltuk Bağl. (Ara):</strong> {renderBooleanChecklistStatus(editingEntry.check2_isofixSeat_ara)}</p>
+                                 <p><strong className="font-medium">2. Isofix/Koltuk Bağl. (Son):</strong> {renderBooleanChecklistStatus(editingEntry.check2_isofixSeat_son)}</p>
+                                 <p><strong className="font-medium">3. Emniyet Kemeri (Ara):</strong> {renderBooleanChecklistStatus(editingEntry.check3_seatBelts_ara)}</p>
+                                 <p><strong className="font-medium">3. Emniyet Kemeri (Son):</strong> {renderBooleanChecklistStatus(editingEntry.check3_seatBelts_son)}</p>
+                                 <p><strong className="font-medium">4. Cam Onayları (Ara):</strong> {renderBooleanChecklistStatus(editingEntry.check4_windowApprovals_ara)}</p>
+                                 <p><strong className="font-medium">4. Cam Onayları (Son):</strong> {renderBooleanChecklistStatus(editingEntry.check4_windowApprovals_son)}</p>
+                             </div>
+                         </details>
 
                         {/* Metadata */}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-2 mt-2">

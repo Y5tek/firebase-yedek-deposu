@@ -20,7 +20,7 @@ export interface RecordData {
   type?: string;
   tradeName?: string;
   owner?: string;
-  // plateNumber?: string; // Removed plateNumber
+  plateNumber?: string; // Plate from Step 1 (Ruhsat)
   typeApprovalNumber?: string; // Added Tip Onay No
   typeAndVariant?: string; // Likely holds "VARYANT"
   versiyon?: string; // Added VERSİYON field
@@ -47,7 +47,7 @@ export interface RecordData {
 
   // Step 5 Form Fields (İş Emri Formu)
   projectName?: string; // Relevant for "PROJE ADI"
-  plate?: string; // Plate from İş Emri Form (Kept this one)
+  plate?: string; // Plate from İş Emri Form
   workOrderNumber?: string; // Relevant for "SIRA NO" if different from sequenceNo
   workOrderDate?: string; // ISO String (Could be "TARİH")
   completionDate?: string; // ISO String
@@ -58,24 +58,7 @@ export interface RecordData {
   customerSignature?: string; // Placeholder
   projectNo?: string; // Explicit field for "PROJE NO"
 
-  // Step 6 Form Fields (Ara ve Son Kontrol Formu)
-  finalCheckDate?: string; // ISO String (Could be "TARİH")
-  check1_exposedParts_ara?: boolean;
-  check1_exposedParts_son?: boolean;
-  check2_isofixSeat_ara?: boolean;
-  check2_isofixSeat_son?: boolean;
-  check3_seatBelts_ara?: boolean;
-  check3_seatBelts_son?: boolean;
-  check4_windowApprovals_ara?: boolean;
-  check4_windowApprovals_son?: boolean;
-  finalControllerName?: string; // KONTROL EDEN Adı-Soyadı for Step 6
-
-  // Step 7 Summary Form Specific Fields (if not covered above)
-  typeApprovalType?: string; // Added for "TİP ONAY"
-  typeApprovalLevel?: string; // Added for "tip onay seviye"
-  typeApprovalVersion?: string; // Added for "VERSİYON" (This might duplicate 'versiyon' above, decide which one to keep)
-
-  // Offer Form Fields (Conceptually after Step 7 - Keeping for data structure completeness)
+  // Step 6 Form Fields (Teklif Formu - Offer Form)
   offerAuthorizedName?: string;
   offerCompanyName?: string;
   offerCompanyAddress?: string;
@@ -86,8 +69,25 @@ export interface RecordData {
   offerItems?: OfferItem[];
   offerAcceptance?: 'accepted' | 'rejected';
 
+  // Step 7 Form Fields (Ara ve Son Kontrol Formu)
+  finalCheckDate?: string; // ISO String (Could be "TARİH")
+  check1_exposedParts_ara?: boolean;
+  check1_exposedParts_son?: boolean;
+  check2_isofixSeat_ara?: boolean;
+  check2_isofixSeat_son?: boolean;
+  check3_seatBelts_ara?: boolean;
+  check3_seatBelts_son?: boolean;
+  check4_windowApprovals_ara?: boolean;
+  check4_windowApprovals_son?: boolean;
+  finalControllerName?: string; // KONTROL EDEN Adı-Soyadı for Step 7
+
+  // Step 8 Summary Form Specific Fields (if not covered above)
+  typeApprovalType?: string; // Added for "TİP ONAY"
+  typeApprovalLevel?: string; // Added for "tip onay seviye"
+  typeApprovalVersion?: string; // Added for "VERSİYON" (This might duplicate 'versiyon' above, decide which one to keep)
+
   // Archive specific fields (added during final submission)
-  archive?: any[]; // To store completed records temporarily (replace with DB)
+  archive?: any[]; // To store completed records temporarily (replace with DB later)
   archivedAt?: string; // Added when archiving
   fileName?: string; // Added when archiving
 
@@ -123,8 +123,15 @@ const initialRecordData: RecordData = {
     q3_scopeExpansion: 'olumlu',
     q4_unaffectedPartsDefect: 'olumlu',
     // Step 5 Defaults (İş Emri)
-    // No specific defaults for İş Emri yet, add if needed
-    // Step 6 Defaults (Ara ve Son Kontrol)
+    workOrderNumber: '3', // Default İş Emri No
+    // Step 6 Defaults (Teklif)
+    offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK', // Prefill from image
+    offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97', // Prefill from image
+    offerItems: [
+      { ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }, // Start with one empty item row
+    ],
+    offerAcceptance: 'accepted', // Default acceptance
+    // Step 7 Defaults (Ara ve Son Kontrol)
     check1_exposedParts_ara: true,
     check1_exposedParts_son: true,
     check2_isofixSeat_ara: true,
@@ -133,22 +140,15 @@ const initialRecordData: RecordData = {
     check3_seatBelts_son: true,
     check4_windowApprovals_ara: true,
     check4_windowApprovals_son: true,
-    // Step 7 Defaults
-    // No specific defaults for Step 7 yet, add if needed
-    // Offer Form Defaults (If kept)
-    offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK', // Prefill from image
-    offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97', // Prefill from image
-    offerItems: [
-      { ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }, // Start with one empty item row
-    ],
-    offerAcceptance: 'accepted', // Default acceptance
     // General Defaults
     archive: [], // Initialize archive array
     additionalPhotos: [], // Initialize photos array
     additionalVideos: [], // Initialize videos array
-    // plateNumber: '', // Removed plateNumber initialization
     engineNumber: '', // Initialize engineNumber
     versiyon: '', // Initialize versiyon
+    plateNumber: '', // Initialize plateNumber (from Ruhsat)
+    plate: '', // Initialize plate (from İş Emri)
+
 };
 
 
@@ -173,7 +173,7 @@ export const useAppState = create<AppState>()(
                  type: undefined,
                  tradeName: undefined,
                  owner: undefined,
-                 // plateNumber: undefined, // Removed plateNumber reset
+                 plateNumber: undefined, // Reset plateNumber (Ruhsat)
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
                  versiyon: undefined, // Reset versiyon
@@ -187,8 +187,8 @@ export const useAppState = create<AppState>()(
                  controllerName: undefined,
                  authorityName: undefined,
                  projectName: undefined,
-                 plate: undefined, // Reset plate from İş Emri
-                 workOrderNumber: undefined,
+                 plate: undefined, // Reset plate (İş Emri)
+                 workOrderNumber: undefined, // Reset İş Emri No
                  workOrderDate: undefined,
                  completionDate: undefined,
                  detailsOfWork: undefined,
@@ -197,24 +197,8 @@ export const useAppState = create<AppState>()(
                  vehicleAcceptanceSignature: undefined,
                  customerSignature: undefined,
                  projectNo: undefined,
-                 finalCheckDate: undefined,
-                 // Keep Step 6 defaults from initialRecordData
-                 // check1_exposedParts_ara: undefined,
-                 // check1_exposedParts_son: undefined,
-                 // check2_isofixSeat_ara: undefined,
-                 // check2_isofixSeat_son: undefined,
-                 // check3_seatBelts_ara: undefined,
-                 // check3_seatBelts_son: undefined,
-                 // check4_windowApprovals_ara: undefined,
-                 // check4_windowApprovals_son: undefined,
-                 finalControllerName: undefined,
-                 typeApprovalType: undefined,
-                 typeApprovalLevel: undefined,
-                 typeApprovalVersion: undefined,
                  offerAuthorizedName: undefined,
-                 offerCompanyName: undefined, // Will be reset by initialRecordData spread
                  offerCompanyAddress: undefined,
-                 offerTaxOfficeAndNumber: undefined, // Will be reset by initialRecordData spread
                  offerPhoneNumber: undefined,
                  offerEmailAddress: undefined,
                  offerDate: undefined,
@@ -222,6 +206,12 @@ export const useAppState = create<AppState>()(
                  offerItems: [ // Reset offer items
                       {...defaultOfferItem, id: Math.random().toString(36).substring(2, 15)}
                   ],
+                 finalCheckDate: undefined,
+                 finalControllerName: undefined,
+                 typeApprovalType: undefined,
+                 typeApprovalLevel: undefined,
+                 typeApprovalVersion: undefined,
+
                  // Reset old fields
                  additionalNotes: undefined,
                  inspectionDate: undefined,
@@ -301,7 +291,7 @@ export const useAppState = create<AppState>()(
                  type: undefined,
                  tradeName: undefined,
                  owner: undefined,
-                 // plateNumber: undefined, // Removed plateNumber reset
+                 plateNumber: undefined, // Reset plateNumber (Ruhsat)
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
                  versiyon: undefined, // Reset versiyon
@@ -315,8 +305,8 @@ export const useAppState = create<AppState>()(
                  controllerName: undefined,
                  authorityName: undefined,
                  projectName: undefined,
-                 plate: undefined, // Reset plate from İş Emri
-                 workOrderNumber: undefined,
+                 plate: undefined, // Reset plate (İş Emri)
+                 workOrderNumber: undefined, // Reset İş Emri No
                  workOrderDate: undefined,
                  completionDate: undefined,
                  detailsOfWork: undefined,
@@ -325,24 +315,8 @@ export const useAppState = create<AppState>()(
                  vehicleAcceptanceSignature: undefined,
                  customerSignature: undefined,
                  projectNo: undefined,
-                 finalCheckDate: undefined,
-                 // Keep Step 6 defaults from initialRecordData
-                 // check1_exposedParts_ara: undefined,
-                 // check1_exposedParts_son: undefined,
-                 // check2_isofixSeat_ara: undefined,
-                 // check2_isofixSeat_son: undefined,
-                 // check3_seatBelts_ara: undefined,
-                 // check3_seatBelts_son: undefined,
-                 // check4_windowApprovals_ara: undefined,
-                 // check4_windowApprovals_son: undefined,
-                 finalControllerName: undefined,
-                 typeApprovalType: undefined,
-                 typeApprovalLevel: undefined,
-                 typeApprovalVersion: undefined,
                  offerAuthorizedName: undefined,
-                 offerCompanyName: undefined, // Will be reset by initialRecordData spread
                  offerCompanyAddress: undefined,
-                 offerTaxOfficeAndNumber: undefined, // Will be reset by initialRecordData spread
                  offerPhoneNumber: undefined,
                  offerEmailAddress: undefined,
                  offerDate: undefined,
@@ -350,6 +324,12 @@ export const useAppState = create<AppState>()(
                  offerItems: [ // Reset offer items
                       {...defaultOfferItem, id: Math.random().toString(36).substring(2, 15)}
                   ],
+                 finalCheckDate: undefined,
+                 finalControllerName: undefined,
+                 typeApprovalType: undefined,
+                 typeApprovalLevel: undefined,
+                 typeApprovalVersion: undefined,
+
                  // Reset old fields
                  additionalNotes: undefined,
                  inspectionDate: undefined,
@@ -370,7 +350,7 @@ export const useAppState = create<AppState>()(
                  type: state.recordData.type,
                  tradeName: state.recordData.tradeName,
                  owner: state.recordData.owner,
-                 // plateNumber: state.recordData.plateNumber, // Removed plateNumber persistence
+                 plateNumber: state.recordData.plateNumber, // Persist Ruhsat plate
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
                  versiyon: state.recordData.versiyon, // Persist versiyon
@@ -399,7 +379,18 @@ export const useAppState = create<AppState>()(
                  customerSignature: state.recordData.customerSignature,
                  projectNo: state.recordData.projectNo,
 
-                  // Persist Step 6 Fields (Ara ve Son Kontrol Formu)
+                 // Persist Step 6 Fields (Teklif Formu)
+                 offerAuthorizedName: state.recordData.offerAuthorizedName,
+                 offerCompanyName: state.recordData.offerCompanyName,
+                 offerCompanyAddress: state.recordData.offerCompanyAddress,
+                 offerTaxOfficeAndNumber: state.recordData.offerTaxOfficeAndNumber,
+                 offerPhoneNumber: state.recordData.offerPhoneNumber,
+                 offerEmailAddress: state.recordData.offerEmailAddress,
+                 offerDate: state.recordData.offerDate,
+                 offerItems: state.recordData.offerItems,
+                 offerAcceptance: state.recordData.offerAcceptance,
+
+                  // Persist Step 7 Fields (Ara ve Son Kontrol Formu)
                   finalCheckDate: state.recordData.finalCheckDate,
                   check1_exposedParts_ara: state.recordData.check1_exposedParts_ara,
                   check1_exposedParts_son: state.recordData.check1_exposedParts_son,
@@ -411,21 +402,11 @@ export const useAppState = create<AppState>()(
                   check4_windowApprovals_son: state.recordData.check4_windowApprovals_son,
                   finalControllerName: state.recordData.finalControllerName,
 
-                 // Persist Step 7 Summary fields
+                 // Persist Step 8 Summary fields
                  typeApprovalType: state.recordData.typeApprovalType,
                  typeApprovalLevel: state.recordData.typeApprovalLevel,
                  typeApprovalVersion: state.recordData.typeApprovalVersion, // Persist this one too (if different from versiyon)
 
-                 // Persist Offer Form Fields (if still required)
-                 offerAuthorizedName: state.recordData.offerAuthorizedName,
-                 offerCompanyName: state.recordData.offerCompanyName,
-                 offerCompanyAddress: state.recordData.offerCompanyAddress,
-                 offerTaxOfficeAndNumber: state.recordData.offerTaxOfficeAndNumber,
-                 offerPhoneNumber: state.recordData.offerPhoneNumber,
-                 offerEmailAddress: state.recordData.offerEmailAddress,
-                 offerDate: state.recordData.offerDate,
-                 offerItems: state.recordData.offerItems,
-                 offerAcceptance: state.recordData.offerAcceptance,
 
                  // Persist legacy fields
                  additionalNotes: state.recordData.additionalNotes,
@@ -474,7 +455,8 @@ export const useAppState = create<AppState>()(
              mergedRecordData.additionalPhotos = mergedRecordData.additionalPhotos || [];
              mergedRecordData.additionalVideos = mergedRecordData.additionalVideos || [];
              mergedRecordData.offerItems = mergedRecordData.offerItems || [{ ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }];
-             // mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Removed plateNumber initialization check
+             mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Ensure plateNumber is initialized
+             mergedRecordData.plate = mergedRecordData.plate || ''; // Ensure plate (İş Emri) is initialized
              mergedRecordData.engineNumber = mergedRecordData.engineNumber || ''; // Ensure engineNumber is initialized
              mergedRecordData.versiyon = mergedRecordData.versiyon || ''; // Ensure versiyon is initialized
 

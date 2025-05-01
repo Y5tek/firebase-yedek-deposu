@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useAppState } from '@/hooks/use-app-state';
+import { useAppState, RecordData } from '@/hooks/use-app-state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -96,7 +96,7 @@ export default function NewRecordStep7() {
         };
 
         console.log("Attempting to find match with criteria:", criteria);
-        console.log("Full Type Approval List:", typeApprovalList);
+        // console.log("Full Type Approval List:", typeApprovalList); // Can be verbose, uncomment if needed
 
         // Filter the list based on the defined criteria
         const matchedRecords = typeApprovalList.filter(record => {
@@ -123,7 +123,7 @@ export default function NewRecordStep7() {
                  isMatch = false;
              }
 
-             if (isMatch) console.log("Potential match found:", record);
+             // if (isMatch) console.log("Potential match found:", record); // Can be verbose
 
             return isMatch;
         });
@@ -151,7 +151,7 @@ export default function NewRecordStep7() {
             console.warn("Multiple matching Type Approval Numbers found. Cannot auto-populate.");
             message = `Birden fazla (${matchedRecords.length}) eşleşen Tip Onay Numarası bulundu. Otomatik doldurma yapılamadı. Lütfen kriterleri daraltın veya manuel giriş yapın.`; // Updated message
             variant = "destructive";
-             // numberToSet remains '' which will clear the field
+             numberToSet = ''; // Clear the field if multiple matches
         } else {
              console.log("No unique matching Type Approval Number found starting with AİTM based on criteria.");
              message = "Belirtilen kriterlere uyan ve 'AİTM' ile başlayan Tip Onay Numarası bulunamadı."; // Updated message
@@ -186,26 +186,7 @@ export default function NewRecordStep7() {
        toast
    ]);
 
-
-
-   // Effect to potentially auto-populate on load (optional, can be removed if button is the only trigger)
-   // React.useEffect(() => {
-   //     // Only attempt auto-fill if the list is loaded and typeApprovalNumber is currently empty
-   //     if (!isLoadingApprovals && typeApprovalList.length > 0 && !form.getValues('typeApprovalNumber')) {
-   //         console.log("Attempting auto-fill on load...");
-   //         findAndSetTypeApprovalNumber();
-   //     }
-   // // eslint-disable-next-line react-hooks/exhaustive-deps
-   // }, [
-   //     typeApprovalList, // Trigger when list loads
-   //     isLoadingApprovals,
-   //     // Include findAndSetTypeApprovalNumber or its own deps if needed, but carefully
-   //     findAndSetTypeApprovalNumber,
-   //     form // Need form instance to check current value
-   // ]);
-
-
-  // Format dates safely
+   // Format dates safely
    const formatDateSafe = (dateString: string | undefined, formatStr: string = 'dd.MM.yyyy'): string => {
        if (!dateString) return '-';
        try {
@@ -227,14 +208,11 @@ export default function NewRecordStep7() {
   // Helper to get document URL or handle missing/invalid data
   // TODO: Replace with actual Firebase URL retrieval logic
   const getTypeApprovalDocumentUrl = (): string | null => {
-      // This function currently generates a placeholder URL.
-      // In a real application, you would fetch the URL associated with the
-      // selected recordData.typeApprovalNumber from Firestore or another source.
-      // For now, it links based on the *current* document attached in state, if any.
+      // Placeholder: Link based on the *current* document attached in state, if any.
+      // Replace with logic to fetch URL based on the selected typeApprovalNumber.
       const docInfo = getSerializableFileInfo(recordData.typeApprovalDocument);
        if (docInfo) {
            console.warn("Placeholder URL generation for Type Approval Document.");
-           // Using a generic placeholder that looks like a Firebase URL structure
             return `https://firebasestorage.googleapis.com/v0/b/placeholder-bucket.appspot.com/o/documents%2F${encodeURIComponent(docInfo.name)}?alt=media`;
        }
       return null; // Return null if no document info found
@@ -242,71 +220,98 @@ export default function NewRecordStep7() {
 
   const typeApprovalDocumentUrl = getTypeApprovalDocumentUrl();
 
-  const onSubmit = async (data: FormData) => { // Use form data
-    setIsLoading(true);
+  // --- onSubmit Function ---
+   const onSubmit = async (data: FormData) => { // Use form data from this page
+       setIsLoading(true);
+       console.log("Starting archive process...");
 
-    try {
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate saving
+       try {
+           // 1. Get the most current recordData from state
+           const currentState = useAppState.getState().recordData;
 
-        // Update the recordData state with the edited values from the form
-        // AND ensure all other recordData fields are preserved
-        const currentState = useAppState.getState().recordData;
-        updateRecordData({
-            ...currentState, // Start with current state
-            // Overwrite with submitted form data
-            sequenceNo: data.sequenceNo,
-            projectName: data.projectName,
-            typeApprovalType: data.typeApprovalType,
-            typeApprovalLevel: data.typeApprovalLevel,
-            typeApprovalVersion: data.typeApprovalVersion,
-            typeApprovalNumber: data.typeApprovalNumber, // Get latest value from form
-            engineNumber: data.engineNumber,
-            detailsOfWork: data.detailsOfWork,
-            projectNo: data.projectNo,
-        });
+            // 2. Create the final data object, merging form data from this step
+            const finalRecordData: RecordData = {
+                ...currentState, // Start with current state
+                // Overwrite with potentially edited fields from this summary form
+                sequenceNo: data.sequenceNo,
+                projectName: data.projectName,
+                typeApprovalType: data.typeApprovalType,
+                typeApprovalLevel: data.typeApprovalLevel,
+                typeApprovalVersion: data.typeApprovalVersion,
+                typeApprovalNumber: data.typeApprovalNumber, // Get latest value from form
+                engineNumber: data.engineNumber,
+                detailsOfWork: data.detailsOfWork,
+                projectNo: data.projectNo,
+            };
 
-         // Access the *updated* state after the updateRecordData call
-         const finalRecordData = useAppState.getState().recordData;
+            // 3. Construct the archive entry
+            const archiveEntry = {
+                // Include all relevant fields from the finalRecordData
+                ...finalRecordData,
+                // Explicitly include branch
+                branch: branch,
+                // Add metadata
+                archivedAt: new Date().toISOString(),
+                fileName: `${branch || 'NO-BRANCH'}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}-${new Date().getTime()}`, // Unique filename
+                // Ensure file info is serializable (important!)
+                registrationDocument: getSerializableFileInfo(finalRecordData.registrationDocument),
+                labelDocument: getSerializableFileInfo(finalRecordData.labelDocument),
+                typeApprovalDocument: getSerializableFileInfo(finalRecordData.typeApprovalDocument),
+                additionalPhotos: finalRecordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
+                additionalVideos: finalRecordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
+                // Remove the archive array itself from the entry being archived
+                archive: undefined,
+            };
 
-        // Construct the archive entry using the final state
-        const archiveEntry = {
-            ...finalRecordData,
-            // Ensure file info is serializable
-            registrationDocument: getSerializableFileInfo(finalRecordData.registrationDocument),
-            labelDocument: getSerializableFileInfo(finalRecordData.labelDocument),
-            typeApprovalDocument: getSerializableFileInfo(finalRecordData.typeApprovalDocument),
-            additionalPhotos: finalRecordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-            additionalVideos: finalRecordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-            // Add metadata
-            branch: branch, // Ensure branch is included
-            archivedAt: new Date().toISOString(),
-            fileName: `${branch || 'NO-BRANCH'}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}-${new Date().getTime()}` // Added timestamp for uniqueness
-        };
-
-        console.log("Archiving final entry:", archiveEntry);
-
-        // Update the archive in the state
-        const currentArchive = useAppState.getState().recordData.archive || [];
-        updateRecordData({ archive: [...currentArchive, archiveEntry] });
+            // Remove the 'archive' property before saving if it exists
+            delete (archiveEntry as any).archive;
 
 
-        toast({
-          title: 'Kayıt Tamamlandı ve Arşivlendi',
-          description: 'Tüm bilgiler başarıyla kaydedildi ve arşive eklendi.',
-        });
-        resetRecordData(); // Reset form data after successful archive
-        router.push('/archive'); // Redirect to the archive page
-    } catch (error) {
-         console.error("Archiving error:", error);
-         toast({
-             title: 'Arşivleme Hatası',
-             description: 'Kayıt arşivlenirken bir hata oluştu. Lütfen tekrar deneyin.',
-             variant: 'destructive',
-         });
-    } finally {
-       setIsLoading(false);
-    }
-  };
+            console.log("Archiving final entry:", archiveEntry);
+
+           // 4. Update the archive in the Zustand state
+           const currentArchive = useAppState.getState().recordData.archive || [];
+            updateRecordData({
+                 // Persist the updated editable fields from this step back to the main state
+                 // (though they will be reset shortly, this ensures consistency if needed before reset)
+                 sequenceNo: data.sequenceNo,
+                 projectName: data.projectName,
+                 typeApprovalType: data.typeApprovalType,
+                 typeApprovalLevel: data.typeApprovalLevel,
+                 typeApprovalVersion: data.typeApprovalVersion,
+                 typeApprovalNumber: data.typeApprovalNumber,
+                 engineNumber: data.engineNumber,
+                 detailsOfWork: data.detailsOfWork,
+                 projectNo: data.projectNo,
+                 // Add the new entry to the archive array
+                 archive: [...currentArchive, archiveEntry]
+             });
+
+
+           toast({
+             title: 'Kayıt Tamamlandı ve Arşivlendi',
+             description: 'Tüm bilgiler başarıyla kaydedildi ve arşive eklendi.',
+           });
+
+            // 5. Reset the form data for a new record
+            console.log("Resetting record data...");
+           resetRecordData(); // Reset form data after successful archive
+
+            // 6. Redirect to the archive page
+            console.log("Navigating to archive page...");
+           router.push('/archive');
+
+       } catch (error) {
+            console.error("Archiving error:", error);
+            toast({
+                title: 'Arşivleme Hatası',
+                description: 'Kayıt arşivlenirken bir hata oluştu. Lütfen tekrar deneyin.',
+                variant: 'destructive',
+            });
+            setIsLoading(false); // Ensure loading is stopped on error
+       }
+       // Do not set isLoading to false here if navigation happens successfully
+   };
 
   const goBack = () => {
      // Save current form data to state before going back
@@ -345,7 +350,7 @@ export default function NewRecordStep7() {
     }
    // Only run when branch or chassis number changes, or on mount
    // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [branch, recordData.chassisNumber, router, toast]); // Removed form and most recordData deps
+   }, [branch, recordData.chassisNumber, router, toast, recordData]); // Added recordData dependency to re-sync on any change
 
 
   if (!branch || !recordData.chassisNumber) {
@@ -595,4 +600,3 @@ export default function NewRecordStep7() {
     </div>
   );
 }
-
