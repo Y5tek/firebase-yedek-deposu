@@ -3,13 +3,14 @@
 
 import * as React from 'react';
 import Image from 'next/image'; // Import Image component
-import { useAppState, OfferItem, RecordData } from '@/hooks/use-app-state'; // Import OfferItem and RecordData
+import { useRouter } from 'next/navigation'; // Import useRouter
+import { useAppState, OfferItem, RecordData, ArchiveEntry } from '@/hooks/use-app-state'; // Import OfferItem, RecordData, ArchiveEntry
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X, Info } from 'lucide-react'; // Added Check, X, Info icons
+import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X, Info, Download } from 'lucide-react'; // Added Check, X, Info, Download icons
 import { format, parseISO, getMonth, getYear } from 'date-fns';
 import { tr } from 'date-fns/locale'; // Import Turkish locale
 import {
@@ -26,27 +27,16 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { getSerializableFileInfo } from '@/lib/utils'; // Import helper
 
-// Update ArchiveEntry to include all fields from RecordData + metadata
-// Use RecordData as base and add archive-specific metadata
-type ArchiveEntry = Omit<RecordData, 'archive'> & { // Exclude the 'archive' field itself from the entry
-  archivedAt: string; // ISO string format
-  fileName: string;
-  // Files are stored as { name: string; type?: string; size?: number } after serialization
-  registrationDocument?: { name: string; type?: string; size?: number };
-  labelDocument?: { name: string; type?: string; size?: number };
-  typeApprovalDocument?: { name: string; type?: string; size?: number };
-  additionalPhotos?: { name: string; type?: string; size?: number }[];
-  additionalVideos?: { name: string; type?: string; size?: number }[];
-}
+// ArchiveEntry type is now imported from use-app-state
 
 export default function ArchivePage() {
   const { recordData, updateRecordData } = useAppState();
   const { toast } = useToast();
+  const router = useRouter(); // Initialize router
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [editingEntry, setEditingEntry] = React.useState<ArchiveEntry | null>(null); // State for viewing details
+  const [viewingDetailsEntry, setViewingDetailsEntry] = React.useState<ArchiveEntry | null>(null); // State for viewing details
 
   // Use recordData.archive or default to empty array
-  // Add console log to check the initial state
   React.useEffect(() => {
     console.log('ArchivePage: Initial recordData from state:', recordData);
     console.log('ArchivePage: Archive data:', recordData?.archive);
@@ -185,8 +175,36 @@ export default function ArchivePage() {
   };
 
    const handleViewDetails = (entry: ArchiveEntry) => {
-       setEditingEntry(entry); // Set the entry to be viewed
+       setViewingDetailsEntry(entry); // Set the entry to be viewed
    };
+
+   const handleEdit = (entry: ArchiveEntry) => {
+        // 1. Find the entry in the current archive (optional, but good practice)
+        const entryToEdit = (recordData.archive || []).find((e: ArchiveEntry) => e.fileName === entry.fileName);
+        if (!entryToEdit) {
+            toast({ title: "Hata", description: "Düzenlenecek kayıt bulunamadı.", variant: "destructive" });
+            return;
+        }
+
+        // 2. Set the global state with the data of the entry being edited
+        //    We need to reconstruct the state as it was before archiving (handling File objects)
+        //    For now, we'll load the serialized data. A more complex solution would involve fetching original Files if stored elsewhere.
+        console.log("Loading entry for editing:", entryToEdit);
+        updateRecordData({
+            ...(entryToEdit as RecordData), // Load all fields from the archive entry
+            // Explicitly set the files to their stored info format
+            registrationDocument: entryToEdit.registrationDocument,
+            labelDocument: entryToEdit.labelDocument,
+            typeApprovalDocument: entryToEdit.typeApprovalDocument,
+            additionalPhotos: entryToEdit.additionalPhotos,
+            additionalVideos: entryToEdit.additionalVideos,
+            archive: recordData.archive, // IMPORTANT: Keep the existing archive array in the state
+        }, { editingId: entry.fileName }); // Pass the ID being edited
+
+        // 3. Navigate to the first step of the form
+        router.push('/new-record/step-1');
+    };
+
 
    // Helper to get file name (since we store info)
    const getFileName = (fileInfo: { name: string } | undefined): string => {
@@ -240,6 +258,15 @@ export default function ArchivePage() {
          const numValue = typeof value === 'string' ? parseFloat(value) : value;
          if (isNaN(numValue)) return '-';
         return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(numValue);
+    };
+
+    // Placeholder function to generate a "download link" (replace with actual logic)
+    const getDownloadLink = (fileInfo: { name: string; type?: string; size?: number } | undefined): string | null => {
+        if (!fileInfo) return null;
+        // In a real app, this would generate a signed URL or link to a file server
+        console.warn("Placeholder download link generated for:", fileInfo.name);
+        // Simulate a link - this won't actually download the file from localStorage persistence
+        return `#download-${encodeURIComponent(fileInfo.name)}`;
     };
 
 
@@ -339,6 +366,9 @@ export default function ArchivePage() {
                                     <Button variant="ghost" size="icon" onClick={() => handleViewDetails(entry)} title="Detayları Gör">
                                         <Info className="h-4 w-4" /> {/* Changed to Info icon */}
                                     </Button>
+                                     <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Düzenle">
+                                        <Pencil className="h-4 w-4 text-blue-600" /> {/* Edit Icon */}
+                                    </Button>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
                                             <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" title="Sil">
@@ -376,11 +406,11 @@ export default function ArchivePage() {
       </Card>
 
       {/* View Details Modal */}
-       {editingEntry && (
-           <AlertDialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
+       {viewingDetailsEntry && (
+           <AlertDialog open={!!viewingDetailsEntry} onOpenChange={() => setViewingDetailsEntry(null)}>
                <AlertDialogContent className="max-w-4xl"> {/* Increased width */}
                    <AlertDialogHeader>
-                       <AlertDialogTitle>Kayıt Detayları: {editingEntry.fileName}</AlertDialogTitle>
+                       <AlertDialogTitle>Kayıt Detayları: {viewingDetailsEntry.fileName}</AlertDialogTitle>
                        <AlertDialogDescription>
                            Bu kaydın arşivlenmiş tüm verilerini aşağıda görebilirsiniz.
                        </AlertDialogDescription>
@@ -391,82 +421,122 @@ export default function ArchivePage() {
                          <details className="border rounded p-2" open>
                             <summary className="cursor-pointer font-medium">Araç Temel Bilgileri (Adım 1-2)</summary>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2">
-                                <p><strong className="font-medium">Şube:</strong> {editingEntry.branch || '-'}</p>
-                                <p><strong className="font-medium">Şasi No:</strong> {editingEntry.chassisNumber || '-'}</p>
-                                <p><strong className="font-medium">Plaka (Ruhsat):</strong> {editingEntry.plateNumber || '-'}</p>
-                                <p><strong className="font-medium">Marka:</strong> {editingEntry.brand || '-'}</p>
-                                <p><strong className="font-medium">Tip:</strong> {editingEntry.type || '-'}</p>
-                                <p><strong className="font-medium">Ticari Adı:</strong> {editingEntry.tradeName || '-'}</p>
-                                <p><strong className="font-medium">Sahip (Adı Soyadı):</strong> {editingEntry.owner || '-'}</p>
-                                <p><strong className="font-medium">Tip Onay No:</strong> {editingEntry.typeApprovalNumber || '-'}</p>
-                                <p><strong className="font-medium">Varyant:</strong> {editingEntry.typeAndVariant || '-'}</p>
-                                <p><strong className="font-medium">Versiyon:</strong> {editingEntry.versiyon || '-'}</p>
-                                <p><strong className="font-medium">Motor No:</strong> {editingEntry.engineNumber || '-'}</p>
+                                <p><strong className="font-medium">Şube:</strong> {viewingDetailsEntry.branch || '-'}</p>
+                                <p><strong className="font-medium">Şasi No:</strong> {viewingDetailsEntry.chassisNumber || '-'}</p>
+                                <p><strong className="font-medium">Plaka (Ruhsat):</strong> {viewingDetailsEntry.plateNumber || '-'}</p>
+                                <p><strong className="font-medium">Marka:</strong> {viewingDetailsEntry.brand || '-'}</p>
+                                <p><strong className="font-medium">Tip:</strong> {viewingDetailsEntry.type || '-'}</p>
+                                <p><strong className="font-medium">Ticari Adı:</strong> {viewingDetailsEntry.tradeName || '-'}</p>
+                                <p><strong className="font-medium">Sahip (Adı Soyadı):</strong> {viewingDetailsEntry.owner || '-'}</p>
+                                <p><strong className="font-medium">Tip Onay No:</strong> {viewingDetailsEntry.typeApprovalNumber || '-'}</p>
+                                <p><strong className="font-medium">Varyant:</strong> {viewingDetailsEntry.typeAndVariant || '-'}</p>
+                                <p><strong className="font-medium">Versiyon:</strong> {viewingDetailsEntry.versiyon || '-'}</p>
+                                <p><strong className="font-medium">Motor No:</strong> {viewingDetailsEntry.engineNumber || '-'}</p>
                             </div>
                          </details>
 
                           {/* File Info */}
                         <details className="border rounded p-2">
                            <summary className="cursor-pointer font-medium">Yüklenen Dosyalar (Adım 3)</summary>
-                           <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                               <p><strong className="font-medium">Ruhsat:</strong> {getFileName(editingEntry.registrationDocument)}</p>
-                               <p><strong className="font-medium">Etiket:</strong> {getFileName(editingEntry.labelDocument)}</p>
-                               <p><strong className="font-medium">Tip Onay Belgesi:</strong> {getFileName(editingEntry.typeApprovalDocument)}</p>
-                               <p className="col-span-2"><strong className="font-medium">Ek Fotoğraflar ({editingEntry.additionalPhotos?.length || 0}):</strong> {editingEntry.additionalPhotos?.map(f => f.name).join(', ') || 'Yok'}</p>
-                               <p className="col-span-2"><strong className="font-medium">Ek Videolar ({editingEntry.additionalVideos?.length || 0}):</strong> {editingEntry.additionalVideos?.map(f => f.name).join(', ') || 'Yok'}</p>
-                           </div>
+                           <ul className="list-none space-y-1 pt-2">
+                                <li>
+                                    <strong className="font-medium">Ruhsat:</strong>
+                                    {viewingDetailsEntry.registrationDocument ? (
+                                        <a href={getDownloadLink(viewingDetailsEntry.registrationDocument)} download={viewingDetailsEntry.registrationDocument.name} className="ml-2 text-primary hover:underline" title="İndir">
+                                             {getFileName(viewingDetailsEntry.registrationDocument)} <Download className="inline h-3 w-3 ml-1" />
+                                        </a>
+                                    ) : ' Yok'}
+                                </li>
+                                <li>
+                                    <strong className="font-medium">Etiket:</strong>
+                                    {viewingDetailsEntry.labelDocument ? (
+                                         <a href={getDownloadLink(viewingDetailsEntry.labelDocument)} download={viewingDetailsEntry.labelDocument.name} className="ml-2 text-primary hover:underline" title="İndir">
+                                             {getFileName(viewingDetailsEntry.labelDocument)} <Download className="inline h-3 w-3 ml-1" />
+                                        </a>
+                                    ) : ' Yok'}
+                                </li>
+                                <li>
+                                    <strong className="font-medium">Tip Onay Belgesi:</strong>
+                                    {viewingDetailsEntry.typeApprovalDocument ? (
+                                        <a href={getDownloadLink(viewingDetailsEntry.typeApprovalDocument)} download={viewingDetailsEntry.typeApprovalDocument.name} className="ml-2 text-primary hover:underline" title="İndir">
+                                            {getFileName(viewingDetailsEntry.typeApprovalDocument)} <Download className="inline h-3 w-3 ml-1" />
+                                        </a>
+                                    ) : ' Yok'}
+                                </li>
+                                <li>
+                                    <strong className="font-medium">Ek Fotoğraflar ({viewingDetailsEntry.additionalPhotos?.length || 0}):</strong>
+                                    {viewingDetailsEntry.additionalPhotos && viewingDetailsEntry.additionalPhotos.length > 0 ? (
+                                        <ul className="list-disc list-inside ml-4">
+                                            {viewingDetailsEntry.additionalPhotos.map((f, i) => (
+                                                <li key={i}>
+                                                    <a href={getDownloadLink(f)} download={f.name} className="ml-1 text-primary hover:underline" title="İndir">
+                                                        {f.name} <Download className="inline h-3 w-3 ml-1" />
+                                                    </a>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : ' Yok'}
+                                </li>
+                                <li>
+                                    <strong className="font-medium">Ek Videolar ({viewingDetailsEntry.additionalVideos?.length || 0}):</strong>
+                                    {viewingDetailsEntry.additionalVideos && viewingDetailsEntry.additionalVideos.length > 0 ? (
+                                        <ul className="list-disc list-inside ml-4">
+                                            {viewingDetailsEntry.additionalVideos.map((f, i) => (
+                                                <li key={i}>
+                                                    <a href={getDownloadLink(f)} download={f.name} className="ml-1 text-primary hover:underline" title="İndir">
+                                                        {f.name} <Download className="inline h-3 w-3 ml-1" />
+                                                    </a>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : ' Yok'}
+                                </li>
+                           </ul>
                         </details>
+
 
                          {/* Seri Tadilat Uygunluk Form Data */}
                          <details className="border rounded p-2">
                            <summary className="cursor-pointer font-medium">Seri Tadilat Uygunluk Formu (Adım 4)</summary>
                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                              <p><strong className="font-medium">Müşteri Adı:</strong> {editingEntry.customerName || '-'}</p>
-                              <p><strong className="font-medium">Form Tarihi:</strong> {formatDateSafe(editingEntry.formDate, 'dd.MM.yyyy')}</p>
-                              <p><strong className="font-medium">Sıra No:</strong> {editingEntry.sequenceNo || '-'}</p>
-                              <p><strong className="font-medium">1. Tadilat Uygun mu?:</strong> {renderChecklistStatus(editingEntry.q1_suitable)}</p>
-                              <p><strong className="font-medium">2. Tip Onay Tutuyor mu?:</strong> {renderChecklistStatus(editingEntry.q2_typeApprovalMatch)}</p>
-                              <p><strong className="font-medium">3. Kapsam Gen. Uygun mu?:</strong> {renderChecklistStatus(editingEntry.q3_scopeExpansion)}</p>
-                              <p><strong className="font-medium">4. Diğer Kusur Var mı?:</strong> {renderChecklistStatus(editingEntry.q4_unaffectedPartsDefect)}</p>
-                              <p className="col-span-2"><strong className="font-medium">Kontrol Eden:</strong> {editingEntry.controllerName || '-'}</p>
-                              <p className="col-span-2"><strong className="font-medium">Yetkili:</strong> {editingEntry.authorityName || '-'}</p>
-                              <p className="col-span-2"><strong className="font-medium">Notlar:</strong> {editingEntry.notes || '-'}</p>
+                              <p><strong className="font-medium">Müşteri Adı:</strong> {viewingDetailsEntry.customerName || '-'}</p>
+                              <p><strong className="font-medium">Form Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.formDate, 'dd.MM.yyyy')}</p>
+                              <p><strong className="font-medium">Sıra No:</strong> {viewingDetailsEntry.sequenceNo || '-'}</p>
+                              <p><strong className="font-medium">1. Tadilat Uygun mu?:</strong> {renderChecklistStatus(viewingDetailsEntry.q1_suitable)}</p>
+                              <p><strong className="font-medium">2. Tip Onay Tutuyor mu?:</strong> {renderChecklistStatus(viewingDetailsEntry.q2_typeApprovalMatch)}</p>
+                              <p><strong className="font-medium">3. Kapsam Gen. Uygun mu?:</strong> {renderChecklistStatus(viewingDetailsEntry.q3_scopeExpansion)}</p>
+                              <p><strong className="font-medium">4. Diğer Kusur Var mı?:</strong> {renderChecklistStatus(viewingDetailsEntry.q4_unaffectedPartsDefect)}</p>
+                              <p className="col-span-2"><strong className="font-medium">Kontrol Eden:</strong> {viewingDetailsEntry.controllerName || '-'}</p>
+                              <p className="col-span-2"><strong className="font-medium">Yetkili:</strong> {viewingDetailsEntry.authorityName || '-'}</p>
+                              <p className="col-span-2"><strong className="font-medium">Notlar:</strong> {viewingDetailsEntry.notes || '-'}</p>
                            </div>
                         </details>
 
-                         {/* İş Emri Formu Data */}
-                         <details className="border rounded p-2">
-                             <summary className="cursor-pointer font-medium">İş Emri Formu (Adım 5)</summary>
-                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                                 <p><strong className="font-medium">Proje Adı:</strong> {editingEntry.projectName || '-'}</p>
-                                 <p><strong className="font-medium">İş Emri No:</strong> {editingEntry.workOrderNumber || '-'}</p>
-                                  <p><strong className="font-medium">Proje No:</strong> {editingEntry.projectNo || '-'}</p>
-                                  <p><strong className="font-medium">Plaka (İş Emri):</strong> {editingEntry.plate || '-'}</p>
-                                 <p><strong className="font-medium">İş Emri Tarihi:</strong> {formatDateSafe(editingEntry.workOrderDate, 'dd.MM.yyyy')}</p>
-                                 <p><strong className="font-medium">İşin Bitiş Tarihi:</strong> {formatDateSafe(editingEntry.completionDate, 'dd.MM.yyyy')}</p>
-                                 <p className="col-span-2"><strong className="font-medium">Yapılacak İşler:</strong> {editingEntry.detailsOfWork || '-'}</p>
-                                 <p className="col-span-2"><strong className="font-medium">Kullanılan Yedek Parçalar:</strong> {editingEntry.sparePartsUsed || '-'}</p>
-                                 <p className="col-span-2"><strong className="font-medium">Ücretlendirme:</strong> {editingEntry.pricing || '-'}</p>
-                                 <p><strong className="font-medium">Araç Kabul (İmza):</strong> {editingEntry.vehicleAcceptanceSignature || '-'}</p>
-                                 <p><strong className="font-medium">Müşteri (İmza):</strong> {editingEntry.customerSignature || '-'}</p>
-                             </div>
-                         </details>
-
                          {/* Teklif Formu Data */}
                          <details className="border rounded p-2">
-                            <summary className="cursor-pointer font-medium">Teklif Formu (Adım 6)</summary>
+                            <summary className="cursor-pointer font-medium">Teklif Formu (Adım 5)</summary>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                                <p><strong className="font-medium">Yetkili Adı:</strong> {editingEntry.offerAuthorizedName || '-'}</p>
-                                <p><strong className="font-medium">Firma Adı:</strong> {editingEntry.offerCompanyName || '-'}</p>
-                                <p className="col-span-2"><strong className="font-medium">Açık Adres:</strong> {editingEntry.offerCompanyAddress || '-'}</p>
-                                <p><strong className="font-medium">Vergi D./No:</strong> {editingEntry.offerTaxOfficeAndNumber || '-'}</p>
-                                <p><strong className="font-medium">Telefon:</strong> {editingEntry.offerPhoneNumber || '-'}</p>
-                                <p><strong className="font-medium">E-posta:</strong> {editingEntry.offerEmailAddress || '-'}</p>
-                                <p><strong className="font-medium">Teklif Tarihi:</strong> {formatDateSafe(editingEntry.offerDate, 'dd.MM.yyyy')}</p>
-                                <p className="col-span-2"><strong className="font-medium">Teklif Durumu:</strong> {renderOfferAcceptanceStatus(editingEntry.offerAcceptance)}</p>
+                                <p><strong className="font-medium">Yetkili Adı:</strong> {viewingDetailsEntry.offerAuthorizedName || '-'}</p>
+                                <p><strong className="font-medium">Firma Adı:</strong> {viewingDetailsEntry.offerCompanyName || '-'}</p>
+                                <p className="col-span-2"><strong className="font-medium">Açık Adres:</strong> {viewingDetailsEntry.offerCompanyAddress || '-'}</p>
+                                <p><strong className="font-medium">Vergi D./No:</strong> {viewingDetailsEntry.offerTaxOfficeAndNumber || '-'}</p>
+                                <p><strong className="font-medium">Telefon:</strong> {viewingDetailsEntry.offerPhoneNumber || '-'}</p>
+                                <p><strong className="font-medium">E-posta:</strong> {viewingDetailsEntry.offerEmailAddress || '-'}</p>
+                                <p><strong className="font-medium">Teklif Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.offerDate, 'dd.MM.yyyy')}</p>
+                                <p><strong className="font-medium">İş Emri No:</strong> {viewingDetailsEntry.workOrderNumber || '-'}</p>
+                                <p><strong className="font-medium">Proje No:</strong> {viewingDetailsEntry.projectNo || '-'}</p>
+                                <p><strong className="font-medium">Plaka (Teklif):</strong> {viewingDetailsEntry.plate || '-'}</p>
+                                <p><strong className="font-medium">İş Emri Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.workOrderDate, 'dd.MM.yyyy')}</p>
+                                <p><strong className="font-medium">İşin Bitiş Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.completionDate, 'dd.MM.yyyy')}</p>
+                                <p className="col-span-2"><strong className="font-medium">Yapılacak İşler:</strong> {viewingDetailsEntry.detailsOfWork || '-'}</p>
+                                <p className="col-span-2"><strong className="font-medium">Yedek Parçalar:</strong> {viewingDetailsEntry.sparePartsUsed || '-'}</p>
+                                <p className="col-span-2"><strong className="font-medium">Ücretlendirme:</strong> {viewingDetailsEntry.pricing || '-'}</p>
+                                <p><strong className="font-medium">Araç Kabul (İmza):</strong> {viewingDetailsEntry.vehicleAcceptanceSignature || '-'}</p>
+                                <p><strong className="font-medium">Müşteri (İmza):</strong> {viewingDetailsEntry.customerSignature || '-'}</p>
+                                <p className="col-span-2"><strong className="font-medium">Teklif Durumu:</strong> {renderOfferAcceptanceStatus(viewingDetailsEntry.offerAcceptance)}</p>
                             </div>
                              {/* Offer Items Table */}
-                              {editingEntry.offerItems && editingEntry.offerItems.length > 0 && (
+                              {viewingDetailsEntry.offerItems && viewingDetailsEntry.offerItems.length > 0 && (
                                 <div className="mt-4 overflow-x-auto">
                                     <Table className="bg-background">
                                         <TableHeader>
@@ -479,7 +549,7 @@ export default function ArchivePage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {editingEntry.offerItems.map((item, index) => (
+                                            {viewingDetailsEntry.offerItems.map((item, index) => (
                                                 <TableRow key={item.id || index}>
                                                     <TableCell>{index + 1}</TableCell>
                                                     <TableCell>{item.itemName || '-'}</TableCell>
@@ -496,42 +566,42 @@ export default function ArchivePage() {
 
                         {/* Ara ve Son Kontrol Formu Data */}
                          <details className="border rounded p-2">
-                             <summary className="cursor-pointer font-medium">Ara ve Son Kontrol Formu (Adım 7)</summary>
+                             <summary className="cursor-pointer font-medium">Ara ve Son Kontrol Formu (Adım 6)</summary>
                              <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                                 <p><strong className="font-medium">Son Kontrol Tarihi:</strong> {formatDateSafe(editingEntry.finalCheckDate, 'dd.MM.yyyy')}</p>
-                                 <p><strong className="font-medium">Kontrol Eden:</strong> {editingEntry.finalControllerName || '-'}</p>
-                                 <p><strong className="font-medium">1. Açıkta Aksam (Ara):</strong> {renderBooleanChecklistStatus(editingEntry.check1_exposedParts_ara)}</p>
-                                 <p><strong className="font-medium">1. Açıkta Aksam (Son):</strong> {renderBooleanChecklistStatus(editingEntry.check1_exposedParts_son)}</p>
-                                 <p><strong className="font-medium">2. Isofix/Koltuk Bağl. (Ara):</strong> {renderBooleanChecklistStatus(editingEntry.check2_isofixSeat_ara)}</p>
-                                 <p><strong className="font-medium">2. Isofix/Koltuk Bağl. (Son):</strong> {renderBooleanChecklistStatus(editingEntry.check2_isofixSeat_son)}</p>
-                                 <p><strong className="font-medium">3. Emniyet Kemeri (Ara):</strong> {renderBooleanChecklistStatus(editingEntry.check3_seatBelts_ara)}</p>
-                                 <p><strong className="font-medium">3. Emniyet Kemeri (Son):</strong> {renderBooleanChecklistStatus(editingEntry.check3_seatBelts_son)}</p>
-                                 <p><strong className="font-medium">4. Cam Onayları (Ara):</strong> {renderBooleanChecklistStatus(editingEntry.check4_windowApprovals_ara)}</p>
-                                 <p><strong className="font-medium">4. Cam Onayları (Son):</strong> {renderBooleanChecklistStatus(editingEntry.check4_windowApprovals_son)}</p>
+                                 <p><strong className="font-medium">Son Kontrol Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.finalCheckDate, 'dd.MM.yyyy')}</p>
+                                 <p><strong className="font-medium">Kontrol Eden:</strong> {viewingDetailsEntry.finalControllerName || '-'}</p>
+                                 <p><strong className="font-medium">1. Açıkta Aksam (Ara):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check1_exposedParts_ara)}</p>
+                                 <p><strong className="font-medium">1. Açıkta Aksam (Son):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check1_exposedParts_son)}</p>
+                                 <p><strong className="font-medium">2. Isofix/Koltuk Bağl. (Ara):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check2_isofixSeat_ara)}</p>
+                                 <p><strong className="font-medium">2. Isofix/Koltuk Bağl. (Son):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check2_isofixSeat_son)}</p>
+                                 <p><strong className="font-medium">3. Emniyet Kemeri (Ara):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check3_seatBelts_ara)}</p>
+                                 <p><strong className="font-medium">3. Emniyet Kemeri (Son):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check3_seatBelts_son)}</p>
+                                 <p><strong className="font-medium">4. Cam Onayları (Ara):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check4_windowApprovals_ara)}</p>
+                                 <p><strong className="font-medium">4. Cam Onayları (Son):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check4_windowApprovals_son)}</p>
                              </div>
                          </details>
 
                         {/* Metadata */}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-2 mt-2">
-                           <p><strong className="font-medium">Arşivlenme Tarihi:</strong> {formatDateSafe(editingEntry.archivedAt)}</p>
-                           <p><strong className="font-medium">Dosya Adı:</strong> {editingEntry.fileName}</p>
+                           <p><strong className="font-medium">Arşivlenme Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.archivedAt)}</p>
+                           <p><strong className="font-medium">Dosya Adı:</strong> {viewingDetailsEntry.fileName}</p>
                         </div>
 
                          {/* Optional: Display legacy fields if they exist */}
-                          {(editingEntry.additionalNotes || editingEntry.inspectionDate || editingEntry.inspectorName) && (
+                          {(viewingDetailsEntry.additionalNotes || viewingDetailsEntry.inspectionDate || viewingDetailsEntry.inspectorName) && (
                              <details className="border rounded p-2">
                                 <summary className="cursor-pointer font-medium text-muted-foreground">Eski Veriler (Opsiyonel)</summary>
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                                    {editingEntry.inspectionDate && <p><strong className="font-medium">Muayene Tarihi (Eski):</strong> {formatDateSafe(editingEntry.inspectionDate, 'dd.MM.yyyy')}</p>}
-                                    {editingEntry.inspectorName && <p><strong className="font-medium">Muayene Yapan (Eski):</strong> {editingEntry.inspectorName}</p>}
-                                    {editingEntry.additionalNotes && <p className="col-span-2"><strong className="font-medium">Ek Notlar (Eski):</strong> {editingEntry.additionalNotes}</p>}
+                                    {viewingDetailsEntry.inspectionDate && <p><strong className="font-medium">Muayene Tarihi (Eski):</strong> {formatDateSafe(viewingDetailsEntry.inspectionDate, 'dd.MM.yyyy')}</p>}
+                                    {viewingDetailsEntry.inspectorName && <p><strong className="font-medium">Muayene Yapan (Eski):</strong> {viewingDetailsEntry.inspectorName}</p>}
+                                    {viewingDetailsEntry.additionalNotes && <p className="col-span-2"><strong className="font-medium">Ek Notlar (Eski):</strong> {viewingDetailsEntry.additionalNotes}</p>}
                                 </div>
                             </details>
                           )}
 
                     </div>
                    <AlertDialogFooter>
-                       <AlertDialogCancel onClick={() => setEditingEntry(null)}>Kapat</AlertDialogCancel>
+                       <AlertDialogCancel onClick={() => setViewingDetailsEntry(null)}>Kapat</AlertDialogCancel>
                        {/* <AlertDialogAction disabled>Değişiklikleri Kaydet (Yakında)</AlertDialogAction> */}
                    </AlertDialogFooter>
                </AlertDialogContent>
@@ -540,3 +610,5 @@ export default function ArchivePage() {
     </div>
   );
 }
+
+    

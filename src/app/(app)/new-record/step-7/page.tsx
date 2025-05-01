@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useAppState, RecordData } from '@/hooks/use-app-state';
+import { useAppState, RecordData, ArchiveEntry } from '@/hooks/use-app-state'; // Import ArchiveEntry
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -41,7 +41,7 @@ type FormData = z.infer<typeof FormSchema>;
 export default function NewRecordStep7() {
   const router = useRouter();
   const { toast } = useToast();
-  const { branch, recordData, updateRecordData, resetRecordData } = useAppState();
+  const { branch, recordData, updateRecordData, resetRecordData, editingArchiveId } = useAppState(); // Get editingArchiveId
   const [isLoading, setIsLoading] = React.useState(false);
   const [isFindingApprovalNo, setIsFindingApprovalNo] = React.useState(false); // State for button loading
   const [progress] = React.useState(100); // Final Step
@@ -221,97 +221,112 @@ export default function NewRecordStep7() {
   const typeApprovalDocumentUrl = getTypeApprovalDocumentUrl();
 
   // --- onSubmit Function ---
-   const onSubmit = async (data: FormData) => { // Use form data from this page
-       setIsLoading(true);
-       console.log("Starting archive process...");
+  const onSubmit = async (data: FormData) => { // Use form data from this page
+    setIsLoading(true);
+    console.log("Starting archive process...");
 
-       try {
-           // 1. Get the most current recordData from state
-           const currentState = useAppState.getState().recordData;
+    try {
+      // 1. Get the most current recordData from state
+      const currentState = useAppState.getState().recordData;
 
-            // 2. Create the final data object, merging form data from this step
-            const finalRecordData: RecordData = {
-                ...currentState, // Start with current state
-                // Overwrite with potentially edited fields from this summary form
-                sequenceNo: data.sequenceNo,
-                projectName: data.projectName,
-                typeApprovalType: data.typeApprovalType,
-                typeApprovalLevel: data.typeApprovalLevel,
-                typeApprovalVersion: data.typeApprovalVersion,
-                typeApprovalNumber: data.typeApprovalNumber, // Get latest value from form
-                engineNumber: data.engineNumber,
-                detailsOfWork: data.detailsOfWork,
-                projectNo: data.projectNo,
-            };
+      // 2. Create the final data object, merging form data from this step
+      const finalRecordData: Omit<RecordData, 'archive'> = {
+        ...currentState, // Start with current state
+        // Overwrite with potentially edited fields from this summary form
+        sequenceNo: data.sequenceNo,
+        projectName: data.projectName,
+        typeApprovalType: data.typeApprovalType,
+        typeApprovalLevel: data.typeApprovalLevel,
+        typeApprovalVersion: data.typeApprovalVersion,
+        typeApprovalNumber: data.typeApprovalNumber, // Get latest value from form
+        engineNumber: data.engineNumber,
+        detailsOfWork: data.detailsOfWork,
+        projectNo: data.projectNo,
+      };
 
-            // 3. Construct the archive entry
-            const archiveEntry = {
-                // Include all relevant fields from the finalRecordData
-                ...finalRecordData,
-                // Explicitly include branch
-                branch: branch,
-                // Add metadata
-                archivedAt: new Date().toISOString(),
-                fileName: `${branch || 'NO-BRANCH'}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}-${new Date().getTime()}`, // Unique filename with fallback
-                // Ensure file info is serializable (important!)
-                registrationDocument: getSerializableFileInfo(finalRecordData.registrationDocument),
-                labelDocument: getSerializableFileInfo(finalRecordData.labelDocument),
-                typeApprovalDocument: getSerializableFileInfo(finalRecordData.typeApprovalDocument),
-                additionalPhotos: finalRecordData.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-                additionalVideos: finalRecordData.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
-                // Remove the archive array itself from the entry being archived
-                archive: undefined,
-            };
-
-            // Remove the 'archive' property before saving if it exists
-            delete (archiveEntry as any).archive;
+      // Remove the archive property from the object before constructing the entry
+      delete (finalRecordData as any).archive;
 
 
-            console.log("Archiving final entry:", archiveEntry);
-
-           // 4. Update the archive in the Zustand state
-           const currentArchive = useAppState.getState().recordData.archive || [];
-            updateRecordData({
-                 // Persist the updated editable fields from this step back to the main state
-                 // (though they will be reset shortly, this ensures consistency if needed before reset)
-                 sequenceNo: data.sequenceNo,
-                 projectName: data.projectName,
-                 typeApprovalType: data.typeApprovalType,
-                 typeApprovalLevel: data.typeApprovalLevel,
-                 typeApprovalVersion: data.typeApprovalVersion,
-                 typeApprovalNumber: data.typeApprovalNumber,
-                 engineNumber: data.engineNumber,
-                 detailsOfWork: data.detailsOfWork,
-                 projectNo: data.projectNo,
-                 // Add the new entry to the archive array
-                 archive: [...currentArchive, archiveEntry]
-             });
+      // 3. Construct the archive entry
+      const archiveEntry: ArchiveEntry = {
+        // Include all relevant fields from the finalRecordData
+        ...finalRecordData,
+        // Explicitly include branch
+        branch: branch,
+        // Add metadata
+        archivedAt: new Date().toISOString(),
+        // Use existing fileName if editing, otherwise generate a new one
+        fileName: editingArchiveId || `${branch || 'NO-BRANCH'}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}-${new Date().getTime()}`,
+        // Ensure file info is serializable (important!)
+        registrationDocument: getSerializableFileInfo(currentState.registrationDocument), // Use current state for Files
+        labelDocument: getSerializableFileInfo(currentState.labelDocument),
+        typeApprovalDocument: getSerializableFileInfo(currentState.typeApprovalDocument),
+        additionalPhotos: currentState.additionalPhotos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
+        additionalVideos: currentState.additionalVideos?.map(getSerializableFileInfo).filter(Boolean) as { name: string; type?: string; size?: number }[] | undefined,
+      };
 
 
-           toast({
-             title: 'Kayıt Tamamlandı ve Arşivlendi',
-             description: 'Tüm bilgiler başarıyla kaydedildi ve arşive eklendi.',
-           });
+      console.log("Archiving final entry:", archiveEntry);
 
-            // 5. Reset the form data for a new record
-            console.log("Resetting record data...");
-           resetRecordData(); // Reset form data after successful archive
+      // 4. Update the archive in the Zustand state
+      let updatedArchive: ArchiveEntry[];
+      const currentArchive = useAppState.getState().recordData.archive || [];
 
-            // 6. Redirect to the archive page
-            console.log("Navigating to archive page...");
-           router.push('/archive');
+      if (editingArchiveId) {
+        // If editing, replace the existing entry
+        updatedArchive = currentArchive.map(entry =>
+          entry.fileName === editingArchiveId ? archiveEntry : entry
+        );
+        console.log("Updating existing archive entry:", editingArchiveId);
+      } else {
+        // If creating new, add the new entry
+        updatedArchive = [...currentArchive, archiveEntry];
+        console.log("Adding new entry to archive.");
+      }
 
-       } catch (error) {
-            console.error("Archiving error:", error);
-            toast({
-                title: 'Arşivleme Hatası',
-                description: 'Kayıt arşivlenirken bir hata oluştu. Lütfen tekrar deneyin.',
-                variant: 'destructive',
-            });
-            setIsLoading(false); // Ensure loading is stopped on error
-       }
-       // Do not set isLoading to false here if navigation happens successfully
-   };
+      updateRecordData({
+        // Persist the updated editable fields from this step back to the main state
+        // (though they will be reset shortly, this ensures consistency if needed before reset)
+        sequenceNo: data.sequenceNo,
+        projectName: data.projectName,
+        typeApprovalType: data.typeApprovalType,
+        typeApprovalLevel: data.typeApprovalLevel,
+        typeApprovalVersion: data.typeApprovalVersion,
+        typeApprovalNumber: data.typeApprovalNumber,
+        engineNumber: data.engineNumber,
+        detailsOfWork: data.detailsOfWork,
+        projectNo: data.projectNo,
+        // Update the archive array
+        archive: updatedArchive
+      }, { editingId: null }); // Clear editing ID after saving
+
+
+      toast({
+        title: editingArchiveId ? 'Kayıt Güncellendi' : 'Kayıt Tamamlandı ve Arşivlendi',
+        description: editingArchiveId ? 'Değişiklikler başarıyla kaydedildi.' : 'Tüm bilgiler başarıyla kaydedildi ve arşive eklendi.',
+      });
+
+      // 5. Reset the form data for a new record
+      console.log("Resetting record data...");
+      resetRecordData(); // Reset form data after successful save/archive
+
+      // 6. Redirect to the archive page
+      console.log("Navigating to archive page...");
+      router.push('/archive');
+
+    } catch (error) {
+      console.error("Archiving/Saving error:", error);
+      toast({
+        title: 'Kaydetme Hatası',
+        description: 'Kayıt kaydedilirken/arşivlenirken bir hata oluştu. Lütfen tekrar deneyin.',
+        variant: 'destructive',
+      });
+      setIsLoading(false); // Ensure loading is stopped on error
+    }
+    // Do not set isLoading to false here if navigation happens successfully
+  };
+
 
   const goBack = () => {
      // Save current form data to state before going back
@@ -361,10 +376,10 @@ export default function NewRecordStep7() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
              <FileText className="text-primary" />
-            Kayıt Özeti ve Tamamlama
+             {editingArchiveId ? 'Kaydı Düzenle' : 'Kayıt Özeti ve Tamamlama'} {/* Dynamic Title */}
           </CardTitle>
           <CardDescription>
-            Lütfen tüm bilgileri kontrol edin ve kaydedin. Gerekirse alanları düzenleyebilirsiniz.
+             {editingArchiveId ? 'Lütfen bilgileri kontrol edin ve güncelleyin.' : 'Lütfen tüm bilgileri kontrol edin ve kaydedin. Gerekirse alanları düzenleyebilirsiniz.'}
             (Şube: {branch || 'Belirtilmedi'}, Şase: {recordData.chassisNumber || 'Belirtilmedi'})
           </CardDescription>
         </CardHeader>
@@ -584,10 +599,10 @@ export default function NewRecordStep7() {
                 <Button type="button" variant="outline" onClick={goBack} disabled={isLoading}>
                    <ArrowLeft className="mr-2 h-4 w-4"/> Geri
                 </Button>
-                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading || isLoadingApprovals || isFindingApprovalNo}>
+                 <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading || isLoadingApprovals || isFindingApprovalNo}>
                   {(isLoading || isFindingApprovalNo) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Kaydı Tamamla ve Arşivle
-                </Button>
+                  {editingArchiveId ? 'Değişiklikleri Kaydet' : 'Kaydı Tamamla ve Arşivle'} {/* Dynamic Button Text */}
+                 </Button>
               </div>
             </form>
           </Form>
