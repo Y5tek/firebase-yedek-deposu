@@ -230,7 +230,6 @@ export default function NewRecordStep7() {
            const currentState = useAppState.getState().recordData;
 
             // 2. Create the final data object, merging form data from this step
-            // We don't need validation here as per the request, archive even if data is missing.
             const finalRecordData: RecordData = {
                 ...currentState, // Start with current state
                 // Overwrite with potentially edited fields from this summary form
@@ -253,7 +252,7 @@ export default function NewRecordStep7() {
                 branch: branch,
                 // Add metadata
                 archivedAt: new Date().toISOString(),
-                fileName: `${branch || 'NO-BRANCH'}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}-${new Date().getTime()}`, // Unique filename
+                fileName: `${branch || 'NO-BRANCH'}/${finalRecordData.chassisNumber || 'NO-CHASSIS'}-${new Date().getTime()}`, // Unique filename with fallback
                 // Ensure file info is serializable (important!)
                 registrationDocument: getSerializableFileInfo(finalRecordData.registrationDocument),
                 labelDocument: getSerializableFileInfo(finalRecordData.labelDocument),
@@ -330,32 +329,26 @@ export default function NewRecordStep7() {
     router.push('/new-record/step-6');
   };
 
-   // Redirect if essential data is missing & sync form on load/data change
+   // Remove the check for missing branch or chassis number
    React.useEffect(() => {
-       // Remove the check for missing branch or chassisNumber
-       // if (!branch || !recordData.chassisNumber) {
-       //     toast({ title: "Eksik Bilgi", description: "Şube veya Şase numarası bulunamadı. Başlangıca yönlendiriliyor...", variant: "destructive" });
-       //     router.push('/select-branch');
-       // } else {
-           // Sync form with the latest recordData from state on initial load or when critical data changes
-            form.reset({
-               sequenceNo: recordData.sequenceNo || recordData.workOrderNumber || '',
-               projectName: recordData.projectName || '',
-               typeApprovalType: recordData.typeApprovalType || '',
-               typeApprovalLevel: recordData.typeApprovalLevel || '',
-               typeApprovalVersion: recordData.typeApprovalVersion || '',
-               typeApprovalNumber: recordData.typeApprovalNumber || '', // Sync this as well
-               engineNumber: recordData.engineNumber || '',
-               detailsOfWork: recordData.detailsOfWork || '',
-               projectNo: recordData.projectNo || '',
-            });
-       // }
+       // Sync form with the latest recordData from state on initial load or when critical data changes
+       form.reset({
+           sequenceNo: recordData.sequenceNo || recordData.workOrderNumber || '',
+           projectName: recordData.projectName || '',
+           typeApprovalType: recordData.typeApprovalType || '',
+           typeApprovalLevel: recordData.typeApprovalLevel || '',
+           typeApprovalVersion: recordData.typeApprovalVersion || '',
+           typeApprovalNumber: recordData.typeApprovalNumber || '', // Sync this as well
+           engineNumber: recordData.engineNumber || '',
+           detailsOfWork: recordData.detailsOfWork || '',
+           projectNo: recordData.projectNo || '',
+       });
    // Only run when branch or chassis number changes, or on mount
    // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [branch, recordData.chassisNumber, router, toast, recordData]); // Added recordData dependency to re-sync on any change
+   }, [branch, recordData.chassisNumber, recordData]); // Added recordData dependency to re-sync on any change
 
 
-   // Remove the loading check related to missing branch/chassis
+   // Removed the loading check related to missing branch/chassis
    // if (!branch || !recordData.chassisNumber) {
    //   return <div className="flex min-h-screen items-center justify-center p-4">Gerekli bilgiler eksik, yönlendiriliyorsunuz...</div>;
    // }
@@ -603,3 +596,5 @@ export default function NewRecordStep7() {
     </div>
   );
 }
+
+    
