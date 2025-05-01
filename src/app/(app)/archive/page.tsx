@@ -278,11 +278,21 @@ export default function ArchivePage() {
         console.warn("Placeholder: Using placeholder URL for viewing file:", fileInfo.name);
         // Example placeholder structure (adjust to your Firebase setup)
         // return `https://firebasestorage.googleapis.com/v0/b/your-project-id.appspot.com/o/archive_files%2F${encodeURIComponent(fileInfo.name)}?alt=media`;
-        return null; // Return null if viewing isn't implemented yet
+        // For now, generate a temporary blob URL if a File object is somehow available (unlikely for archived data)
+        if (fileInfo instanceof File) {
+             try {
+                 return URL.createObjectURL(fileInfo);
+             } catch (e) {
+                 console.error("Error creating ObjectURL for archived file preview:", e);
+                 return null;
+             }
+        }
+        // If it's just info, we can't generate a view URL without backend integration
+        return null;
     };
 
     const openMediaPreview = (fileInfo: { name: string; type?: string; size?: number } | undefined) => {
-        const url = getFileViewUrl(fileInfo);
+        const url = getFileViewUrl(fileInfo); // This might return a blob URL if fileInfo is a File
         if (url && fileInfo?.type) {
             const mediaType = fileInfo.type.startsWith('video/') ? 'video' : 'image';
             setPreviewMedia({ url, type: mediaType, name: fileInfo.name });
@@ -322,104 +332,104 @@ export default function ArchivePage() {
               {sortedGroupKeys.map((groupKey) => (
                  groupedArchive[groupKey] && groupedArchive[groupKey].length > 0 ? ( // Ensure the group exists and has entries
                     <AccordionItem value={groupKey} key={groupKey}>
-                    <AccordionTrigger className="text-lg font-medium bg-secondary/50 px-4 py-3 rounded-t-md hover:bg-secondary">
-                        <FolderOpen className="mr-2 h-5 w-5 text-primary" /> {groupKey} ({groupedArchive[groupKey].length} kayıt)
-                    </AccordionTrigger>
-                    <AccordionContent className="p-0">
-                        <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Dosya Adı (Şube/Şase)</TableHead>
-                                    <TableHead>Müşteri/Firma</TableHead>
-                                    <TableHead>Marka</TableHead>
-                                    <TableHead>Plaka</TableHead>
-                                    <TableHead>Arşivlenme Tarihi</TableHead>
-                                    <TableHead>Belgeler</TableHead>
-                                    <TableHead className="text-right">İşlemler</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                            {groupedArchive[groupKey].map((entry) => (
-                                <TableRow key={entry.fileName}>
-                                    <TableCell className="font-medium">{entry.fileName}</TableCell>
-                                    <TableCell>
-                                        {/* Show customer from step 4 or company from step 5 */}
-                                        {entry.customerName || entry.offerCompanyName || '-'}
-                                        {entry.customerName && entry.offerCompanyName && <span className="text-xs text-muted-foreground block">(Form: {entry.customerName} / Teklif: {entry.offerCompanyName})</span>}
-                                    </TableCell>
-                                    <TableCell>{entry.brand || '-'}</TableCell>
-                                    <TableCell>{entry.plateNumber || entry.plate || '-'}</TableCell> {/* Show plate from either source */}
-                                    <TableCell>{formatDateSafe(entry.archivedAt)}</TableCell>
-                                    <TableCell>
-                                        <div className="flex flex-wrap gap-2 items-center">
-                                        {entry.registrationDocument && (
-                                            <div title={`Ruhsat: ${getFileName(entry.registrationDocument)}`} className="flex items-center gap-1 text-green-600">
-                                                <FileText className="h-4 w-4" />
-                                                <span className="text-xs hidden sm:inline">Ruhsat</span>
-                                            </div>
-                                        )}
-                                        {entry.labelDocument && (
-                                            <div title={`Etiket: ${getFileName(entry.labelDocument)}`} className="flex items-center gap-1 text-blue-600">
-                                                <FileText className="h-4 w-4" />
-                                                <span className="text-xs hidden sm:inline">Etiket</span>
-                                            </div>
-                                        )}
-                                        {entry.typeApprovalDocument && ( // Display Type Approval Doc presence
-                                            <div title={`Tip Onay: ${getFileName(entry.typeApprovalDocument)}`} className="flex items-center gap-1 text-indigo-600">
-                                                <FileText className="h-4 w-4" />
-                                                <span className="text-xs hidden sm:inline">Tip Onay</span>
-                                            </div>
-                                        )}
-                                        {entry.additionalPhotos && entry.additionalPhotos.length > 0 && (
-                                            <div title={`${entry.additionalPhotos.length} Ek Fotoğraf`} className="flex items-center gap-1 text-purple-600">
-                                                <Camera className="h-4 w-4" />
-                                                <span className="text-xs">{entry.additionalPhotos.length}</span>
-                                            </div>
-                                        )}
-                                        {entry.additionalVideos && entry.additionalVideos.length > 0 && (
-                                            <div title={`${entry.additionalVideos.length} Ek Video`} className="flex items-center gap-1 text-orange-600">
-                                                <Video className="h-4 w-4" />
-                                                <span className="text-xs">{entry.additionalVideos.length}</span>
-                                            </div>
-                                        )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-right space-x-1">
-                                        <Button variant="ghost" size="icon" onClick={() => handleViewDetails(entry)} title="Detayları Gör">
-                                            <Info className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Düzenle">
-                                            <Pencil className="h-4 w-4 text-blue-600" />
-                                        </Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" title="Sil">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Bu işlem geri alınamaz. '{entry.fileName}' kaydını ve ilişkili tüm verileri kalıcı olarak silmek istediğinizden emin misiniz?
-                                                </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                <AlertDialogCancel>İptal</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDelete(entry.fileName)} className="bg-destructive hover:bg-destructive/90">
-                                                    Sil
-                                                </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            </TableBody>
-                        </Table>
-                        </div>
-                    </AccordionContent>
+                      <AccordionTrigger className="text-lg font-medium bg-secondary/50 px-4 py-3 rounded-t-md hover:bg-secondary">
+                          <FolderOpen className="mr-2 h-5 w-5 text-primary" /> {groupKey} ({groupedArchive[groupKey].length} kayıt)
+                      </AccordionTrigger>
+                      <AccordionContent className="p-0">
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                  <TableRow>
+                                      <TableHead>Dosya Adı (Şube/Şase)</TableHead>
+                                      <TableHead>Müşteri/Firma</TableHead>
+                                      <TableHead>Marka</TableHead>
+                                      <TableHead>Plaka</TableHead>
+                                      <TableHead>Arşivlenme Tarihi</TableHead>
+                                      <TableHead>Belgeler</TableHead>
+                                      <TableHead className="text-right">İşlemler</TableHead>
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                              {groupedArchive[groupKey].map((entry) => (
+                                  <TableRow key={entry.fileName}>
+                                      <TableCell className="font-medium">{entry.fileName}</TableCell>
+                                      <TableCell>
+                                          {/* Show customer from step 4 or company from step 5 */}
+                                          {entry.customerName || entry.offerCompanyName || '-'}
+                                          {entry.customerName && entry.offerCompanyName && <span className="text-xs text-muted-foreground block">(Form: {entry.customerName} / Teklif: {entry.offerCompanyName})</span>}
+                                      </TableCell>
+                                      <TableCell>{entry.brand || '-'}</TableCell>
+                                      <TableCell>{entry.plateNumber || entry.plate || '-'}</TableCell> {/* Show plate from either source */}
+                                      <TableCell>{formatDateSafe(entry.archivedAt)}</TableCell>
+                                      <TableCell>
+                                          <div className="flex flex-wrap gap-2 items-center">
+                                          {entry.registrationDocument && (
+                                              <div title={`Ruhsat: ${getFileName(entry.registrationDocument)}`} className="flex items-center gap-1 text-green-600">
+                                                  <FileText className="h-4 w-4" />
+                                                  <span className="text-xs hidden sm:inline">Ruhsat</span>
+                                              </div>
+                                          )}
+                                          {entry.labelDocument && (
+                                              <div title={`Etiket: ${getFileName(entry.labelDocument)}`} className="flex items-center gap-1 text-blue-600">
+                                                  <FileText className="h-4 w-4" />
+                                                  <span className="text-xs hidden sm:inline">Etiket</span>
+                                              </div>
+                                          )}
+                                          {entry.typeApprovalDocument && ( // Display Type Approval Doc presence
+                                              <div title={`Tip Onay: ${getFileName(entry.typeApprovalDocument)}`} className="flex items-center gap-1 text-indigo-600">
+                                                  <FileText className="h-4 w-4" />
+                                                  <span className="text-xs hidden sm:inline">Tip Onay</span>
+                                              </div>
+                                          )}
+                                          {entry.additionalPhotos && entry.additionalPhotos.length > 0 && (
+                                              <div title={`${entry.additionalPhotos.length} Ek Fotoğraf`} className="flex items-center gap-1 text-purple-600">
+                                                  <Camera className="h-4 w-4" />
+                                                  <span className="text-xs">{entry.additionalPhotos.length}</span>
+                                              </div>
+                                          )}
+                                          {entry.additionalVideos && entry.additionalVideos.length > 0 && (
+                                              <div title={`${entry.additionalVideos.length} Ek Video`} className="flex items-center gap-1 text-orange-600">
+                                                  <Video className="h-4 w-4" />
+                                                  <span className="text-xs">{entry.additionalVideos.length}</span>
+                                              </div>
+                                          )}
+                                          </div>
+                                      </TableCell>
+                                      <TableCell className="text-right space-x-1">
+                                          <Button variant="ghost" size="icon" onClick={() => handleViewDetails(entry)} title="Detayları Gör">
+                                              <Info className="h-4 w-4" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Düzenle">
+                                              <Pencil className="h-4 w-4 text-blue-600" />
+                                          </Button>
+                                          <AlertDialog>
+                                              <AlertDialogTrigger asChild>
+                                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" title="Sil">
+                                                      <Trash2 className="h-4 w-4" />
+                                                  </Button>
+                                              </AlertDialogTrigger>
+                                              <AlertDialogContent>
+                                                  <AlertDialogHeader>
+                                                  <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                                  <AlertDialogDescription>
+                                                      Bu işlem geri alınamaz. '{entry.fileName}' kaydını ve ilişkili tüm verileri kalıcı olarak silmek istediğinizden emin misiniz?
+                                                  </AlertDialogDescription>
+                                                  </AlertDialogHeader>
+                                                  <AlertDialogFooter>
+                                                  <AlertDialogCancel>İptal</AlertDialogCancel>
+                                                  <AlertDialogAction onClick={() => handleDelete(entry.fileName)} className="bg-destructive hover:bg-destructive/90">
+                                                      Sil
+                                                  </AlertDialogAction>
+                                                  </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                          </AlertDialog>
+                                      </TableCell>
+                                  </TableRow>
+                              ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                      </AccordionContent>
                     </AccordionItem>
                  ) : null
               ))}
@@ -658,7 +668,14 @@ export default function ArchivePage() {
 
         {/* Media Preview Dialog */}
         {previewMedia && (
-             <Dialog open={!!previewMedia} onOpenChange={() => setPreviewMedia(null)}>
+             <Dialog open={!!previewMedia} onOpenChange={(open) => {
+                 if (!open && previewMedia.url.startsWith('blob:')) {
+                     // Revoke temporary blob URL when dialog closes
+                     URL.revokeObjectURL(previewMedia.url);
+                     console.log("Revoked preview URL:", previewMedia.url);
+                 }
+                 setPreviewMedia(null);
+             }}>
                 <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
                     <DialogHeader>
                         <DialogTitle className="truncate">{previewMedia.name}</DialogTitle>
@@ -671,7 +688,7 @@ export default function ArchivePage() {
                                 width={1200} // Adjust width as needed
                                 height={800} // Adjust height as needed
                                 style={{ objectFit: 'contain', maxWidth: '100%', maxHeight: '100%' }}
-                                unoptimized // If using external/placeholder URLs
+                                unoptimized // If using external/placeholder URLs or blob URLs
                                 data-ai-hint="archived document image"
                             />
                         ) : (
