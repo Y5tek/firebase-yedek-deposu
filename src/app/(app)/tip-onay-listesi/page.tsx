@@ -180,13 +180,14 @@ export default function TypeApprovalListPage() {
                     headers.forEach((header, index) => {
                         const firestoreField = excelHeaderMapping[header];
                         if (firestoreField && row[index] !== undefined && row[index] !== null) {
-                            record[firestoreField] = String(row[index]); // Convert all values to string for simplicity
+                            // Ensure all values are treated as strings for consistency with Firestore schema
+                            record[firestoreField] = String(row[index]);
                         }
                     });
 
                      // Basic validation: check if at least tip_onay_no exists
                      if (!record.tip_onay_no || String(record.tip_onay_no).trim() === '') {
-                        console.warn(`Skipping row ${i + 1}: 'tip_onay_no' is missing or empty.`);
+                        console.warn(`Skipping row ${i + 1}: 'TİP ONAY NO' is missing or empty.`);
                         continue; // Skip rows without a type approval number
                      }
 
@@ -194,7 +195,7 @@ export default function TypeApprovalListPage() {
                 }
 
                 if (recordsToUpload.length === 0) {
-                     throw new Error("Excel dosyasında geçerli kayıt bulunamadı (Tip Onay No kontrol edin).");
+                     throw new Error("Excel dosyasında geçerli kayıt bulunamadı (TİP ONAY NO sütununu kontrol edin).");
                  }
 
                 console.log("Records to upload:", recordsToUpload);
@@ -202,10 +203,14 @@ export default function TypeApprovalListPage() {
 
             } catch (error: any) {
                 console.error("Error processing Excel file:", error);
-                setUploadError(`Excel dosyası işlenirken hata: ${error.message}`);
+                const userFriendlyMessage = error.message.includes("Excel dosyası boş") || error.message.includes("geçerli kayıt bulunamadı") || error.message.includes("Eksik Excel sütun başlıkları")
+                    ? error.message // Use specific error message if it's about content/headers
+                    : `Dosya okunamadı veya formatı hatalı: ${error.message}`; // Generic message otherwise
+
+                setUploadError(`Excel dosyası işlenirken hata: ${userFriendlyMessage}`);
                 toast({
                     title: 'Excel İşleme Hatası',
-                    description: `Dosya okunamadı veya formatı hatalı: ${error.message}`,
+                    description: userFriendlyMessage,
                     variant: 'destructive',
                 });
                 setUploading(false);
@@ -259,7 +264,7 @@ export default function TypeApprovalListPage() {
                         Tip Onay Listesi
                     </CardTitle>
                     <CardDescription>
-                        Mevcut tip onay kayıtlarını görüntüleyin veya Excel'den yeni kayıtlar yükleyin.
+                        Mevcut tip onay kayıtlarını görüntüleyin veya Excel'den yeni kayıtlar yükleyin. Şablonu indirip doldurduktan sonra yükleyebilirsiniz.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -270,14 +275,14 @@ export default function TypeApprovalListPage() {
                              <Button asChild variant="outline" disabled={uploading} className="w-full sm:w-auto cursor-pointer">
                                  <div>
                                      <Upload className="mr-2 h-4 w-4" />
-                                     Excel Yükle (.xlsx, .csv)
+                                     Excel Yükle (.xlsx)
                                  </div>
                              </Button>
                          </label>
                          <Input
                              id="excel-upload"
                              type="file"
-                             accept=".xlsx, .csv"
+                             accept=".xlsx, .csv" //.csv support can be tricky with encodings, .xlsx preferred
                              onChange={handleFileUpload}
                              className="hidden"
                              disabled={uploading}
@@ -352,7 +357,7 @@ export default function TypeApprovalListPage() {
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            Kayıt bulunamadı.
+                                            Kayıt bulunamadı. Excel'den yükleme yapabilirsiniz.
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -364,4 +369,3 @@ export default function TypeApprovalListPage() {
         </div>
     );
 }
-
