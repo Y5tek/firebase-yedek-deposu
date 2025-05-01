@@ -21,7 +21,7 @@ const OcrDataSchema = z.object({
     type: z.string().optional().describe('The type of vehicle (Tipi) extracted from the document.'),
     tradeName: z.string().optional().describe('The trade name (Ticari Adı) extracted from the document.'),
     owner: z.string().optional().describe('The owner\'s full name (Adı Soyadı) extracted from the document.'), // Updated description
-    plateNumber: z.string().optional().describe('The license plate number (Plaka) extracted from the document.'), // Re-added plateNumber
+    // plateNumber: z.string().optional().describe('The license plate number (Plaka) extracted from the document.'), // Removed plateNumber
     typeApprovalNumber: z.string().optional().describe('The type approval number (Tip Onay No / AT Uygunluk Belge No) extracted from the document.'),
     typeAndVariant: z.string().optional().describe('The type and variant information (Tip ve Varyant) extracted from the document.'),
     versiyon: z.string().optional().describe('The version information (Versiyon) extracted from the document, often near Tip ve Varyant.'), // Added Versiyon
@@ -60,7 +60,6 @@ const extractDataPrompt = ai.definePrompt({
 *   Type (Tipi)
 *   Trade Name (Ticari Adı) - This is different from "Markası".
 *   Owner (Adı Soyadı) - **CRITICAL: Locate the exact label "Adı Soyadı" and extract the FULL name following it. Example: If it says "Adı Soyadı YILMAZ AHMET", extract "YILMAZ AHMET".** Usually only on registration documents.
-*   Plate Number (Plaka) - Usually found on the registration document.
 *   Type Approval Number (Tip Onay No / AT Uygunluk Belge No) - Usually on labels or newer documents
 *   Type and Variant (Tip ve Varyant) - Usually on labels or newer documents
 *   Version (Versiyon) - Often found near "Tip ve Varyant" on labels or newer documents.
@@ -101,7 +100,7 @@ const extractVehicleDataFlow = ai.defineFlow<
         const errorMessage = error instanceof Error ? error.message : String(error);
          if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable') || errorMessage.includes('500 Internal Server Error')) {
             // Re-throw a specific error for service unavailability or internal server error
-            const errorType = errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : 'Sunucu Hatası';
+             const errorType = errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : (errorMessage.includes('500') ? 'Sunucu Hatası' : 'Bilinmeyen Sunucu Sorunu'); // Improved error type detection
             throw new Error(`AI Service Unavailable: The model experienced an issue (${errorType}). Please try again later.`);
          }
          // Re-throw other errors
@@ -115,7 +114,7 @@ const extractVehicleDataFlow = ai.defineFlow<
     console.log("AI OCR Extraction Result:", extractedData);
     console.log("AI OCR Extracted Brand:", extractedData.brand); // Specific log for brand
     console.log("AI OCR Extracted Owner (Adı Soyadı):", extractedData.owner); // Log owner
-    console.log("AI OCR Extracted Plate Number:", extractedData.plateNumber); // Log plateNumber
+    // console.log("AI OCR Extracted Plate Number:", extractedData.plateNumber); // Removed plateNumber log
     console.log("AI OCR Extracted Versiyon:", extractedData.versiyon); // Log versiyon
 
     // Wrap the extracted data in the expected output format

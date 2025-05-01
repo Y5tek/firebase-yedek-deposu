@@ -19,7 +19,7 @@ const DecideOcrOverrideInputSchema = z.object({
     type: z.string().optional().describe('Type extracted from OCR.'),
     tradeName: z.string().optional().describe('Trade name extracted from OCR.'),
     owner: z.string().optional().describe('Owner (Adı Soyadı) extracted from OCR.'), // Clarified description
-    plateNumber: z.string().optional().describe('Plate number extracted from OCR.'), // Re-added plateNumber
+    // plateNumber: z.string().optional().describe('Plate number extracted from OCR.'), // Removed plateNumber
     typeApprovalNumber: z.string().optional().describe('Type approval number extracted from OCR.'),
     typeAndVariant: z.string().optional().describe('Type and variant information extracted from OCR.'),
     versiyon: z.string().optional().describe('Version information extracted from OCR.'), // Added versiyon
@@ -30,7 +30,7 @@ const DecideOcrOverrideInputSchema = z.object({
     type: z.string().optional().describe('Current type.'),
     tradeName: z.string().optional().describe('Current trade name.'),
     owner: z.string().optional().describe('Current owner (Adı Soyadı).'), // Clarified description
-    plateNumber: z.string().optional().describe('Current plate number.'), // Re-added plateNumber
+    // plateNumber: z.string().optional().describe('Current plate number.'), // Removed plateNumber
     typeApprovalNumber: z.string().optional().describe('Current type approval number.'),
     typeAndVariant: z.string().optional().describe('Current type and variant information.'),
     versiyon: z.string().optional().describe('Current version information.'), // Added versiyon
@@ -46,7 +46,7 @@ const DecideOcrOverrideOutputSchema = z.object({
     type: z.boolean().describe('Whether to override type with OCR data.'),
     tradeName: z.boolean().describe('Whether to override trade name with OCR data.'),
     owner: z.boolean().describe('Whether to override owner (Adı Soyadı) with OCR data.'), // Clarified description
-    plateNumber: z.boolean().describe('Whether to override plate number with OCR data.'), // Re-added plateNumber
+    // plateNumber: z.boolean().describe('Whether to override plate number with OCR data.'), // Removed plateNumber
     typeApprovalNumber: z.boolean().describe('Whether to override type approval number with OCR data.'),
     typeAndVariant: z.boolean().describe('Whether to override type and variant information with OCR data.'),
     versiyon: z.boolean().describe('Whether to override version information with OCR data.'), // Added versiyon
@@ -69,7 +69,7 @@ const prompt = ai.definePrompt({
         type: z.string().optional().describe('Type extracted from OCR.'),
         tradeName: z.string().optional().describe('Trade name extracted from OCR.'),
         owner: z.string().optional().describe('Owner (Adı Soyadı) extracted from OCR.'), // Clarified description
-        plateNumber: z.string().optional().describe('Plate number extracted from OCR.'), // Re-added plateNumber
+        // plateNumber: z.string().optional().describe('Plate number extracted from OCR.'), // Removed plateNumber
         typeApprovalNumber: z.string().optional().describe('Type approval number extracted from OCR.'),
         typeAndVariant: z.string().optional().describe('Type and variant information extracted from OCR.'),
         versiyon: z.string().optional().describe('Version information extracted from OCR.'), // Added versiyon
@@ -80,7 +80,7 @@ const prompt = ai.definePrompt({
         type: z.string().optional().describe('Current type.'),
         tradeName: z.string().optional().describe('Current trade name.'),
         owner: z.string().optional().describe('Current owner (Adı Soyadı).'), // Clarified description
-        plateNumber: z.string().optional().describe('Current plate number.'), // Re-added plateNumber
+        // plateNumber: z.string().optional().describe('Current plate number.'), // Removed plateNumber
         typeApprovalNumber: z.string().optional().describe('Current type approval number.'),
         typeAndVariant: z.string().optional().describe('Current type and variant information.'),
         versiyon: z.string().optional().describe('Current version information.'), // Added versiyon
@@ -95,7 +95,7 @@ const prompt = ai.definePrompt({
         type: z.boolean().describe('Whether to override type with OCR data.'),
         tradeName: z.boolean().describe('Whether to override trade name with OCR data.'),
         owner: z.boolean().describe('Whether to override owner (Adı Soyadı) with OCR data.'), // Clarified description
-        plateNumber: z.boolean().describe('Whether to override plate number with OCR data.'), // Re-added plateNumber
+        // plateNumber: z.boolean().describe('Whether to override plate number with OCR data.'), // Removed plateNumber
         typeApprovalNumber: z.boolean().describe('Whether to override type approval number with OCR data.'),
         typeAndVariant: z.boolean().describe('Whether to override type and variant information with OCR data.'),
         versiyon: z.boolean().describe('Whether to override version information with OCR data.'), // Added versiyon
@@ -137,7 +137,7 @@ const decideOcrOverrideFlow = ai.defineFlow<
         const errorMessage = error instanceof Error ? error.message : String(error);
          if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable') || errorMessage.includes('500 Internal Server Error')) {
              // Re-throw a specific error for service unavailability or internal server error
-             const errorType = errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : 'Sunucu Hatası';
+             const errorType = errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : (errorMessage.includes('500') ? 'Sunucu Hatası' : 'Bilinmeyen Sunucu Sorunu'); // Improved error type detection
              throw new Error(`AI Service Unavailable: The model experienced an issue (${errorType}). Please try again later.`);
          }
          // Re-throw other errors

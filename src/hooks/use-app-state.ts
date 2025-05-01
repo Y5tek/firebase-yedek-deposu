@@ -20,7 +20,7 @@ export interface RecordData {
   type?: string;
   tradeName?: string;
   owner?: string;
-  plateNumber?: string; // Re-added plateNumber
+  // plateNumber?: string; // Removed plateNumber
   typeApprovalNumber?: string; // Added Tip Onay No
   typeAndVariant?: string; // Likely holds "VARYANT"
   versiyon?: string; // Added VERSİYON field
@@ -146,7 +146,7 @@ const initialRecordData: RecordData = {
     archive: [], // Initialize archive array
     additionalPhotos: [], // Initialize photos array
     additionalVideos: [], // Initialize videos array
-    plateNumber: '', // Initialize plateNumber
+    // plateNumber: '', // Removed plateNumber initialization
     engineNumber: '', // Initialize engineNumber
     versiyon: '', // Initialize versiyon
 };
@@ -173,7 +173,7 @@ export const useAppState = create<AppState>()(
                  type: undefined,
                  tradeName: undefined,
                  owner: undefined,
-                 plateNumber: undefined, // Reset plateNumber
+                 // plateNumber: undefined, // Removed plateNumber reset
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
                  versiyon: undefined, // Reset versiyon
@@ -274,7 +274,7 @@ export const useAppState = create<AppState>()(
                 } else if (state.recordData.additionalVideos && !('additionalVideos' in newData)) {
                      mergedData.additionalVideos = state.recordData.additionalVideos;
                 } else if ('additionalVideos' in newData && !newData.additionalVideos) {
-                     mergedData.additionalVideos = [];
+                    mergedData.additionalVideos = [];
                 }
 
                 // Ensure offerItems is always an array
@@ -301,7 +301,7 @@ export const useAppState = create<AppState>()(
                  type: undefined,
                  tradeName: undefined,
                  owner: undefined,
-                 plateNumber: undefined, // Reset plateNumber
+                 // plateNumber: undefined, // Removed plateNumber reset
                  typeApprovalNumber: undefined,
                  typeAndVariant: undefined,
                  versiyon: undefined, // Reset versiyon
@@ -370,7 +370,7 @@ export const useAppState = create<AppState>()(
                  type: state.recordData.type,
                  tradeName: state.recordData.tradeName,
                  owner: state.recordData.owner,
-                 plateNumber: state.recordData.plateNumber, // Persist plateNumber
+                 // plateNumber: state.recordData.plateNumber, // Removed plateNumber persistence
                  typeApprovalNumber: state.recordData.typeApprovalNumber,
                  typeAndVariant: state.recordData.typeAndVariant,
                  versiyon: state.recordData.versiyon, // Persist versiyon
@@ -474,7 +474,7 @@ export const useAppState = create<AppState>()(
              mergedRecordData.additionalPhotos = mergedRecordData.additionalPhotos || [];
              mergedRecordData.additionalVideos = mergedRecordData.additionalVideos || [];
              mergedRecordData.offerItems = mergedRecordData.offerItems || [{ ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }];
-             mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Ensure plateNumber is initialized
+             // mergedRecordData.plateNumber = mergedRecordData.plateNumber || ''; // Removed plateNumber initialization check
              mergedRecordData.engineNumber = mergedRecordData.engineNumber || ''; // Ensure engineNumber is initialized
              mergedRecordData.versiyon = mergedRecordData.versiyon || ''; // Ensure versiyon is initialized
 

@@ -26,9 +26,9 @@ export interface OcrData {
     owner?: string;
     /**
      * The license plate number extracted from the document.
-     * Re-added based on user request undo.
+     * Removed based on user request.
      */
-    plateNumber?: string;
+    // plateNumber?: string;
     /**
      * The type approval number extracted from the document.
      */
