@@ -129,7 +129,7 @@ export default function NewRecordStep1() {
       console.log("Calling extractVehicleData flow...");
       ocrResult = await extractVehicleData({ imageBase64: base64String });
       console.log("OCR Result (Step 1):", ocrResult?.ocrData); // Use optional chaining
-      console.log("OCR Extracted Brand (Step 1):", ocrResult?.ocrData?.brand); // Log brand specifically
+      console.log("OCR Extracted Brand (Step 1) - Raw:", ocrResult?.ocrData?.brand); // Log brand specifically
 
       // Proceed only if OCR data is available
       if (!ocrResult || !ocrResult.ocrData) {
@@ -183,14 +183,11 @@ export default function NewRecordStep1() {
        const shouldUpdate = (fieldName: keyof typeof override): boolean => {
          const ocrValue = ocrData[fieldName as keyof typeof ocrData];
          const currentValue = form.getValues(fieldName as keyof FormData);
-         // Condition 1: Override decision is true AND OCR has a non-empty value
-         const condition1 = override[fieldName] && ocrValue && ocrValue.trim() !== '';
-         // Condition 2: Current value is empty OR if override is true (allowing override even if current is not empty)
-         const condition2 = (!currentValue || currentValue.trim() === '' || override[fieldName]) && ocrValue && ocrValue.trim() !== '';
+         // Update if OCR has value AND (current is empty OR override is true)
+         const condition = (ocrValue && ocrValue.trim() !== '') && (!currentValue || currentValue.trim() === '' || override[fieldName]);
 
-         console.log(`shouldUpdate(${fieldName})? OCR: '${ocrValue}', Current: '${currentValue}', Override: ${override[fieldName]}, Cond1: ${condition1}, Cond2: ${condition2}, Result: ${!!(condition1 || condition2)}`);
-         // Use only condition 2 for the logic: Update if OCR has value AND (current is empty OR override is true)
-         return !!(condition2);
+         console.log(`shouldUpdate(${fieldName})? OCR: '${ocrValue}', Current: '${currentValue}', Override: ${override[fieldName]}, Result: ${!!condition}`);
+         return !!condition;
        };
 
       // Update chassisNumber field
@@ -261,10 +258,10 @@ export default function NewRecordStep1() {
       const shouldUpdateGlobal = (fieldName: keyof typeof override): boolean => {
           const ocrValue = ocrData[fieldName as keyof typeof ocrData];
           const currentGlobalValue = recordData[fieldName as keyof typeof recordData];
-          const condition1 = override[fieldName] && ocrValue;
-          const condition2 = !currentGlobalValue && ocrValue;
-          console.log(`shouldUpdateGlobal(${fieldName})? OCR: ${ocrValue}, Current Global: ${currentGlobalValue}, Override: ${override[fieldName]}, Cond1: ${condition1}, Cond2: ${condition2}, Result: ${!!(condition1 || condition2)}`);
-          return !!(condition1 || condition2);
+          // Update if OCR has value AND (current global is empty OR override is true)
+          const condition = (ocrValue && ocrValue.trim() !== '') && (!currentGlobalValue || currentGlobalValue.trim() === '' || override[fieldName]);
+          console.log(`shouldUpdateGlobal(${fieldName})? OCR: ${ocrValue}, Current Global: ${currentGlobalValue}, Override: ${override[fieldName]}, Result: ${!!condition}`);
+          return !!condition;
        };
 
 
@@ -618,7 +615,7 @@ export default function NewRecordStep1() {
                                 type="button"
                                 variant="secondary"
                                 onClick={handleManualScanClick}
-                                disabled={!(currentFile || (typeof form.getValues('document') === 'object' && form.getValues('document')?.name)) || isLoading} // Enable if preview or info exists
+                                disabled={!(currentFile) || isLoading} // Only enable if there's a current File object
                            >
                                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanSearch className="mr-2 h-4 w-4" />}
                                 Resmi Tara (OCR)
@@ -735,5 +732,3 @@ export default function NewRecordStep1() {
     </div>
   );
 }
-
-

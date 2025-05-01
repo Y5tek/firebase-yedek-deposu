@@ -56,9 +56,9 @@ const extractDataPrompt = ai.definePrompt({
 
 *   Chassis Number (Şasi No / Araç Kimlik No)
 *   License Plate Number (Plaka) - Usually on registration documents
-*   Brand (Markası) - **Specifically look for the value next to the "Markası" label.**
+*   Brand (Markası) - **CRITICAL: Locate the exact label "Markası" and extract the value immediately following it. Be very precise. Example: If it says "Markası : VOLKSWAGEN", extract "VOLKSWAGEN". Do NOT confuse this with "Ticari Adı".**
 *   Type (Tipi)
-*   Trade Name (Ticari Adı)
+*   Trade Name (Ticari Adı) - This is different from "Markası".
 *   Owner (Adı Soyadı) - **Extract the full name from the "Adı Soyadı" field**. Usually only on registration documents. Example: "AHMET YILMAZ"
 *   Type Approval Number (Tip Onay No / AT Uygunluk Belge No) - Usually on labels or newer documents
 *   Type and Variant (Tip ve Varyant) - Usually on labels or newer documents
@@ -120,5 +120,3 @@ const extractVehicleDataFlow = ai.defineFlow<
     };
   }
 );
-
-    
