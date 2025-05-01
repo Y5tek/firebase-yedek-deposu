@@ -137,24 +137,24 @@ export default function NewRecordStep7() {
         if (matchedRecords.length === 1) {
             const matchedNumber = matchedRecords[0].tip_onay_no;
             if (matchedNumber) {
-                console.log("Unique match found. Setting SERİ TADİLAT BELGE NO to:", matchedNumber);
+                console.log("Unique match found. Setting TİP ONAY NO to:", matchedNumber); // Updated log message
                 numberToSet = matchedNumber;
-                message = `Seri Tadilat Belge No bulundu ve dolduruldu: ${matchedNumber}`;
+                message = `Tip Onay No bulundu ve dolduruldu: ${matchedNumber}`; // Updated message
                 variant = "default";
             } else {
                 // This case shouldn't normally happen if the filter requires tip_onay_no
                 console.warn("Unique match found, but tip_onay_no is empty.");
-                message = "Eşleşen kayıt bulundu ancak Seri Tadilat Belge No boş.";
+                message = "Eşleşen kayıt bulundu ancak Tip Onay No boş."; // Updated message
                 variant = "destructive";
             }
         } else if (matchedRecords.length > 1) {
             console.warn("Multiple matching Type Approval Numbers found. Cannot auto-populate.");
-            message = `Birden fazla (${matchedRecords.length}) eşleşen Seri Tadilat Belge Numarası bulundu. Otomatik doldurma yapılamadı. Lütfen kriterleri daraltın veya manuel giriş yapın.`;
+            message = `Birden fazla (${matchedRecords.length}) eşleşen Tip Onay Numarası bulundu. Otomatik doldurma yapılamadı. Lütfen kriterleri daraltın veya manuel giriş yapın.`; // Updated message
             variant = "destructive";
              // numberToSet remains '' which will clear the field
         } else {
              console.log("No unique matching Type Approval Number found starting with AİTM based on criteria.");
-             message = "Belirtilen kriterlere uyan ve 'AİTM' ile başlayan Seri Tadilat Belge Numarası bulunamadı.";
+             message = "Belirtilen kriterlere uyan ve 'AİTM' ile başlayan Tip Onay Numarası bulunamadı."; // Updated message
              variant = "destructive";
              // numberToSet remains '' which will clear the field
         }
@@ -164,7 +164,7 @@ export default function NewRecordStep7() {
         updateRecordData({ typeApprovalNumber: numberToSet });
 
          toast({
-            title: "Seri Tadilat Belge No Arama Sonucu",
+            title: "Tip Onay No Arama Sonucu", // Updated title
             description: message,
             variant: variant,
             duration: matchedRecords.length === 1 ? 5000 : 9000, // Longer duration for errors/warnings
@@ -458,11 +458,11 @@ export default function NewRecordStep7() {
                          name="typeApprovalNumber"
                          render={({ field }) => (
                             <FormItem className="grid grid-cols-[150px_1fr_auto] items-start gap-x-2"> {/* Changed to items-start for multiline description */}
-                                <FormLabel className="pt-2">SERİ TADİLAT BELGE NO</FormLabel> {/* Changed label */}
+                                <FormLabel className="pt-2">TİP ONAY NO</FormLabel> {/* Reverted label text */}
                                 <div className="flex flex-col w-full"> {/* Wrap input and message */}
                                     <FormControl>
                                          <Input
-                                             placeholder={isLoadingApprovals ? "Liste yükleniyor..." : "Seri Tadilat Belge No..."}
+                                             placeholder={isLoadingApprovals ? "Liste yükleniyor..." : "Tip Onay No..."}
                                              {...field}
                                              disabled={isLoading || isLoadingApprovals || isFindingApprovalNo}
                                         />
