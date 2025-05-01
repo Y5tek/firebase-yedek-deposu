@@ -675,7 +675,7 @@ export default function NewRecordStep1() {
                   name="brand"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Marka</FormLabel>
+                      <FormLabel>Markası</FormLabel> {/* Changed label */}
                       <FormControl>
                         <Input placeholder="Resmi Tara ile doldurulacak..." {...field} disabled={isLoading} />
                       </FormControl>
