@@ -201,72 +201,131 @@ export default function NewRecordStep1() {
          const ocrValue = ocrData[fieldName as keyof typeof ocrData];
          const currentValue = form.getValues(fieldName as keyof FormData);
          // Update if OCR has value AND (current is empty OR override is true)
-         const condition = (ocrValue && ocrValue.trim() !== '') && (!currentValue || currentValue.trim() === '' || override[fieldName]);
+         const condition = !!(ocrValue && ocrValue.trim() !== '' && (!currentValue || currentValue.trim() === '' || override[fieldName]));
 
-         console.log(`shouldUpdate(${fieldName})? OCR: '${ocrValue}', Current: '${currentValue}', Override: ${override[fieldName]}, Result: ${!!condition}`);
-         return !!condition;
+         console.log(`shouldUpdate(${fieldName})? OCR: '${ocrValue}', Current: '${currentValue}', Override: ${override[fieldName]}, Result: ${condition}`);
+         return condition;
        };
+
 
       // Update chassisNumber field
       if (shouldUpdate('chassisNumber')) {
-        console.log("Updating chassisNumber field with OCR data:", ocrData.chassisNumber);
-        form.setValue('chassisNumber', ocrData.chassisNumber || ''); // Use fallback
-        updates.chassisNumber = ocrData.chassisNumber;
+        const ocrValue = ocrData.chassisNumber || '';
+        console.log("Updating chassisNumber field with OCR data:", ocrValue);
+        form.setValue('chassisNumber', ocrValue);
+        updates.chassisNumber = ocrValue;
       } else {
-          console.log(`Not updating chassisNumber. Override decision: ${override.chassisNumber}, OCR Data: ${ocrData.chassisNumber}, Current Value: ${form.getValues('chassisNumber')}`);
-          // If not overriding, ensure global state update uses current form value or existing global state value
-          updates.chassisNumber = form.getValues('chassisNumber') || recordData.chassisNumber;
+          // Clear field if OCR has no value OR if AI decided not to override
+          const currentValue = form.getValues('chassisNumber');
+          const ocrValue = ocrData.chassisNumber;
+          if (!ocrValue || !override.chassisNumber) {
+               console.log(`Clearing chassisNumber. OCR Data: ${ocrValue}, Override: ${override.chassisNumber}`);
+               form.setValue('chassisNumber', ''); // Clear the form field
+               updates.chassisNumber = ''; // Ensure global state is cleared too
+          } else {
+              console.log(`Keeping existing chassisNumber. Current Value: ${currentValue}`);
+              updates.chassisNumber = currentValue || recordData.chassisNumber; // Preserve existing if override is false but OCR had value
+          }
       }
+
 
        // Update brand field
        if (shouldUpdate('brand')) {
-            console.log("[OCR Update] Setting brand field with OCR data:", ocrData.brand);
-            form.setValue('brand', ocrData.brand || '');
-            updates.brand = ocrData.brand;
+            const ocrValue = ocrData.brand || '';
+            console.log("[OCR Update] Setting brand field with OCR data:", ocrValue);
+            form.setValue('brand', ocrValue);
+            updates.brand = ocrValue;
        } else {
-            console.log(`[OCR Update] Not updating brand. Override: ${override.brand}, OCR: ${ocrData.brand}, Current: ${form.getValues('brand')}`);
-            updates.brand = form.getValues('brand') || recordData.brand;
+            const currentValue = form.getValues('brand');
+            const ocrValue = ocrData.brand;
+            if (!ocrValue || !override.brand) {
+                console.log(`[OCR Update] Clearing brand. OCR: ${ocrValue}, Override: ${override.brand}`);
+                form.setValue('brand', '');
+                updates.brand = '';
+            } else {
+                 console.log(`[OCR Update] Keeping existing brand. Current: ${currentValue}`);
+                 updates.brand = currentValue || recordData.brand;
+            }
        }
 
 
       // Update type field
       if (shouldUpdate('type')) {
-          console.log("Updating type field with OCR data:", ocrData.type);
-          form.setValue('type', ocrData.type || ''); // Use fallback
-          updates.type = ocrData.type;
+          const ocrValue = ocrData.type || '';
+          console.log("Updating type field with OCR data:", ocrValue);
+          form.setValue('type', ocrValue); // Use fallback
+          updates.type = ocrValue;
       } else {
-          console.log(`Not updating type. Override decision: ${override.type}, OCR Data: ${ocrData.type}, Current Value: ${form.getValues('type')}`);
-           updates.type = form.getValues('type') || recordData.type;
+          const currentValue = form.getValues('type');
+          const ocrValue = ocrData.type;
+           if (!ocrValue || !override.type) {
+               console.log(`Clearing type. OCR Data: ${ocrValue}, Override: ${override.type}`);
+               form.setValue('type', ''); // Clear the form field
+               updates.type = ''; // Ensure global state is cleared too
+           } else {
+               console.log(`Keeping existing type. Current Value: ${currentValue}`);
+               updates.type = currentValue || recordData.type;
+           }
       }
 
       // Update tradeName field
       if (shouldUpdate('tradeName')) {
-          console.log("Updating tradeName field with OCR data:", ocrData.tradeName);
-          form.setValue('tradeName', ocrData.tradeName || ''); // Use fallback
-          updates.tradeName = ocrData.tradeName;
+          const ocrValue = ocrData.tradeName || '';
+          console.log("Updating tradeName field with OCR data:", ocrValue);
+          form.setValue('tradeName', ocrValue); // Use fallback
+          updates.tradeName = ocrValue;
       } else {
-           console.log(`Not updating tradeName. Override decision: ${override.tradeName}, OCR Data: ${ocrData.tradeName}, Current Value: ${form.getValues('tradeName')}`);
-            updates.tradeName = form.getValues('tradeName') || recordData.tradeName;
+           const currentValue = form.getValues('tradeName');
+           const ocrValue = ocrData.tradeName;
+           if (!ocrValue || !override.tradeName) {
+               console.log(`Clearing tradeName. OCR Data: ${ocrValue}, Override: ${override.tradeName}`);
+               form.setValue('tradeName', ''); // Clear the form field
+               updates.tradeName = ''; // Ensure global state is cleared too
+           } else {
+               console.log(`Keeping existing tradeName. Current Value: ${currentValue}`);
+                updates.tradeName = currentValue || recordData.tradeName;
+           }
       }
 
       // Update owner field
       if (shouldUpdate('owner')) {
-          console.log("Updating owner field with OCR data:", ocrData.owner);
-          form.setValue('owner', ocrData.owner || ''); // Use fallback
-          updates.owner = ocrData.owner;
+          const ocrValue = ocrData.owner || '';
+          console.log("Updating owner field with OCR data:", ocrValue);
+          form.setValue('owner', ocrValue); // Use fallback
+          updates.owner = ocrValue;
       } else {
-          console.log(`Not updating owner. Override decision: ${override.owner}, OCR Data: ${ocrData.owner}, Current Value: ${form.getValues('owner')}`);
-           updates.owner = form.getValues('owner') || recordData.owner;
+          const currentValue = form.getValues('owner');
+          const ocrValue = ocrData.owner;
+          if (!ocrValue || !override.owner) {
+               console.log(`Clearing owner. OCR Data: ${ocrValue}, Override: ${override.owner}`);
+               form.setValue('owner', ''); // Clear the form field
+               updates.owner = ''; // Ensure global state is cleared too
+           } else {
+               console.log(`Keeping existing owner. Current Value: ${currentValue}`);
+                updates.owner = currentValue || recordData.owner;
+           }
       }
 
        // Update plateNumber field
-       if (shouldUpdate('plateNumber')) { // Assuming 'plateNumber' exists in DecideOcrOverrideOutputSchema
-           console.log("Updating plateNumber field with OCR data:", ocrData.plateNumber);
-           form.setValue('plateNumber', ocrData.plateNumber || ''); // Use fallback
-           updates.plateNumber = ocrData.plateNumber;
+       // Check if 'plateNumber' key exists in override object before accessing it
+       const overridePlate = override.plateNumber !== undefined ? override.plateNumber : true; // Default to true if not present
+       if (ocrData.plateNumber && (!form.getValues('plateNumber') || overridePlate)) {
+            const ocrValue = ocrData.plateNumber || '';
+            console.log("Updating plateNumber field with OCR data:", ocrValue);
+            form.setValue('plateNumber', ocrValue);
+            updates.plateNumber = ocrValue;
        } else {
-            console.log(`Not updating plateNumber. Override decision: ${override.plateNumber}, OCR Data: ${ocrData.plateNumber}, Current Value: ${form.getValues('plateNumber')}`);
-             updates.plateNumber = form.getValues('plateNumber') || recordData.plateNumber;
+             const currentValue = form.getValues('plateNumber');
+             const ocrValue = ocrData.plateNumber;
+              // Clear only if OCR didn't find it OR if AI said not to override
+             if (!ocrValue || !overridePlate) {
+                 console.log(`Clearing plateNumber. OCR Data: ${ocrValue}, Override: ${overridePlate}`);
+                 form.setValue('plateNumber', ''); // Clear the form field
+                 updates.plateNumber = ''; // Ensure global state is cleared too
+             } else {
+                 console.log(`Keeping existing plateNumber. Current Value: ${currentValue}`);
+                 updates.plateNumber = currentValue || recordData.plateNumber;
+             }
        }
 
 
@@ -276,9 +335,9 @@ export default function NewRecordStep1() {
          const ocrValue = ocrData[fieldName as keyof typeof ocrData];
          const currentGlobalValue = recordData[fieldName as keyof RecordData]; // Check against global state
          // Update if OCR has value AND (current global is empty OR override is true)
-         const condition = (ocrValue && ocrValue.trim() !== '') && (!currentGlobalValue || currentGlobalValue.trim() === '' || override[fieldName]);
-         console.log(`shouldUpdateGlobal(${fieldName})? OCR: '${ocrValue}', Current Global: '${currentGlobalValue}', Override: ${override[fieldName]}, Result: ${!!condition}`);
-         return !!condition;
+         const condition = !!(ocrValue && ocrValue.trim() !== '' && (!currentGlobalValue || currentGlobalValue.trim() === '' || override[fieldName]));
+         console.log(`shouldUpdateGlobal(${fieldName})? OCR: '${ocrValue}', Current Global: '${currentGlobalValue}', Override: ${override[fieldName]}, Result: ${condition}`);
+         return condition;
        };
 
 
@@ -310,15 +369,23 @@ export default function NewRecordStep1() {
         }
 
         // --- Add the scanned registration document to additionalPhotos ---
-         const currentPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File) as File[];
-         // Avoid adding duplicates based on name and size
+         const currentPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File || (typeof f === 'object' && f !== null && 'name' in f)) as (File | { name: string; type?: string; size?: number; })[];
          const fileKey = `${file.name}-${file.size}`;
-         if (!currentPhotos.some(p => `${p.name}-${p.size}` === fileKey)) {
+
+         // Check if a file/info with the same key exists
+         const exists = currentPhotos.some(p => {
+             const pKey = `${p.name}-${'size' in p ? p.size : ''}`;
+             return pKey === fileKey;
+         });
+
+         if (!exists) {
+             // Add the new File object
              updates.additionalPhotos = [...currentPhotos, file];
              console.log(`Adding scanned registration document '${file.name}' to additionalPhotos.`);
          } else {
               console.log(`Scanned registration document '${file.name}' already exists in additionalPhotos.`);
-              updates.additionalPhotos = currentPhotos; // Keep the existing array
+              // No need to update if it exists, but ensure the state reflects the current array structure
+               updates.additionalPhotos = currentPhotos.map(p => p instanceof File ? p : getSerializableFileInfo(p)).filter(Boolean) as (File | { name: string; type?: string; size?: number; })[];
          }
 
 
@@ -331,49 +398,32 @@ export default function NewRecordStep1() {
       // Handle AI specific errors (including potential 503)
       handleAiError(aiError, 1);
        // Fallback: if OCR worked but decision failed, still populate *empty* form fields
-       if (ocrResult && ocrResult.ocrData && !overrideDecision) {
-            console.warn("Override decision failed, populating empty fields with OCR data as fallback.");
+       // AND CLEAR NON-EMPTY FIELDS THAT OCR DID NOT FIND
+       if (ocrResult && ocrResult.ocrData) { // Removed !overrideDecision check
+            console.warn("AI Error occurred, applying OCR data with fallback logic (populating empty, clearing non-found).");
             const ocrDataFallback = ocrResult.ocrData;
-            // Fallback logic for each field - only populate if the form field is currently empty
-            if (!form.getValues('chassisNumber') && ocrDataFallback.chassisNumber) {
-                form.setValue('chassisNumber', ocrDataFallback.chassisNumber);
-                updates.chassisNumber = ocrDataFallback.chassisNumber;
-            } else { updates.chassisNumber = form.getValues('chassisNumber') || recordData.chassisNumber; } // Use current form value or existing
+            const fieldsToCheck: (keyof FormData)[] = ['chassisNumber', 'brand', 'type', 'tradeName', 'owner', 'plateNumber'];
 
-             // Explicitly populate brand if empty and OCR found it
-             if (!form.getValues('brand') && ocrDataFallback.brand) {
-                 console.log("[Fallback] Populating brand field with OCR data:", ocrDataFallback.brand);
-                 form.setValue('brand', ocrDataFallback.brand);
-                 updates.brand = ocrDataFallback.brand;
-             } else {
-                 console.log("[Fallback] Brand field not empty or no OCR brand data:", form.getValues('brand'), ocrDataFallback.brand);
-                 updates.brand = form.getValues('brand') || recordData.brand;
-             }
+            fieldsToCheck.forEach(field => {
+                 const formValue = form.getValues(field);
+                 const ocrValue = ocrDataFallback[field as keyof typeof ocrDataFallback];
+                 if (ocrValue) { // If OCR found something
+                     if (!formValue) { // And form is empty
+                         console.log(`[Fallback] Populating ${field} with OCR data: ${ocrValue}`);
+                         form.setValue(field, ocrValue);
+                         updates[field as keyof RecordData] = ocrValue;
+                     } else {
+                         // Keep existing form value if OCR found something but form wasn't empty (AI error prevents override decision)
+                         console.log(`[Fallback] Keeping existing ${field} value: ${formValue} (OCR found: ${ocrValue})`);
+                         updates[field as keyof RecordData] = formValue || recordData[field as keyof RecordData];
+                     }
+                 } else { // If OCR did NOT find something
+                      console.log(`[Fallback] Clearing ${field} because OCR did not find data.`);
+                      form.setValue(field, ''); // Clear the form field
+                      updates[field as keyof RecordData] = ''; // Ensure global state is cleared too
+                 }
+            });
 
-
-            if (!form.getValues('type') && ocrDataFallback.type) {
-                form.setValue('type', ocrDataFallback.type);
-                 updates.type = ocrDataFallback.type;
-            } else { updates.type = form.getValues('type') || recordData.type; }
-
-            if (!form.getValues('tradeName') && ocrDataFallback.tradeName) {
-                form.setValue('tradeName', ocrDataFallback.tradeName);
-                updates.tradeName = ocrDataFallback.tradeName;
-            } else { updates.tradeName = form.getValues('tradeName') || recordData.tradeName; }
-
-            if (!form.getValues('owner') && ocrDataFallback.owner) {
-                 form.setValue('owner', ocrDataFallback.owner);
-                 updates.owner = ocrDataFallback.owner;
-                 console.log("Fallback: Populating owner field with OCR data:", ocrDataFallback.owner);
-            } else {
-                updates.owner = form.getValues('owner') || recordData.owner;
-                 console.log("Fallback: Owner field not empty or no OCR owner data:", form.getValues('owner'), ocrDataFallback.owner);
-            }
-
-             if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) {
-                 form.setValue('plateNumber', ocrDataFallback.plateNumber);
-                 updates.plateNumber = ocrDataFallback.plateNumber;
-             } else { updates.plateNumber = form.getValues('plateNumber') || recordData.plateNumber; } // Keep current value
 
              // Fallback for global state fields (take existing or OCR if existing is empty)
              updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
@@ -381,18 +431,26 @@ export default function NewRecordStep1() {
              updates.versiyon = recordData.versiyon || ocrDataFallback.versiyon; // Added versiyon
 
              // Also add the file to additional photos in fallback scenario if it's not there
-             const currentPhotosFallback = (recordData.additionalPhotos || []).filter(f => f instanceof File) as File[];
-             const fileKeyFallback = `${file.name}-${file.size}`;
-             if (!currentPhotosFallback.some(p => `${p.name}-${p.size}` === fileKeyFallback)) {
+             const currentPhotosFallback = (recordData.additionalPhotos || []).filter(f => f instanceof File || (typeof f === 'object' && f !== null && 'name' in f)) as (File | { name: string; type?: string; size?: number; })[];
+
+              const fileKeyFallback = `${file.name}-${file.size}`;
+              const existsFallback = currentPhotosFallback.some(p => {
+                  const pKey = `${p.name}-${'size' in p ? p.size : ''}`;
+                  return pKey === fileKeyFallback;
+              });
+
+             if (!existsFallback) {
                  updates.additionalPhotos = [...currentPhotosFallback, file];
                   console.log(`[Fallback] Adding scanned registration document '${file.name}' to additionalPhotos.`);
              } else {
-                 updates.additionalPhotos = currentPhotosFallback;
+                 updates.additionalPhotos = currentPhotosFallback.map(p => p instanceof File ? p : getSerializableFileInfo(p)).filter(Boolean) as (File | { name: string; type?: string; size?: number; })[];
+
              }
 
        } else {
            // If OCR itself failed or decision failed without OCR fallback,
-           // ensure updates reflect current form values or existing global state for consistency
+           // ensure updates reflect current form/state values for consistency
+           console.warn("OCR Scan or AI Decision completely failed. Preserving current form/state values.");
            updates.chassisNumber = form.getValues('chassisNumber') || recordData.chassisNumber;
            updates.brand = form.getValues('brand') || recordData.brand;
            updates.type = form.getValues('type') || recordData.type;
@@ -403,7 +461,7 @@ export default function NewRecordStep1() {
            updates.typeAndVariant = recordData.typeAndVariant;     // Keep existing global
            updates.versiyon = recordData.versiyon; // Keep existing global versiyon
             // Preserve existing additional photos if OCR failed completely
-           updates.additionalPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File) as File[];
+           updates.additionalPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File || (typeof f === 'object' && f !== null && 'name' in f)) as (File | { name: string; type?: string; size?: number; })[];
 
        }
 
@@ -476,14 +534,15 @@ export default function NewRecordStep1() {
       form.setValue('document', file); // Set the File object in the form state
       updateRecordData({ registrationDocument: file }); // Update global state with File object
       console.log("File selected:", file.name);
+
       // Reset text fields when a new image is uploaded - KEEP THIS BEHAVIOR
-      form.resetField('chassisNumber');
-      form.resetField('brand');
-      form.resetField('type');
-      form.resetField('tradeName');
-      form.resetField('owner');
-      form.resetField('plateNumber');
-      console.log("Cleared text fields after new file upload.");
+      // form.resetField('chassisNumber');
+      // form.resetField('brand');
+      // form.resetField('type');
+      // form.resetField('tradeName');
+      // form.resetField('owner');
+      // form.resetField('plateNumber');
+      // console.log("Cleared text fields after new file upload.");
 
     } else {
       // Handle case where file selection is cancelled or no file is chosen
@@ -551,14 +610,16 @@ export default function NewRecordStep1() {
     router.push('/new-record/step-2');
   };
 
-  // Load initial data from state (document preview and initial field values if persisted)
+  // Load initial data from state only on mount, and only if not editing
   React.useEffect(() => {
       if (!branch) {
           router.push('/select-branch');
           return; // Early return if no branch
       }
 
-      // Load existing data into the form instead of resetting to empty
+       // Load existing data into the form instead of resetting to empty
+      // This ensures data is preserved when navigating back and forth
+      const currentDoc = recordData.registrationDocument;
       form.reset({
           chassisNumber: recordData.chassisNumber || '',
           brand: recordData.brand || '',
@@ -566,11 +627,12 @@ export default function NewRecordStep1() {
           tradeName: recordData.tradeName || '',
           owner: recordData.owner || '',
           plateNumber: recordData.plateNumber || '',
-          document: recordData.registrationDocument || null, // Load document info/file
+          // Set the document field correctly based on whether it's a File or info
+          document: currentDoc instanceof File ? currentDoc : (typeof currentDoc === 'object' && currentDoc?.name ? currentDoc : null),
       });
 
       // Setup preview based on loaded document (already handled by the other useEffect)
-      console.log("Step 1 Initialized for branch:", branch, "Loaded data:", recordData);
+      console.log("Step 1 Initialized/Synced for branch:", branch, "Loaded data:", recordData);
 
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branch, router]); // Depend on recordData only for initial load, not every change
