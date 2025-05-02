@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -6,10 +7,12 @@ import { useRouter } from 'next/navigation'; // Import useRouter
 import { useAppState, OfferItem, RecordData, ArchiveEntry } from '@/hooks/use-app-state'; // Import OfferItem, RecordData, ArchiveEntry
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea'; // Import Textarea for display
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X, Info, Download, Eye, Film } from 'lucide-react'; // Added Check, X, Info, Download, Eye, Film icons
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox for display
+import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X, Info, Download, Eye, Film, FileSpreadsheet, ClipboardList, FileCheck2 } from 'lucide-react'; // Added more icons
 import { format, parseISO, getMonth, getYear } from 'date-fns';
 import { tr } from 'date-fns/locale'; // Import Turkish locale
 import {
@@ -28,11 +31,10 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
     DialogClose,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
-import { getSerializableFileInfo } from '@/lib/utils'; // Import helper
+import { getSerializableFileInfo, cn } from '@/lib/utils'; // Import helpers
 
 // ArchiveEntry type is now imported from use-app-state
 
@@ -242,15 +244,15 @@ export default function ArchivePage() {
 
    // Helper to display checklist status
    const renderChecklistStatus = (status: 'olumlu' | 'olumsuz' | undefined) => {
-       if (status === 'olumlu') return <Check className="h-4 w-4 text-green-600" />;
-       if (status === 'olumsuz') return <X className="h-4 w-4 text-red-600" />;
+       if (status === 'olumlu') return <Check className="h-5 w-5 text-green-600" />;
+       if (status === 'olumsuz') return <X className="h-5 w-5 text-red-600" />;
        return <span className="text-muted-foreground">-</span>;
    };
 
     // Helper to display boolean checklist status (from Step 6)
    const renderBooleanChecklistStatus = (status: boolean | undefined) => {
-       if (status === true) return <Check className="h-4 w-4 text-green-600" />;
-       if (status === false) return <X className="h-4 w-4 text-red-600" />; // Assuming false means olumsuz
+       if (status === true) return <Check className="h-5 w-5 text-green-600" />;
+       if (status === false) return <X className="h-5 w-5 text-red-600" />; // Assuming false means olumsuz
        return <span className="text-muted-foreground">-</span>;
    };
 
@@ -303,6 +305,48 @@ export default function ArchivePage() {
             toast({ title: "Görüntüleme Yok", description: "Bu dosya için görüntüleme URL'si bulunamadı veya ayarlanmadı.", variant: "destructive" });
         }
     };
+
+
+    // Checklist questions for Step 4 display
+     const checklistItemsStep4 = [
+        { id: 'q1_suitable', label: '1- YAPILACAK TADİLATA ARAÇ UYGUN MU?' },
+        { id: 'q2_typeApprovalMatch', label: '2- TİP ONAY NUMARASI TUTUYOR MU?' },
+        { id: 'q3_scopeExpansion', label: '3- TUTMUYORSA KAPSAM GENİŞLETMEYE UYGUN MU?' },
+        { id: 'q4_unaffectedPartsDefect', label: '4- TADİLATTAN ETKİLENMEYEN KISIMLARINDA HER HANGİBİR KUSUR VAR MI?' },
+      ];
+
+      // Checklist questions for Step 6 display
+     const checklistItemsStep6 = [
+        { idBase: 'check1_exposedParts', label: '1- AÇIKTA BİR AKSAM KALMADIĞINI KONTROL ET' },
+        { idBase: 'check2_isofixSeat', label: '2- İSOFİX VE KOLTUK BAĞLANTILARININ DÜZGÜNCE YAPILDIĞINI KONTROL ET' },
+        { idBase: 'check3_seatBelts', label: '3- EMNİYET KEMERLERİNİN DOĞRU ÇALIŞTIĞINI KONTROL ET' },
+        { idBase: 'check4_windowApprovals', label: '4- CAMLARIN ONAYLARINI KONTROL ET' },
+      ];
+
+      // Helper to render readonly checkbox display for Step 4
+      const renderReadonlyRadioGroup = (checkedValue: 'olumlu' | 'olumsuz' | undefined) => (
+        <div className="flex items-center justify-center space-x-4">
+            <div className="flex items-center space-x-1">
+                <Checkbox checked={checkedValue === 'olumlu'} disabled className="data-[state=checked]:border-green-600 data-[state=checked]:bg-green-600/20" />
+                <span className="text-xs">Oluumlu</span>
+            </div>
+            <div className="flex items-center space-x-1">
+                 <Checkbox checked={checkedValue === 'olumsuz'} disabled className="data-[state=checked]:border-red-600 data-[state=checked]:bg-red-600/20"/>
+                 <span className="text-xs">Olumsuz</span>
+            </div>
+        </div>
+      );
+
+       // Helper to render readonly checkbox display for Step 6
+       const renderReadonlyCheckbox = (checked: boolean | undefined) => (
+         <div className="flex items-center justify-center">
+             <Checkbox checked={checked} disabled className={cn(
+                 "data-[state=checked]:border-primary data-[state=checked]:bg-primary/20", // General checked style
+                 checked === true && "data-[state=checked]:border-green-600 data-[state=checked]:bg-green-600/20", // Green if true
+                 checked === false && "data-[state=checked]:border-red-600 data-[state=checked]:bg-red-600/20", // Red border if false (but still 'checked' visually)
+             )} />
+          </div>
+       );
 
 
   return (
@@ -438,228 +482,343 @@ export default function ArchivePage() {
         </CardContent>
       </Card>
 
-       {/* View Details Modal - Restructured by Step */}
-       {viewingDetailsEntry && (
-           <AlertDialog open={!!viewingDetailsEntry} onOpenChange={() => setViewingDetailsEntry(null)}>
-               <AlertDialogContent className="max-w-4xl">
-                   <AlertDialogHeader>
-                       <AlertDialogTitle>Kayıt Detayları: {viewingDetailsEntry.fileName}</AlertDialogTitle>
-                       <AlertDialogDescription>
-                           Bu kaydın arşivlenmiş tüm verilerini aşağıda adım adım görebilirsiniz.
-                       </AlertDialogDescription>
-                   </AlertDialogHeader>
-                   <div className="mt-4 max-h-[70vh] overflow-y-auto rounded-md border p-4 bg-secondary/30 text-sm space-y-4">
+        {/* View Details Modal - Restructured by Step */}
+        {viewingDetailsEntry && (
+            <AlertDialog open={!!viewingDetailsEntry} onOpenChange={() => setViewingDetailsEntry(null)}>
+                <AlertDialogContent className="max-w-4xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Kayıt Detayları: {viewingDetailsEntry.fileName}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Bu kaydın arşivlenmiş tüm verilerini aşağıda adım adım görebilirsiniz.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="mt-4 max-h-[70vh] overflow-y-auto rounded-md border p-4 bg-secondary/30 space-y-4">
 
-                       {/* Step 1: Araç Ruhsatı */}
-                       <details className="border rounded p-2" open>
-                           <summary className="cursor-pointer font-medium">Adım 1: Araç Ruhsatı</summary>
-                           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2">
-                               <p><strong className="font-medium">Şube:</strong> {viewingDetailsEntry.branch || '-'}</p>
-                               <p><strong className="font-medium">Şasi No:</strong> {viewingDetailsEntry.chassisNumber || '-'}</p>
-                               <p><strong className="font-medium">Plaka:</strong> {viewingDetailsEntry.plateNumber || '-'}</p>
-                               <p><strong className="font-medium">Markası:</strong> {viewingDetailsEntry.brand || '-'}</p>
-                               <p><strong className="font-medium">Tipi:</strong> {viewingDetailsEntry.type || '-'}</p>
-                               <p><strong className="font-medium">Ticari Adı:</strong> {viewingDetailsEntry.tradeName || '-'}</p>
-                               <p><strong className="font-medium">Adı Soyadı (Sahip):</strong> {viewingDetailsEntry.owner || '-'}</p>
-                               <p><strong className="font-medium">Motor No:</strong> {viewingDetailsEntry.engineNumber || '-'}</p>
-                                <div className="col-span-full pt-1">
+                        {/* Adım 1: Araç Ruhsatı */}
+                        <details className="border rounded p-2" open>
+                            <summary className="cursor-pointer font-medium flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-primary"/> Adım 1: Araç Ruhsatı
+                            </summary>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 mt-3 text-sm">
+                                <div className="space-y-1">
+                                    <p><strong className="font-medium w-28 inline-block">Şube</strong>: {viewingDetailsEntry.branch || '-'}</p>
+                                    <p><strong className="font-medium w-28 inline-block">Şasi No</strong>: {viewingDetailsEntry.chassisNumber || '-'}</p>
+                                    <p><strong className="font-medium w-28 inline-block">Plaka</strong>: {viewingDetailsEntry.plateNumber || '-'}</p>
+                                    <p><strong className="font-medium w-28 inline-block">Markası</strong>: {viewingDetailsEntry.brand || '-'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p><strong className="font-medium w-28 inline-block">Tipi</strong>: {viewingDetailsEntry.type || '-'}</p>
+                                    <p><strong className="font-medium w-28 inline-block">Ticari Adı</strong>: {viewingDetailsEntry.tradeName || '-'}</p>
+                                    <p><strong className="font-medium w-28 inline-block">Adı Soyadı</strong>: {viewingDetailsEntry.owner || '-'}</p>
+                                    <p><strong className="font-medium w-28 inline-block">Motor No</strong>: {viewingDetailsEntry.engineNumber || '-'}</p>
+                                </div>
+                                <div className="col-span-full pt-2 mt-2 border-t">
                                     <strong className="font-medium">Ruhsat Belgesi:</strong>
-                                     {viewingDetailsEntry.registrationDocument ? (
-                                        <Button variant="link" size="sm" className="h-auto p-0 ml-2" onClick={() => openMediaPreview(viewingDetailsEntry.registrationDocument)}>
-                                            <Eye className="inline h-3 w-3 mr-1" /> {getFileName(viewingDetailsEntry.registrationDocument)}
+                                    {viewingDetailsEntry.registrationDocument ? (
+                                        <Button variant="link" size="sm" className="h-auto p-0 ml-2 text-primary hover:underline" onClick={() => openMediaPreview(viewingDetailsEntry.registrationDocument)}>
+                                            <Eye className="inline h-4 w-4 mr-1" /> {getFileName(viewingDetailsEntry.registrationDocument)}
                                         </Button>
-                                    ) : ' Yok'}
+                                    ) : <span className="italic text-muted-foreground ml-2">Yok</span>}
                                 </div>
-                           </div>
-                       </details>
-
-                       {/* Step 2: Etiket Bilgileri */}
-                       <details className="border rounded p-2">
-                           <summary className="cursor-pointer font-medium">Adım 2: Etiket Bilgileri (İsteğe Bağlı)</summary>
-                           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2">
-                               <p><strong className="font-medium">Tip Onay No:</strong> {viewingDetailsEntry.typeApprovalNumber || '-'}</p>
-                               <p><strong className="font-medium">Varyant:</strong> {viewingDetailsEntry.typeAndVariant || '-'}</p>
-                               <p><strong className="font-medium">Versiyon:</strong> {viewingDetailsEntry.versiyon || '-'}</p>
-                                <div className="col-span-full pt-1">
-                                    <strong className="font-medium">Etiket Belgesi:</strong>
-                                     {viewingDetailsEntry.labelDocument ? (
-                                        <Button variant="link" size="sm" className="h-auto p-0 ml-2" onClick={() => openMediaPreview(viewingDetailsEntry.labelDocument)}>
-                                             <Eye className="inline h-3 w-3 mr-1" /> {getFileName(viewingDetailsEntry.labelDocument)}
-                                         </Button>
-                                    ) : ' Yok'}
-                                </div>
-                           </div>
-                       </details>
-
-                       {/* Step 3: Ek Dosya Yükleme */}
-                       <details className="border rounded p-2">
-                           <summary className="cursor-pointer font-medium">Adım 3: Ek Dosyalar (İsteğe Bağlı)</summary>
-                           <div className="pt-2 space-y-1">
-                               <div>
-                                   <strong className="font-medium">Tip Onay Belgesi:</strong>
-                                    {viewingDetailsEntry.typeApprovalDocument ? (
-                                        <Button variant="link" size="sm" className="h-auto p-0 ml-2" onClick={() => openMediaPreview(viewingDetailsEntry.typeApprovalDocument)}>
-                                            <Eye className="inline h-3 w-3 mr-1" /> {getFileName(viewingDetailsEntry.typeApprovalDocument)}
-                                        </Button>
-                                   ) : ' Yok'}
-                               </div>
-                               <div>
-                                   <strong className="font-medium">Ek Fotoğraflar ({viewingDetailsEntry.additionalPhotos?.length || 0}):</strong>
-                                   {viewingDetailsEntry.additionalPhotos && viewingDetailsEntry.additionalPhotos.length > 0 ? (
-                                       <ul className="list-none ml-4 space-y-1">
-                                           {viewingDetailsEntry.additionalPhotos.map((f, i) => (
-                                               <li key={i}>
-                                                   <Button variant="link" size="sm" className="h-auto p-0 ml-1" onClick={() => openMediaPreview(f)}>
-                                                        <Eye className="inline h-3 w-3 mr-1" /> {f.name}
-                                                   </Button>
-                                               </li>
-                                           ))}
-                                       </ul>
-                                   ) : ' Yok'}
-                               </div>
-                               <div>
-                                   <strong className="font-medium">Ek Videolar ({viewingDetailsEntry.additionalVideos?.length || 0}):</strong>
-                                   {viewingDetailsEntry.additionalVideos && viewingDetailsEntry.additionalVideos.length > 0 ? (
-                                       <ul className="list-none ml-4 space-y-1">
-                                           {viewingDetailsEntry.additionalVideos.map((f, i) => (
-                                               <li key={i}>
-                                                   <Button variant="link" size="sm" className="h-auto p-0 ml-1" onClick={() => openMediaPreview(f)}>
-                                                        <Eye className="inline h-3 w-3 mr-1" /> {f.name}
-                                                    </Button>
-                                               </li>
-                                           ))}
-                                       </ul>
-                                   ) : ' Yok'}
-                               </div>
-                           </div>
-                       </details>
-
-                       {/* Step 4: Seri Tadilat Uygunluk Formu */}
-                       <details className="border rounded p-2">
-                           <summary className="cursor-pointer font-medium">Adım 4: Seri Tadilat Uygunluk Formu</summary>
-                           <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                              <p><strong className="font-medium">Müşteri Adı:</strong> {viewingDetailsEntry.customerName || '-'}</p>
-                              <p><strong className="font-medium">Form Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.formDate, 'dd.MM.yyyy')}</p>
-                              <p><strong className="font-medium">Sıra No:</strong> {viewingDetailsEntry.sequenceNo || '-'}</p>
-                              <p><strong className="font-medium">1. Tadilat Uygun mu?:</strong> {renderChecklistStatus(viewingDetailsEntry.q1_suitable)}</p>
-                              <p><strong className="font-medium">2. Tip Onay Tutuyor mu?:</strong> {renderChecklistStatus(viewingDetailsEntry.q2_typeApprovalMatch)}</p>
-                              <p><strong className="font-medium">3. Kapsam Gen. Uygun mu?:</strong> {renderChecklistStatus(viewingDetailsEntry.q3_scopeExpansion)}</p>
-                              <p><strong className="font-medium">4. Diğer Kusur Var mı?:</strong> {renderChecklistStatus(viewingDetailsEntry.q4_unaffectedPartsDefect)}</p>
-                              <p className="col-span-2"><strong className="font-medium">Kontrol Eden:</strong> {viewingDetailsEntry.controllerName || '-'}</p>
-                              <p className="col-span-2"><strong className="font-medium">Yetkili:</strong> {viewingDetailsEntry.authorityName || '-'}</p>
-                              <p className="col-span-2"><strong className="font-medium">Notlar:</strong> {viewingDetailsEntry.notes || '-'}</p>
-                           </div>
+                            </div>
                         </details>
 
-                        {/* Step 5: Teklif Formu */}
+                        {/* Adım 2: Etiket Bilgileri */}
                          <details className="border rounded p-2">
-                            <summary className="cursor-pointer font-medium">Adım 5: Teklif Formu</summary>
-                            {/* Company Details */}
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2 border-b pb-2 mb-2">
-                                <p><strong className="font-medium">Yetkili Adı:</strong> {viewingDetailsEntry.offerAuthorizedName || '-'}</p>
-                                <p><strong className="font-medium">Firma Adı:</strong> {viewingDetailsEntry.offerCompanyName || '-'}</p>
-                                <p className="col-span-2"><strong className="font-medium">Açık Adres:</strong> {viewingDetailsEntry.offerCompanyAddress || '-'}</p>
-                                <p><strong className="font-medium">Vergi D./No:</strong> {viewingDetailsEntry.offerTaxOfficeAndNumber || '-'}</p>
-                                <p><strong className="font-medium">Telefon:</strong> {viewingDetailsEntry.offerPhoneNumber || '-'}</p>
-                                <p><strong className="font-medium">E-posta:</strong> {viewingDetailsEntry.offerEmailAddress || '-'}</p>
-                                <p><strong className="font-medium">Teklif Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.offerDate, 'dd.MM.yyyy')}</p>
-                            </div>
-                             {/* İş Emri Details */}
-                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2 border-b pb-2 mb-2">
-                                <p><strong className="font-medium">Proje Adı:</strong> {viewingDetailsEntry.projectName || '-'}</p>
-                                <p><strong className="font-medium">Plaka (Teklif):</strong> {viewingDetailsEntry.plate || '-'}</p>
-                                <p><strong className="font-medium">İş Emri Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.workOrderDate, 'dd.MM.yyyy')}</p>
-                                <p><strong className="font-medium">İş Emri No:</strong> {viewingDetailsEntry.workOrderNumber || '-'}</p>
-                                <p><strong className="font-medium">İşin Bitiş Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.completionDate, 'dd.MM.yyyy')}</p>
-                                <p><strong className="font-medium">Proje No:</strong> {viewingDetailsEntry.projectNo || '-'}</p>
-                                <p className="col-span-2"><strong className="font-medium">Yapılacak İşler:</strong> {viewingDetailsEntry.detailsOfWork || '-'}</p>
-                                <p className="col-span-2"><strong className="font-medium">Yedek Parçalar/Açık.:</strong> {viewingDetailsEntry.sparePartsUsed || '-'}</p>
-                                <p className="col-span-2"><strong className="font-medium">Ücretlendirme:</strong> {viewingDetailsEntry.pricing || '-'}</p>
-                                <p><strong className="font-medium">Araç Kabul (İmza):</strong> {viewingDetailsEntry.vehicleAcceptanceSignature || '-'}</p>
-                                <p><strong className="font-medium">Müşteri (İmza):</strong> {viewingDetailsEntry.customerSignature || '-'}</p>
+                             <summary className="cursor-pointer font-medium flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-primary"/> Adım 2: Etiket Bilgileri
+                             </summary>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 mt-3 text-sm">
+                                 <div className="space-y-1">
+                                     <p><strong className="font-medium w-28 inline-block">Tip Onay No</strong>: {viewingDetailsEntry.typeApprovalNumber || '-'}</p>
+                                     <p><strong className="font-medium w-28 inline-block">Varyant</strong>: {viewingDetailsEntry.typeAndVariant || '-'}</p>
+                                 </div>
+                                  <div className="space-y-1">
+                                      <p><strong className="font-medium w-28 inline-block">Versiyon</strong>: {viewingDetailsEntry.versiyon || '-'}</p>
+                                      {/* Add other Step 2 fields if any */}
+                                  </div>
+                                 <div className="col-span-full pt-2 mt-2 border-t">
+                                     <strong className="font-medium">Etiket Belgesi:</strong>
+                                     {viewingDetailsEntry.labelDocument ? (
+                                         <Button variant="link" size="sm" className="h-auto p-0 ml-2 text-primary hover:underline" onClick={() => openMediaPreview(viewingDetailsEntry.labelDocument)}>
+                                             <Eye className="inline h-4 w-4 mr-1" /> {getFileName(viewingDetailsEntry.labelDocument)}
+                                         </Button>
+                                     ) : <span className="italic text-muted-foreground ml-2">Yok</span>}
+                                 </div>
                              </div>
-                              {/* Offer Items Table */}
-                              {viewingDetailsEntry.offerItems && viewingDetailsEntry.offerItems.length > 0 && (
-                                <div className="mt-2 overflow-x-auto">
-                                     <h4 className="font-medium mb-1">Teklif Kalemleri:</h4>
-                                    <Table className="bg-background">
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Sıra No</TableHead>
-                                                <TableHead>Mal ve Malzemenin Adı</TableHead>
-                                                <TableHead>Miktar</TableHead>
-                                                <TableHead>Birim Fiyatı</TableHead>
-                                                <TableHead>Toplam (TL)</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {viewingDetailsEntry.offerItems.map((item, index) => (
-                                                <TableRow key={item.id || index}>
-                                                    <TableCell>{index + 1}</TableCell>
-                                                    <TableCell>{item.itemName || '-'}</TableCell>
-                                                    <TableCell>{item.quantity || '-'}</TableCell>
-                                                    <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-                                                    <TableCell>{formatCurrency(item.totalPrice)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                              )}
-                              <div className="mt-2 pt-2 border-t">
-                                  <p><strong className="font-medium">Teklif Durumu:</strong> {renderOfferAcceptanceStatus(viewingDetailsEntry.offerAcceptance)}</p>
+                         </details>
+
+
+                        {/* Adım 3: Ek Dosya Yükleme */}
+                         <details className="border rounded p-2">
+                             <summary className="cursor-pointer font-medium flex items-center gap-2">
+                                <FilePlus className="h-5 w-5 text-primary"/> Adım 3: Ek Dosyalar
+                             </summary>
+                             <div className="pt-3 space-y-3 text-sm">
+                                 <div>
+                                     <strong className="font-medium block mb-1">Tip Onay Belgesi:</strong>
+                                     {viewingDetailsEntry.typeApprovalDocument ? (
+                                         <Button variant="link" size="sm" className="h-auto p-0 text-primary hover:underline" onClick={() => openMediaPreview(viewingDetailsEntry.typeApprovalDocument)}>
+                                             <Eye className="inline h-4 w-4 mr-1" /> {getFileName(viewingDetailsEntry.typeApprovalDocument)}
+                                         </Button>
+                                     ) : <span className="italic text-muted-foreground">Yok</span>}
+                                 </div>
+                                 <div>
+                                     <strong className="font-medium block mb-1">Ek Fotoğraflar ({viewingDetailsEntry.additionalPhotos?.length || 0}):</strong>
+                                     {viewingDetailsEntry.additionalPhotos && viewingDetailsEntry.additionalPhotos.length > 0 ? (
+                                         <ul className="list-none space-y-1">
+                                             {viewingDetailsEntry.additionalPhotos.map((f, i) => (
+                                                 <li key={i}>
+                                                     <Button variant="link" size="sm" className="h-auto p-0 text-primary hover:underline" onClick={() => openMediaPreview(f)}>
+                                                         <Camera className="inline h-4 w-4 mr-1 text-purple-600" /> {f.name}
+                                                     </Button>
+                                                 </li>
+                                             ))}
+                                         </ul>
+                                     ) : <span className="italic text-muted-foreground">Yok</span>}
+                                 </div>
+                                 <div>
+                                     <strong className="font-medium block mb-1">Ek Videolar ({viewingDetailsEntry.additionalVideos?.length || 0}):</strong>
+                                     {viewingDetailsEntry.additionalVideos && viewingDetailsEntry.additionalVideos.length > 0 ? (
+                                         <ul className="list-none space-y-1">
+                                             {viewingDetailsEntry.additionalVideos.map((f, i) => (
+                                                 <li key={i}>
+                                                     <Button variant="link" size="sm" className="h-auto p-0 text-primary hover:underline" onClick={() => openMediaPreview(f)}>
+                                                         <Video className="inline h-4 w-4 mr-1 text-orange-600" /> {f.name}
+                                                     </Button>
+                                                 </li>
+                                             ))}
+                                         </ul>
+                                     ) : <span className="italic text-muted-foreground">Yok</span>}
+                                 </div>
+                             </div>
+                         </details>
+
+                        {/* Adım 4: Seri Tadilat Uygunluk Formu */}
+                         <details className="border rounded p-2">
+                             <summary className="cursor-pointer font-medium flex items-center gap-2">
+                                <FileSpreadsheet className="h-5 w-5 text-primary"/> Adım 4: Seri Tadilat Uygunluk Formu
+                             </summary>
+                              <div className="space-y-4 pt-3 text-sm">
+                                 {/* Top Section: Müşteri Adı, Tarih, Sıra */}
+                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                     <p><strong className="font-medium w-24 inline-block">Müşteri Adı</strong>: {viewingDetailsEntry.customerName || '-'}</p>
+                                     <p><strong className="font-medium w-24 inline-block">Form Tarihi</strong>: {formatDateSafe(viewingDetailsEntry.formDate, 'dd.MM.yyyy')}</p>
+                                     <p><strong className="font-medium w-24 inline-block">Sıra</strong>: {viewingDetailsEntry.sequenceNo || '-'}</p>
+                                 </div>
+
+                                 {/* Checklist Section */}
+                                  <div className="border p-3 rounded-md space-y-2 bg-background/50">
+                                     <div className="grid grid-cols-[1fr_120px] items-center font-medium mb-1">
+                                         <span>Kontrol</span>
+                                         <span className="text-center">Durum</span>
+                                     </div>
+                                     {checklistItemsStep4.map((item) => (
+                                         <div key={item.id} className="grid grid-cols-[1fr_120px] items-center gap-x-2 border-t pt-2">
+                                             <span className="text-xs">{item.label}</span>
+                                             {renderReadonlyRadioGroup(viewingDetailsEntry[item.id as keyof ArchiveEntry] as 'olumlu' | 'olumsuz' | undefined)}
+                                          </div>
+                                     ))}
+                                  </div>
+
+                                 {/* Notes Section */}
+                                 <div>
+                                     <strong className="font-medium block mb-1">Not:</strong>
+                                     <Textarea value={viewingDetailsEntry.notes || ''} readOnly className="h-24 bg-background/50 text-xs" />
+                                 </div>
+
+                                 {/* Approval Section */}
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div className="space-y-1">
+                                         <h4 className="font-medium text-center text-xs mb-1">KONTROL EDEN</h4>
+                                         <p><strong className="font-medium w-20 inline-block">Adı-Soyadı</strong>: {viewingDetailsEntry.controllerName || '-'}</p>
+                                         <div className="h-10 border rounded-md bg-background/50 flex items-center justify-center text-xs text-muted-foreground italic mt-1">(İmza Alanı)</div>
+                                     </div>
+                                     <div className="space-y-1">
+                                         <h4 className="font-medium text-center text-xs mb-1">MERKEZ/ŞUBE YETKİLİSİ</h4>
+                                         <p><strong className="font-medium w-20 inline-block">Adı-Soyadı</strong>: {viewingDetailsEntry.authorityName || '-'}</p>
+                                         <div className="h-10 border rounded-md bg-background/50 flex items-center justify-center text-xs text-muted-foreground italic mt-1">(İmza Alanı)</div>
+                                     </div>
+                                 </div>
                               </div>
                          </details>
 
-                        {/* Step 6: Ara ve Son Kontrol Formu */}
+                         {/* Adım 5: Teklif Formu */}
                          <details className="border rounded p-2">
-                             <summary className="cursor-pointer font-medium">Adım 6: Ara ve Son Kontrol Formu</summary>
-                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                                 <p><strong className="font-medium">Son Kontrol Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.finalCheckDate, 'dd.MM.yyyy')}</p>
-                                 <p><strong className="font-medium">Kontrol Eden:</strong> {viewingDetailsEntry.finalControllerName || '-'}</p>
-                                 <p><strong className="font-medium">1. Açıkta Aksam (Ara):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check1_exposedParts_ara)}</p>
-                                 <p><strong className="font-medium">1. Açıkta Aksam (Son):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check1_exposedParts_son)}</p>
-                                 <p><strong className="font-medium">2. Isofix/Koltuk Bağl. (Ara):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check2_isofixSeat_ara)}</p>
-                                 <p><strong className="font-medium">2. Isofix/Koltuk Bağl. (Son):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check2_isofixSeat_son)}</p>
-                                 <p><strong className="font-medium">3. Emniyet Kemeri (Ara):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check3_seatBelts_ara)}</p>
-                                 <p><strong className="font-medium">3. Emniyet Kemeri (Son):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check3_seatBelts_son)}</p>
-                                 <p><strong className="font-medium">4. Cam Onayları (Ara):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check4_windowApprovals_ara)}</p>
-                                 <p><strong className="font-medium">4. Cam Onayları (Son):</strong> {renderBooleanChecklistStatus(viewingDetailsEntry.check4_windowApprovals_son)}</p>
+                             <summary className="cursor-pointer font-medium flex items-center gap-2">
+                                <ClipboardList className="h-5 w-5 text-primary"/> Adım 5: Teklif Formu
+                             </summary>
+                             <div className="space-y-4 pt-3 text-sm">
+                                {/* Company Details */}
+                                <div className="border p-3 rounded-md bg-background/50 space-y-1">
+                                     <h4 className="font-medium mb-2 text-center">Firma Bilgileri</h4>
+                                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                         <p><strong className="font-medium w-24 inline-block">Yetkili Adı</strong>: {viewingDetailsEntry.offerAuthorizedName || '-'}</p>
+                                         <p><strong className="font-medium w-24 inline-block">Firma Adı</strong>: {viewingDetailsEntry.offerCompanyName || '-'}</p>
+                                         <p className="col-span-2"><strong className="font-medium w-24 inline-block">Açık Adres</strong>: {viewingDetailsEntry.offerCompanyAddress || '-'}</p>
+                                         <p><strong className="font-medium w-24 inline-block">Vergi D./No</strong>: {viewingDetailsEntry.offerTaxOfficeAndNumber || '-'}</p>
+                                         <p><strong className="font-medium w-24 inline-block">Telefon</strong>: {viewingDetailsEntry.offerPhoneNumber || '-'}</p>
+                                         <p><strong className="font-medium w-24 inline-block">E-posta</strong>: {viewingDetailsEntry.offerEmailAddress || '-'}</p>
+                                         <p><strong className="font-medium w-24 inline-block">Teklif Tarihi</strong>: {formatDateSafe(viewingDetailsEntry.offerDate, 'dd.MM.yyyy')}</p>
+                                     </div>
+                                 </div>
+                                 {/* İş Emri Details */}
+                                 <div className="border p-3 rounded-md bg-background/50 space-y-1">
+                                      <h4 className="font-medium mb-2 text-center">İş Emri Detayları</h4>
+                                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                         <p><strong className="font-medium w-28 inline-block">Proje Adı</strong>: {viewingDetailsEntry.projectName || '-'}</p>
+                                         <p><strong className="font-medium w-28 inline-block">Plaka (Teklif)</strong>: {viewingDetailsEntry.plate || '-'}</p>
+                                         <p><strong className="font-medium w-28 inline-block">İş Emri Tarihi</strong>: {formatDateSafe(viewingDetailsEntry.workOrderDate, 'dd.MM.yyyy')}</p>
+                                         <p><strong className="font-medium w-28 inline-block">İş Emri No</strong>: {viewingDetailsEntry.workOrderNumber || '-'}</p>
+                                         <p><strong className="font-medium w-28 inline-block">İşin Bitiş Tarihi</strong>: {formatDateSafe(viewingDetailsEntry.completionDate, 'dd.MM.yyyy')}</p>
+                                         <p><strong className="font-medium w-28 inline-block">Proje No</strong>: {viewingDetailsEntry.projectNo || '-'}</p>
+                                      </div>
+                                      <div className="pt-2 mt-2 border-t">
+                                           <strong className="font-medium block mb-1">Yapılacak İşler:</strong>
+                                           <Textarea value={viewingDetailsEntry.detailsOfWork || ''} readOnly className="h-20 bg-background/50 text-xs" />
+                                       </div>
+                                      <div className="pt-2">
+                                          <strong className="font-medium block mb-1">Kullanılan Yedek Parçalar/Açık.:</strong>
+                                          <Textarea value={viewingDetailsEntry.sparePartsUsed || ''} readOnly className="h-20 bg-background/50 text-xs" />
+                                      </div>
+                                      <div className="pt-2">
+                                          <strong className="font-medium block mb-1">Ücretlendirme:</strong>
+                                          <Textarea value={viewingDetailsEntry.pricing || ''} readOnly className="h-16 bg-background/50 text-xs" />
+                                      </div>
+                                       <div className="grid grid-cols-2 gap-4 pt-2 mt-2 border-t">
+                                           <div className="space-y-1">
+                                               <h4 className="font-medium text-center text-xs mb-1">ARAÇ KABUL</h4>
+                                                <p><strong className="font-medium w-20 inline-block">Adı-Soyadı</strong>: {viewingDetailsEntry.vehicleAcceptanceSignature || '-'}</p>
+                                               <div className="h-10 border rounded-md bg-background flex items-center justify-center text-xs text-muted-foreground italic mt-1">(İmza Alanı)</div>
+                                           </div>
+                                           <div className="space-y-1">
+                                               <h4 className="font-medium text-center text-xs mb-1">MÜŞTERİ İMZASI</h4>
+                                                <p><strong className="font-medium w-20 inline-block">Adı-Soyadı</strong>: {viewingDetailsEntry.customerSignature || '-'}</p>
+                                               <div className="h-10 border rounded-md bg-background flex items-center justify-center text-xs text-muted-foreground italic mt-1">(İmza Alanı)</div>
+                                           </div>
+                                       </div>
+                                 </div>
+                                 {/* Offer Items Table */}
+                                 {viewingDetailsEntry.offerItems && viewingDetailsEntry.offerItems.length > 0 && (
+                                     <div className="mt-2 overflow-x-auto">
+                                         <h4 className="font-medium mb-1">Teklif Kalemleri:</h4>
+                                         <Table className="bg-background text-xs">
+                                             <TableHeader>
+                                                 <TableRow>
+                                                     <TableHead className="py-1 px-2">Sıra No</TableHead>
+                                                     <TableHead className="py-1 px-2">Mal ve Malzemenin Adı</TableHead>
+                                                     <TableHead className="py-1 px-2">Miktar</TableHead>
+                                                     <TableHead className="py-1 px-2">Birim Fiyatı</TableHead>
+                                                     <TableHead className="py-1 px-2">Toplam (TL)</TableHead>
+                                                 </TableRow>
+                                             </TableHeader>
+                                             <TableBody>
+                                                 {viewingDetailsEntry.offerItems.map((item, index) => (
+                                                     <TableRow key={item.id || index}>
+                                                         <TableCell className="py-1 px-2">{index + 1}</TableCell>
+                                                         <TableCell className="py-1 px-2">{item.itemName || '-'}</TableCell>
+                                                         <TableCell className="py-1 px-2">{item.quantity || '-'}</TableCell>
+                                                         <TableCell className="py-1 px-2">{formatCurrency(item.unitPrice)}</TableCell>
+                                                         <TableCell className="py-1 px-2">{formatCurrency(item.totalPrice)}</TableCell>
+                                                     </TableRow>
+                                                 ))}
+                                             </TableBody>
+                                         </Table>
+                                     </div>
+                                 )}
+                                 <div className="mt-2 pt-2 border-t">
+                                     <p><strong className="font-medium">Teklif Durumu:</strong> {renderOfferAcceptanceStatus(viewingDetailsEntry.offerAcceptance)}</p>
+                                 </div>
                              </div>
                          </details>
 
-                        {/* Step 7: Özet & Arşiv Bilgileri (Read-Only from Summary Page) */}
+                        {/* Adım 6: Ara ve Son Kontrol Formu */}
+                         <details className="border rounded p-2">
+                             <summary className="cursor-pointer font-medium flex items-center gap-2">
+                                <FileCheck2 className="h-5 w-5 text-primary"/> Adım 6: Ara ve Son Kontrol Formu
+                             </summary>
+                              <div className="space-y-4 pt-3 text-sm">
+                                  {/* Top Info */}
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                      <p><strong className="font-medium w-24 inline-block">Müşteri Adı</strong>: {viewingDetailsEntry.customerName || '-'}</p>
+                                      <p><strong className="font-medium w-24 inline-block">Kontrol Tarihi</strong>: {formatDateSafe(viewingDetailsEntry.finalCheckDate, 'dd.MM.yyyy')}</p>
+                                      <p><strong className="font-medium w-24 inline-block">Proje No</strong>: {viewingDetailsEntry.projectNo || '-'}</p>
+                                      <p className="col-span-2"><strong className="font-medium w-24 inline-block">Plaka & Şasi</strong>: {`${viewingDetailsEntry.plateNumber || viewingDetailsEntry.plate || 'Plaka Yok'} / ${viewingDetailsEntry.chassisNumber || 'Şasi Yok'}`}</p>
+                                      <p><strong className="font-medium w-24 inline-block">Şube Adı</strong>: {viewingDetailsEntry.branch || '-'}</p>
+                                  </div>
+                                   {/* Checklist */}
+                                   <div className="border p-3 rounded-md space-y-2 bg-background/50">
+                                     <div className="grid grid-cols-[1fr_80px_80px] items-center font-medium mb-1">
+                                         <span className="font-semibold text-xs">Kontrol Edilecek Hususlar</span>
+                                         <span className="text-center px-1 font-semibold text-xs">ARA (Olumlu)</span>
+                                         <span className="text-center px-1 font-semibold text-xs">SON (Olumlu)</span>
+                                     </div>
+                                     {checklistItemsStep6.map((item) => (
+                                         <div key={item.idBase} className="grid grid-cols-[1fr_80px_80px] items-center gap-x-2 py-2 border-t">
+                                             <span className="text-xs">{item.label}</span>
+                                             {/* ARA Checkbox Display */}
+                                             {renderReadonlyCheckbox(viewingDetailsEntry[`${item.idBase}_ara` as keyof ArchiveEntry] as boolean | undefined)}
+                                             {/* SON Checkbox Display */}
+                                             {renderReadonlyCheckbox(viewingDetailsEntry[`${item.idBase}_son` as keyof ArchiveEntry] as boolean | undefined)}
+                                         </div>
+                                     ))}
+                                  </div>
+                                  {/* Approval */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                      <div className="md:col-start-2 space-y-1"> {/* Align to the right */}
+                                          <h4 className="font-medium text-center text-xs mb-1">KONTROL EDEN</h4>
+                                          <p><strong className="font-medium w-20 inline-block">Adı-Soyadı</strong>: {viewingDetailsEntry.finalControllerName || '-'}</p>
+                                          <div className="h-10 border rounded-md bg-background flex items-center justify-center text-xs text-muted-foreground italic mt-1">(İmza Alanı)</div>
+                                      </div>
+                                  </div>
+                              </div>
+                         </details>
+
+                        {/* Adım 7: Özet & Arşiv Bilgileri */}
                         <details className="border rounded p-2">
-                            <summary className="cursor-pointer font-medium">Adım 7: Özet Bilgileri</summary>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2">
-                                <p><strong className="font-medium">Sıra No (Özet):</strong> {viewingDetailsEntry.sequenceNo || '-'}</p>
-                                {/* Branch and Project Name likely already shown */}
-                                <p><strong className="font-medium">Tip Onay (Özet):</strong> {viewingDetailsEntry.typeApprovalType || '-'}</p>
-                                <p><strong className="font-medium">Onay Seviye (Özet):</strong> {viewingDetailsEntry.typeApprovalLevel || '-'}</p>
-                                {/* Variant already shown */}
-                                <p><strong className="font-medium">Versiyon (Özet):</strong> {viewingDetailsEntry.typeApprovalVersion || '-'}</p>
-                                <p><strong className="font-medium">Tip Onay No (Özet):</strong> {viewingDetailsEntry.typeApprovalNumber || '-'}</p>
-                                {/* Type Approval Document link already shown */}
-                                {/* Date already shown */}
-                                {/* Chassis No already shown */}
-                                <p><strong className="font-medium">Motor No (Özet):</strong> {viewingDetailsEntry.engineNumber || '-'}</p>
-                                {/* Plate already shown */}
-                                {/* Customer Name already shown */}
-                                <p><strong className="font-medium">Yapılacak İşler (Özet):</strong> {viewingDetailsEntry.detailsOfWork || '-'}</p>
-                                <p><strong className="font-medium">Proje No (Özet):</strong> {viewingDetailsEntry.projectNo || '-'}</p>
-                            </div>
+                            <summary className="cursor-pointer font-medium flex items-center gap-2">
+                                <Archive className="h-5 w-5 text-primary"/> Adım 7: Özet Bilgileri
+                            </summary>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 mt-3 text-sm">
+                                 <div className="space-y-1">
+                                    <p><strong className="font-medium w-36 inline-block">Sıra No</strong>: {viewingDetailsEntry.sequenceNo || '-'}</p>
+                                    <p><strong className="font-medium w-36 inline-block">Şube Adı</strong>: {viewingDetailsEntry.branch || '-'}</p>
+                                    <p><strong className="font-medium w-36 inline-block">Proje Adı</strong>: {viewingDetailsEntry.projectName || '-'}</p>
+                                    <p><strong className="font-medium w-36 inline-block">Tip Onay</strong>: {viewingDetailsEntry.typeApprovalType || '-'}</p>
+                                    <p><strong className="font-medium w-36 inline-block">Tip Onay Seviye</strong>: {viewingDetailsEntry.typeApprovalLevel || '-'}</p>
+                                    <p><strong className="font-medium w-36 inline-block">Varyant</strong>: {viewingDetailsEntry.typeAndVariant || '-'}</p>
+                                    <p><strong className="font-medium w-36 inline-block">Versiyon</strong>: {viewingDetailsEntry.typeApprovalVersion || viewingDetailsEntry.versiyon || '-'}</p>
+                                 </div>
+                                  <div className="space-y-1">
+                                     <p><strong className="font-medium w-36 inline-block">Tip Onay No</strong>: {viewingDetailsEntry.typeApprovalNumber || '-'}</p>
+                                     {/* Tip Onay Belgesi Link */}
+                                     <div className="flex items-start">
+                                        <strong className="font-medium w-36 inline-block shrink-0">Tip Onay Belgesi</strong>:
+                                        {viewingDetailsEntry.typeApprovalDocument ? (
+                                            <Button variant="link" size="sm" className="h-auto p-0 ml-1 text-primary hover:underline text-left leading-tight" onClick={() => openMediaPreview(viewingDetailsEntry.typeApprovalDocument)}>
+                                                <Eye className="inline h-4 w-4 mr-1"/> {getFileName(viewingDetailsEntry.typeApprovalDocument)}
+                                            </Button>
+                                        ) : <span className="italic text-muted-foreground ml-1">Yok</span>}
+                                     </div>
+                                     <p><strong className="font-medium w-36 inline-block">Tarih</strong>: {formatDateSafe(viewingDetailsEntry.formDate || viewingDetailsEntry.workOrderDate || viewingDetailsEntry.finalCheckDate, 'dd.MM.yyyy')}</p>
+                                     <p><strong className="font-medium w-36 inline-block">Şasi No</strong>: {viewingDetailsEntry.chassisNumber || '-'}</p>
+                                     <p><strong className="font-medium w-36 inline-block">Motor No</strong>: {viewingDetailsEntry.engineNumber || '-'}</p>
+                                     <p><strong className="font-medium w-36 inline-block">Plaka</strong>: {viewingDetailsEntry.plateNumber || viewingDetailsEntry.plate || '-'}</p>
+                                     <p><strong className="font-medium w-36 inline-block">Müşteri Adı</strong>: {viewingDetailsEntry.customerName || '-'}</p>
+                                     <p><strong className="font-medium w-36 inline-block">Yapılacak İşler</strong>: {viewingDetailsEntry.detailsOfWork || '-'}</p>
+                                     <p><strong className="font-medium w-36 inline-block">Proje No</strong>: {viewingDetailsEntry.projectNo || '-'}</p>
+                                 </div>
+                              </div>
                         </details>
 
-
                         {/* Metadata */}
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-2 mt-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 border-t pt-3 mt-3 text-sm">
                            <p><strong className="font-medium">Arşivlenme Tarihi:</strong> {formatDateSafe(viewingDetailsEntry.archivedAt)}</p>
                            <p><strong className="font-medium">Dosya Adı:</strong> {viewingDetailsEntry.fileName}</p>
                         </div>
 
-
                     </div>
-                   <AlertDialogFooter>
+                   <AlertDialogFooter className="mt-4">
                        <AlertDialogCancel onClick={() => setViewingDetailsEntry(null)}>Kapat</AlertDialogCancel>
                    </AlertDialogFooter>
                </AlertDialogContent>
@@ -680,7 +839,7 @@ export default function ArchivePage() {
                     <DialogHeader>
                         <DialogTitle className="truncate">{previewMedia.name}</DialogTitle>
                     </DialogHeader>
-                    <div className="flex-1 relative overflow-auto flex items-center justify-center">
+                    <div className="flex-1 relative overflow-auto flex items-center justify-center bg-black">
                         {previewMedia.type === 'image' ? (
                             <Image
                                 src={previewMedia.url}
@@ -690,9 +849,10 @@ export default function ArchivePage() {
                                 style={{ objectFit: 'contain', maxWidth: '100%', maxHeight: '100%' }}
                                 unoptimized // If using external/placeholder URLs or blob URLs
                                 data-ai-hint="archived document image"
+                                onError={(e) => { console.error("Error loading image preview:", previewMedia.url, e); toast({title: "Hata", description:"Resim yüklenemedi.", variant:"destructive"})}}
                             />
                         ) : (
-                            <video controls className="max-w-full max-h-full">
+                            <video controls className="max-w-full max-h-full" autoPlay>
                                 <source src={previewMedia.url} type={previewMedia.name.endsWith('.mp4') ? 'video/mp4' : previewMedia.name.endsWith('.webm') ? 'video/webm' : 'video/ogg'} />
                                 Tarayıcınız video etiketini desteklemiyor.
                             </video>
@@ -708,3 +868,6 @@ export default function ArchivePage() {
     </div>
   );
 }
+
+
+    
