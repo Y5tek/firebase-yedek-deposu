@@ -111,11 +111,14 @@ export default function NewRecordStep7() {
         if (recordData.registrationDocument instanceof File) {
             regUrl = generatePreviewUrl(recordData.registrationDocument);
             if (regUrl !== registrationDocPreview) {
+                // Revoke old URL before setting new one
+                if (registrationDocPreview) revokePreviewUrl(registrationDocPreview);
                 setRegistrationDocPreview(regUrl);
                 didUpdateReg = true;
             }
         } else {
             if (registrationDocPreview !== null) {
+                revokePreviewUrl(registrationDocPreview); // Revoke if changing from File to something else
                 setRegistrationDocPreview(null); // Clear if not a file and preview exists
                 didUpdateReg = true;
             }
@@ -125,11 +128,14 @@ export default function NewRecordStep7() {
         if (recordData.labelDocument instanceof File) {
             lblUrl = generatePreviewUrl(recordData.labelDocument);
              if (lblUrl !== labelDocPreview) {
+                 // Revoke old URL before setting new one
+                 if (labelDocPreview) revokePreviewUrl(labelDocPreview);
                 setLabelDocPreview(lblUrl);
                 didUpdateLbl = true;
             }
         } else {
              if (labelDocPreview !== null) {
+                revokePreviewUrl(labelDocPreview); // Revoke if changing from File to something else
                 setLabelDocPreview(null); // Clear if not a file and preview exists
                 didUpdateLbl = true;
             }
@@ -137,15 +143,8 @@ export default function NewRecordStep7() {
 
         // Cleanup function
         return () => {
-             // Revoke the URL if it was generated in this effect run
-            if (didUpdateReg && regUrl) revokePreviewUrl(regUrl);
-            if (didUpdateLbl && lblUrl) revokePreviewUrl(lblUrl);
-
-            // Also revoke existing state URLs on unmount/dependency change
-            // Only if they weren't just set (avoid double revoke)
-            if (!didUpdateReg && registrationDocPreview) revokePreviewUrl(registrationDocPreview);
-            if (!didUpdateLbl && labelDocPreview) revokePreviewUrl(labelDocPreview);
-
+            if (regUrl) revokePreviewUrl(regUrl); // Revoke URL generated in this effect
+            if (lblUrl) revokePreviewUrl(lblUrl); // Revoke URL generated in this effect
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [recordData.registrationDocument, recordData.labelDocument]);
@@ -319,14 +318,14 @@ export default function NewRecordStep7() {
 
         } else if (item instanceof File) {
             urlToUse = generatePreviewUrl(item); // Generate temporary URL
-            wasTemporaryUrlGenerated = true; // Mark that we generated a temporary URL
+            wasTemporaryUrlGenerated = !!urlToUse; // Mark that we generated a temporary URL
              nameToUse = item.name;
              typeToUse = item.type.startsWith('video/') ? 'video' : 'image';
-        } else if ('previewUrl' in item && typeof item.previewUrl === 'string') { // Check if it's likely MediaFile
+        } else if (typeof item === 'object' && item !== null && 'previewUrl' in item && typeof item.previewUrl === 'string') { // Check if it's likely MediaFile
             urlToUse = item.previewUrl;
-            nameToUse = item.file?.name || 'Dosya'; // Check if file exists
-            typeToUse = item.type || 'image';
-        } else if ('name' in item && item.name) { // It's persisted info or other object with name
+            nameToUse = (item as any).file?.name || 'Dosya'; // Check if file exists (needs type guard)
+            typeToUse = (item as any).type || 'image';
+        } else if (typeof item === 'object' && item !== null && 'name' in item && item.name) { // It's persisted info or other object with name
              nameToUse = item.name;
              typeToUse = item.type?.startsWith('video/') ? 'video' : 'image';
              // Try to construct a placeholder URL or indicate preview not available
