@@ -136,21 +136,59 @@ const defaultOfferItem: OfferItem = {
 };
 
 const initialRecordData: Omit<RecordData, 'branch' | 'archive'> = { // Exclude archive and branch from initial data defaults
+    // Step 1 & 2 Defaults
+    registrationDocument: undefined, // Initialize as undefined
+    labelDocument: undefined, // Initialize as undefined
+    chassisNumber: undefined,
+    brand: undefined,
+    type: undefined,
+    tradeName: undefined,
+    owner: undefined,
+    plateNumber: '',
+    typeApprovalNumber: undefined,
+    typeAndVariant: undefined,
+    versiyon: '',
+    engineNumber: '',
+    // Step 3 Defaults
+    typeApprovalDocument: undefined, // Initialize as undefined
+    additionalPhotos: [], // Initialize photos array
+    additionalVideos: [], // Initialize videos array
     // Step 4 Defaults
+    customerName: undefined,
+    formDate: undefined, // Use undefined instead of new Date()
     sequenceNo: '3', // Default SIRA to 3 based on image
     q1_suitable: 'olumlu', // Default checklist items to 'olumlu'
     q2_typeApprovalMatch: 'olumlu',
     q3_scopeExpansion: 'olumlu',
     q4_unaffectedPartsDefect: 'olumlu',
+    notes: undefined,
+    controllerName: undefined,
+    authorityName: undefined,
     // Step 5 Defaults (Teklif)
+    offerAuthorizedName: undefined,
     offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK', // Prefill from image
+    offerCompanyAddress: undefined,
     offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97', // Prefill from image
+    offerPhoneNumber: undefined,
+    offerEmailAddress: undefined,
+    offerDate: undefined, // Use undefined instead of new Date()
     offerItems: [
       { ...defaultOfferItem, id: Math.random().toString(36).substring(2, 15) }, // Start with one empty item row
     ],
     offerAcceptance: 'accepted', // Default acceptance
+    projectName: undefined,
+    plate: '',
     workOrderNumber: '3', // Default İş Emri No (Now in Step 5)
+    workOrderDate: undefined, // Use undefined instead of new Date()
+    completionDate: undefined, // Optional
+    detailsOfWork: undefined,
+    sparePartsUsed: undefined, // Combined field
+    pricing: undefined,
+    vehicleAcceptanceSignature: undefined,
+    customerSignature: undefined,
+    projectNo: undefined,
     // Step 6 Defaults (Ara ve Son Kontrol)
+    finalCheckDate: undefined, // Use undefined instead of new Date()
     check1_exposedParts_ara: true,
     check1_exposedParts_son: true,
     check2_isofixSeat_ara: true,
@@ -159,13 +197,18 @@ const initialRecordData: Omit<RecordData, 'branch' | 'archive'> = { // Exclude a
     check3_seatBelts_son: true,
     check4_windowApprovals_ara: true,
     check4_windowApprovals_son: true,
-    // General Defaults
-    additionalPhotos: [], // Initialize photos array
-    additionalVideos: [], // Initialize videos array
-    engineNumber: '', // Initialize engineNumber
-    versiyon: '', // Initialize versiyon
-    plateNumber: '', // Initialize plateNumber (from Ruhsat)
-    plate: '', // Initialize plate (from İş Emri/Teklif)
+    finalControllerName: undefined,
+    // Step 7 Defaults
+    typeApprovalType: undefined,
+    typeApprovalLevel: undefined,
+    typeApprovalVersion: undefined,
+    // Legacy/Metadata
+    additionalNotes: undefined,
+    inspectionDate: undefined,
+    inspectorName: undefined,
+    archivedAt: undefined,
+    fileName: undefined,
+
 
 };
 
@@ -238,82 +281,10 @@ export const useAppState = create<AppState>()(
              const currentArchive = get().recordData.archive || [];
              const currentBranch = get().branch; // Get current branch
              console.log('useAppState: Resetting record data, preserving archive:', currentArchive, 'and branch:', currentBranch);
-             // Keep archive and branch, reset everything else to initial defaults
+             // Reset to initial defaults, preserving archive and branch
              set({
                  recordData: {
-                     // Step 1 & 2
-                     chassisNumber: undefined,
-                     brand: undefined,
-                     type: undefined,
-                     tradeName: undefined,
-                     owner: undefined,
-                     plateNumber: '',
-                     typeApprovalNumber: undefined,
-                     typeAndVariant: undefined,
-                     versiyon: '',
-                     engineNumber: '',
-                     // Step 3 Files
-                     registrationDocument: undefined,
-                     labelDocument: undefined,
-                     typeApprovalDocument: undefined,
-                     additionalPhotos: [], // Reset arrays
-                     additionalVideos: [], // Reset arrays
-                     // Step 4
-                     customerName: undefined,
-                     formDate: undefined,
-                     sequenceNo: '3', // Default
-                     q1_suitable: 'olumlu', // Default
-                     q2_typeApprovalMatch: 'olumlu', // Default
-                     q3_scopeExpansion: 'olumlu', // Default
-                     q4_unaffectedPartsDefect: 'olumlu', // Default
-                     notes: undefined,
-                     controllerName: undefined,
-                     authorityName: undefined,
-                     // Step 5
-                     offerAuthorizedName: undefined,
-                     offerCompanyName: 'ÖZ ÇAĞRI DİZAYN OTO MÜHENDİSLİK', // Default
-                     offerCompanyAddress: undefined,
-                     offerTaxOfficeAndNumber: 'TEPECİK / 662 081 45 97', // Default
-                     offerPhoneNumber: undefined,
-                     offerEmailAddress: undefined,
-                     offerDate: undefined,
-                     offerItems: [ // Reset offer items
-                          {...defaultOfferItem, id: Math.random().toString(36).substring(2, 15)}
-                      ],
-                     offerAcceptance: 'accepted', // Default
-                     projectName: undefined,
-                     plate: '',
-                     workOrderNumber: '3', // Default
-                     workOrderDate: undefined,
-                     completionDate: undefined,
-                     detailsOfWork: undefined,
-                     sparePartsUsed: undefined,
-                     pricing: undefined,
-                     vehicleAcceptanceSignature: undefined,
-                     customerSignature: undefined,
-                     projectNo: undefined,
-                     // Step 6
-                     finalCheckDate: undefined,
-                     check1_exposedParts_ara: true, // Default
-                     check1_exposedParts_son: true, // Default
-                     check2_isofixSeat_ara: true, // Default
-                     check2_isofixSeat_son: true, // Default
-                     check3_seatBelts_ara: true, // Default
-                     check3_seatBelts_son: true, // Default
-                     check4_windowApprovals_ara: true, // Default
-                     check4_windowApprovals_son: true, // Default
-                     finalControllerName: undefined,
-                     // Step 7
-                     typeApprovalType: undefined,
-                     typeApprovalLevel: undefined,
-                     typeApprovalVersion: undefined, // Reset this as well (might duplicate versiyon)
-                     // Metadata / Legacy
-                     archivedAt: undefined,
-                     fileName: undefined,
-                     additionalNotes: undefined,
-                     inspectionDate: undefined,
-                     inspectorName: undefined,
-                     // Preserved data
+                     ...initialRecordData, // Apply initial defaults
                      archive: currentArchive, // Preserve the existing archive
                      branch: currentBranch, // Preserve the current branch
                  },
@@ -516,4 +487,4 @@ function mergeFileArrays(
     return Array.from(mergedMap.values());
 }
 
-    
+      

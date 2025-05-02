@@ -104,41 +104,21 @@ export default function NewRecordStep7() {
    React.useEffect(() => {
         let regUrl: string | null = null;
         let lblUrl: string | null = null;
-        let didUpdateReg = false;
-        let didUpdateLbl = false;
 
         // Handle Registration Document
         if (recordData.registrationDocument instanceof File) {
             regUrl = generatePreviewUrl(recordData.registrationDocument);
-            if (regUrl !== registrationDocPreview) {
-                // Revoke old URL before setting new one
-                if (registrationDocPreview) revokePreviewUrl(registrationDocPreview);
-                setRegistrationDocPreview(regUrl);
-                didUpdateReg = true;
-            }
+            setRegistrationDocPreview(regUrl);
         } else {
-            if (registrationDocPreview !== null) {
-                revokePreviewUrl(registrationDocPreview); // Revoke if changing from File to something else
-                setRegistrationDocPreview(null); // Clear if not a file and preview exists
-                didUpdateReg = true;
-            }
+            setRegistrationDocPreview(null); // Clear if not a file
         }
 
         // Handle Label Document
         if (recordData.labelDocument instanceof File) {
             lblUrl = generatePreviewUrl(recordData.labelDocument);
-             if (lblUrl !== labelDocPreview) {
-                 // Revoke old URL before setting new one
-                 if (labelDocPreview) revokePreviewUrl(labelDocPreview);
-                setLabelDocPreview(lblUrl);
-                didUpdateLbl = true;
-            }
+            setLabelDocPreview(lblUrl);
         } else {
-             if (labelDocPreview !== null) {
-                revokePreviewUrl(labelDocPreview); // Revoke if changing from File to something else
-                setLabelDocPreview(null); // Clear if not a file and preview exists
-                didUpdateLbl = true;
-            }
+             setLabelDocPreview(null); // Clear if not a file
         }
 
         // Cleanup function
@@ -146,6 +126,7 @@ export default function NewRecordStep7() {
             if (regUrl) revokePreviewUrl(regUrl); // Revoke URL generated in this effect
             if (lblUrl) revokePreviewUrl(lblUrl); // Revoke URL generated in this effect
         };
+        // Only depend on the document identities
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [recordData.registrationDocument, recordData.labelDocument]);
 
@@ -320,7 +301,7 @@ export default function NewRecordStep7() {
             urlToUse = generatePreviewUrl(item); // Generate temporary URL
             wasTemporaryUrlGenerated = !!urlToUse; // Mark that we generated a temporary URL
              nameToUse = item.name;
-             typeToUse = item.type.startsWith('video/') ? 'video' : 'image';
+             typeToUse = item.type?.startsWith('video/') ? 'video' : 'image';
         } else if (typeof item === 'object' && item !== null && 'previewUrl' in item && typeof item.previewUrl === 'string') { // Check if it's likely MediaFile
             urlToUse = item.previewUrl;
             nameToUse = (item as any).file?.name || 'Dosya'; // Check if file exists (needs type guard)
@@ -491,7 +472,6 @@ export default function NewRecordStep7() {
     router.push('/new-record/step-6');
   };
 
-   // Remove the check for missing branch or chassis number
    React.useEffect(() => {
        // Sync form with the latest recordData from state on initial load or when critical data changes
        form.reset({
@@ -505,15 +485,8 @@ export default function NewRecordStep7() {
            detailsOfWork: recordData.detailsOfWork || '',
            projectNo: recordData.projectNo || '',
        });
-   // Only run when branch or chassis number changes, or on mount
    // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [branch, recordData.chassisNumber, recordData]); // Added recordData dependency to re-sync on any change
-
-
-   // Removed the loading check related to missing branch/chassis
-   // if (!branch || !recordData.chassisNumber) {
-   //   return <div className="flex min-h-screen items-center justify-center p-4">Gerekli bilgiler eksik, yönlendiriliyorsunuz...</div>;
-   // }
+   }, [recordData]); // Depend on the whole recordData to catch any updates
 
 
   return (
@@ -748,7 +721,7 @@ export default function NewRecordStep7() {
                         <FormItem className="flex flex-col items-center gap-2 border p-3 rounded-md">
                             <FormLabel className="font-semibold">Ruhsat Belgesi (Adım 1)</FormLabel>
                             {registrationDocPreview ? (
-                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(registrationDocPreview)}>
+                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(recordData.registrationDocument)}>
                                     <Image src={registrationDocPreview} alt="Ruhsat Önizleme" fill style={{ objectFit: 'contain' }} className="rounded-md" unoptimized data-ai-hint="vehicle registration document" />
                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                                         <Eye className="h-8 w-8 text-white" />
@@ -770,7 +743,7 @@ export default function NewRecordStep7() {
                         <FormItem className="flex flex-col items-center gap-2 border p-3 rounded-md">
                             <FormLabel className="font-semibold">Etiket Belgesi (Adım 2)</FormLabel>
                             {labelDocPreview ? (
-                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(labelDocPreview)}>
+                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(recordData.labelDocument)}>
                                     <Image src={labelDocPreview} alt="Etiket Önizleme" fill style={{ objectFit: 'contain' }} className="rounded-md" unoptimized data-ai-hint="vehicle label document" />
                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                                         <Eye className="h-8 w-8 text-white" />
@@ -851,3 +824,5 @@ export default function NewRecordStep7() {
     </div>
   );
 }
+
+      
