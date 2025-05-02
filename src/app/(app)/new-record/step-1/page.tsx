@@ -128,7 +128,7 @@ export default function NewRecordStep1() {
     let overrideDecision: DecideOcrOverrideOutput | null = null;
     const updates: Partial<RecordData> = {}; // Use RecordData type
     // Define fields ON THIS FORM that OCR attempts to extract
-    const ocrTargetedFormFields: (keyof FormData)[] = ['chassisNumber', 'brand', 'type', 'tradeName', 'owner'];
+    const ocrTargetedFormFields: (keyof FormData)[] = ['chassisNumber', 'brand', 'type', 'tradeName', 'owner', 'plateNumber'];
     // Define global state fields potentially affected by OCR (even if not directly on this form)
     const ocrTargetedGlobalFields: (keyof ExtractedOcrData)[] = ['typeApprovalNumber', 'typeAndVariant', 'versiyon'];
 
@@ -155,7 +155,7 @@ export default function NewRecordStep1() {
         type: form.getValues('type'),
         tradeName: form.getValues('tradeName'),
         owner: form.getValues('owner'),
-        plateNumber: form.getValues('plateNumber'), // Include plateNumber for context, but it's not OCR target
+        plateNumber: form.getValues('plateNumber'), // Include plateNumber for context
         // Pull global state values for decision context
         typeApprovalNumber: recordData.typeApprovalNumber,
         typeAndVariant: recordData.typeAndVariant,
@@ -193,22 +193,22 @@ export default function NewRecordStep1() {
       const override = overrideDecision.override;
 
       // --- Update form fields based on OCR and override decision ---
-      // Iterate only over fields OCR specifically targets on this form
       ocrTargetedFormFields.forEach(field => {
         const ocrValue = ocrData[field as keyof typeof ocrData]; // Get corresponding OCR value
         const currentValue = form.getValues(field);
         const shouldOverride = override[field as keyof typeof override];
 
         if (!ocrValue || ocrValue.trim() === '') {
-          // OCR did not find data for this TARGETED field
-          // Only clear the field if AI decision says to override (meaning replace empty/existing with nothing) OR if the current field is empty
-          if (shouldOverride || !currentValue || currentValue.trim() === '') {
-            console.log(`[OCR Update] Clearing TARGETED form field ${field} because OCR did not find data and override decision allows.`);
-            form.setValue(field, '');
-            updates[field as keyof RecordData] = '';
+          // OCR did not find data for this field
+          // If the current field has data, clear it regardless of override decision (as per user request)
+          if (currentValue && currentValue.trim() !== '') {
+             console.log(`[OCR Update] Clearing form field ${field} because OCR did not find data and field had value: '${currentValue}'.`);
+             form.setValue(field, '');
+             updates[field as keyof RecordData] = '';
           } else {
-            console.log(`[OCR Update] Keeping existing value for TARGETED form field ${field}. OCR did not find data, but override decision is false or field has value.`);
-            updates[field as keyof RecordData] = currentValue; // Keep existing
+              // If current field is already empty, keep it empty
+              console.log(`[OCR Update] Keeping form field ${field} empty because OCR did not find data and field was already empty.`);
+              updates[field as keyof RecordData] = ''; // Ensure it's set to empty in updates
           }
         } else {
           // OCR found data, apply override logic
@@ -225,6 +225,7 @@ export default function NewRecordStep1() {
         }
       });
 
+
       // --- Update global state fields based on OCR and override decision ---
        ocrTargetedGlobalFields.forEach(fieldKey => {
            const ocrValue = ocrData[fieldKey]; // Get corresponding OCR value
@@ -233,13 +234,13 @@ export default function NewRecordStep1() {
 
            if (!ocrValue || ocrValue.trim() === '') {
                 // OCR did not find data for this TARGETED global field
-                // Clear if AI says override OR current global is empty
-                if (shouldOverride || !currentGlobalValue || currentGlobalValue.trim() === '') {
-                   console.log(`[OCR Update - Global] Clearing TARGETED global field ${fieldKey} because OCR did not find data and override decision allows.`);
+                // Clear if current global value exists
+                if (currentGlobalValue && currentGlobalValue.trim() !== '') {
+                   console.log(`[OCR Update - Global] Clearing TARGETED global field ${fieldKey} because OCR did not find data and it had value: '${currentGlobalValue}'.`);
                    updates[fieldKey as keyof RecordData] = '';
                 } else {
-                    console.log(`[OCR Update - Global] Keeping existing value for TARGETED global field ${fieldKey}. OCR did not find data, but override decision is false or field has value.`);
-                    updates[fieldKey as keyof RecordData] = currentGlobalValue; // Keep existing
+                    console.log(`[OCR Update - Global] Keeping TARGETED global field ${fieldKey} empty because OCR did not find data and it was already empty.`);
+                    updates[fieldKey as keyof RecordData] = ''; // Ensure it's empty in updates
                 }
            } else {
                // OCR found data, apply override logic
@@ -296,10 +297,15 @@ export default function NewRecordStep1() {
                  const ocrValue = ocrDataFallback[field as keyof typeof ocrDataFallback];
 
                  if (!ocrValue || ocrValue.trim() === '') {
-                     // OCR did not find data for this targeted field, clear it
-                     console.log(`[Fallback] Clearing TARGETED form field ${field} because OCR did not find data.`);
-                     form.setValue(field, '');
-                     updates[field as keyof RecordData] = '';
+                     // OCR did not find data for this targeted field, clear it only if it has a value
+                      if (formValue && formValue.trim() !== '') {
+                         console.log(`[Fallback] Clearing TARGETED form field ${field} because OCR did not find data and it had value.`);
+                         form.setValue(field, '');
+                         updates[field as keyof RecordData] = '';
+                     } else {
+                          console.log(`[Fallback] Keeping TARGETED form field ${field} empty because OCR did not find data and it was already empty.`);
+                          updates[field as keyof RecordData] = ''; // Keep empty
+                     }
                  } else {
                      // OCR found something
                      if (!formValue || formValue.trim() === '') { // And form is empty
@@ -319,8 +325,14 @@ export default function NewRecordStep1() {
                  const ocrValue = ocrDataFallback[fieldKey];
                  const currentGlobalValue = recordData[fieldKey as keyof RecordData];
                   if (!ocrValue || ocrValue.trim() === '') {
-                      console.log(`[Fallback - Global] Clearing TARGETED global field ${fieldKey} because OCR did not find data.`);
-                      updates[fieldKey as keyof RecordData] = '';
+                      // Clear global state field if it has a value
+                       if (currentGlobalValue && currentGlobalValue.trim() !== '') {
+                            console.log(`[Fallback - Global] Clearing TARGETED global field ${fieldKey} because OCR did not find data and it had value.`);
+                            updates[fieldKey as keyof RecordData] = '';
+                       } else {
+                             console.log(`[Fallback - Global] Keeping TARGETED global field ${fieldKey} empty because OCR did not find data and it was already empty.`);
+                             updates[fieldKey as keyof RecordData] = ''; // Keep empty
+                       }
                   } else {
                      // Keep existing or use OCR if existing is empty
                      updates[fieldKey as keyof RecordData] = currentGlobalValue || ocrValue;
@@ -329,7 +341,7 @@ export default function NewRecordStep1() {
              });
 
              // Preserve Plate Number in fallback
-             updates.plateNumber = form.getValues('plateNumber') || recordData.plateNumber;
+             // updates.plateNumber = form.getValues('plateNumber') || recordData.plateNumber; // No, clear if OCR didn't find it
 
              // Also add the file to additional photos in fallback scenario if it's not there
              const currentPhotosFallback = (recordData.additionalPhotos || []).filter(f => f instanceof File || (typeof f === 'object' && f !== null && 'name' in f)) as (File | { name: string; type?: string; size?: number; })[];
@@ -357,8 +369,8 @@ export default function NewRecordStep1() {
            ocrTargetedGlobalFields.forEach(fieldKey => {
               updates[fieldKey as keyof RecordData] = recordData[fieldKey as keyof RecordData];
            });
-            // Preserve Plate Number
-            updates.plateNumber = form.getValues('plateNumber') || recordData.plateNumber;
+            // Preserve Plate Number - No, clear if OCR failed
+            // updates.plateNumber = form.getValues('plateNumber') || recordData.plateNumber;
             // Preserve existing additional photos if OCR failed completely
            updates.additionalPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File || (typeof f === 'object' && f !== null && 'name' in f)) as (File | { name: string; type?: string; size?: number; })[];
        }
@@ -432,6 +444,9 @@ export default function NewRecordStep1() {
       form.setValue('document', file); // Set the File object in the form state
       updateRecordData({ registrationDocument: file }); // Update global state with File object
       console.log("File selected:", file.name);
+
+      // Define fields ON THIS FORM that OCR attempts to extract
+      const ocrTargetedFormFields: (keyof FormData)[] = ['chassisNumber', 'brand', 'type', 'tradeName', 'owner', 'plateNumber'];
 
       // Reset text fields when a new image is uploaded - Keeping this behavior
       ocrTargetedFormFields.forEach(field => form.resetField(field));
@@ -741,3 +756,4 @@ export default function NewRecordStep1() {
 
 
         
+
