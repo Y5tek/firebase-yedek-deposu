@@ -70,7 +70,7 @@ export default function NewRecordStep1() {
     // Check for specific AI Service Unavailable error
      if (errorMessage.includes('AI Service Unavailable') || errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('service unavailable') || errorMessage.includes('500 Internal Server Error')) {
         const errorTypeMatch = errorMessage.match(/\(([^)]+)\)/); // Extract text within parentheses if available
-        const errorType = errorTypeMatch ? errorTypeMatch[1] : (errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : 'Sunucu Hatası');
+        const errorType = errorTypeMatch ? errorTypeMatch[1] : (errorMessage.includes('503') ? 'Yoğun/Kullanılamıyor' : (errorMessage.includes('500') ? 'Sunucu Hatası' : 'Bilinmeyen Sunucu Sorunu'));
         const userMsg = `Yapay zeka servisinde geçici bir sorun (${errorType}) yaşanıyor. Lütfen birkaç dakika sonra tekrar deneyin veya bilgileri manuel girin.`;
         setOcrError(userMsg);
         toast({
