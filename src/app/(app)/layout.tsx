@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -25,24 +26,23 @@ import { AppQueryClientProvider } from '@/providers/query-provider'; // Import t
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isClient, setIsClient] = React.useState(false);
+  const [open, setOpen] = React.useState(true); // Initialize with a default (e.g., true for expanded)
 
   React.useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Get the initial state from cookies or default to true (expanded)
-  const getInitialSidebarState = () => {
-    if (typeof window !== 'undefined') {
+  // Read cookie and set initial state only after client mount
+  React.useEffect(() => {
+    if (isClient) {
       const cookieValue = document.cookie
         .split('; ')
         .find((row) => row.startsWith('sidebar_state='))
         ?.split('=')[1];
-      return cookieValue ? cookieValue === 'true' : true;
+      // Set state based on cookie, defaulting to true if cookie not found
+      setOpen(cookieValue ? cookieValue === 'true' : true);
     }
-    return true;
-  };
-
-  const [open, setOpen] = React.useState(getInitialSidebarState);
+  }, [isClient]); // Run only when isClient changes
 
   const isActive = (path: string, exact: boolean = true) => {
       if (exact) {
@@ -53,13 +53,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
 
   if (!isClient) {
-    // Render nothing or a loading indicator on the server
+    // Render nothing or a loading indicator on the server to avoid hydration mismatch
     return null;
   }
 
   return (
     <AppQueryClientProvider> {/* Wrap the entire layout */}
-      <SidebarProvider defaultOpen={open} onOpenChange={setOpen}>
+       {/* Pass open and onOpenChange to control the SidebarProvider */}
+      <SidebarProvider open={open} onOpenChange={setOpen}>
         <Sidebar>
           <SidebarHeader>
             <Button variant="ghost" size="icon" className="h-10 w-10 self-end md:hidden" asChild>
@@ -164,16 +165,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <span>Arşiv</span>
                   </Link>
                 </SidebarMenuButton>
-                {/* Sub-menu for Archive Section - Removed */}
-                {/*
-                <SidebarMenuSub>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton asChild isActive={isActive('/tip-onay-listesi')}>
-                            <Link href="/tip-onay-listesi"><ListChecks className="mr-2 h-3 w-3"/>Tip Onay Listesi</Link>
-                        </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                </SidebarMenuSub>
-                */}
               </SidebarMenuItem>
                {/* Moved Tip Onay Listesi to top level */}
               <SidebarMenuItem>
