@@ -1,4 +1,3 @@
-
 // noinspection JSUnusedLocalSymbols
 'use client';
 
@@ -30,7 +29,7 @@ const FormSchema = z.object({
   type: z.string().optional(), // Corresponds to "tipi" from the document
   tradeName: z.string().optional(),
   owner: z.string().optional(),
-  plateNumber: z.string().optional(), // Re-added plateNumber
+  plateNumber: z.string().optional(),
   document: z.any().optional()
 });
 
@@ -48,15 +47,16 @@ export default function NewRecordStep1() {
 
   const form = useForm<FormData>({
     resolver: zodResolver(FormSchema),
-    // Default values are now primarily loaded from recordData in useEffect
-    defaultValues: {
-      chassisNumber: '',
-      brand: '',
-      type: '',
-      tradeName: '',
-      owner: '',
-      plateNumber: '',
-      document: null,
+    // Default values are loaded from recordData in useEffect, no need to set them here explicitly
+    // except maybe for ensuring they exist if recordData is partially loaded
+     defaultValues: {
+      chassisNumber: recordData.chassisNumber || '',
+      brand: recordData.brand || '',
+      type: recordData.type || '',
+      tradeName: recordData.tradeName || '',
+      owner: recordData.owner || '',
+      plateNumber: recordData.plateNumber || '',
+      document: recordData.registrationDocument || null,
     },
   });
 
@@ -152,7 +152,7 @@ export default function NewRecordStep1() {
         type: form.getValues('type'),
         tradeName: form.getValues('tradeName'),
         owner: form.getValues('owner'),
-        plateNumber: form.getValues('plateNumber'), // Re-added plateNumber
+        plateNumber: form.getValues('plateNumber'),
         // Also include potentially existing data from global state for fields not directly on this form
         typeApprovalNumber: recordData.typeApprovalNumber,
         typeAndVariant: recordData.typeAndVariant,
@@ -259,7 +259,7 @@ export default function NewRecordStep1() {
            updates.owner = form.getValues('owner') || recordData.owner;
       }
 
-      // Update plateNumber field - Added back
+       // Update plateNumber field
        if (shouldUpdate('plateNumber')) { // Assuming 'plateNumber' exists in DecideOcrOverrideOutputSchema
            console.log("Updating plateNumber field with OCR data:", ocrData.plateNumber);
            form.setValue('plateNumber', ocrData.plateNumber || ''); // Use fallback
@@ -308,6 +308,18 @@ export default function NewRecordStep1() {
             console.log(`Not updating versiyon globally. Override: ${override.versiyon}, OCR Data: ${ocrData.versiyon}, Current Global: ${recordData.versiyon}`);
             updates.versiyon = recordData.versiyon;
         }
+
+        // --- Add the scanned registration document to additionalPhotos ---
+         const currentPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File) as File[];
+         // Avoid adding duplicates based on name and size
+         const fileKey = `${file.name}-${file.size}`;
+         if (!currentPhotos.some(p => `${p.name}-${p.size}` === fileKey)) {
+             updates.additionalPhotos = [...currentPhotos, file];
+             console.log(`Adding scanned registration document '${file.name}' to additionalPhotos.`);
+         } else {
+              console.log(`Scanned registration document '${file.name}' already exists in additionalPhotos.`);
+              updates.additionalPhotos = currentPhotos; // Keep the existing array
+         }
 
 
       toast({
@@ -358,7 +370,6 @@ export default function NewRecordStep1() {
                  console.log("Fallback: Owner field not empty or no OCR owner data:", form.getValues('owner'), ocrDataFallback.owner);
             }
 
-              // PlateNumber fallback
              if (!form.getValues('plateNumber') && ocrDataFallback.plateNumber) {
                  form.setValue('plateNumber', ocrDataFallback.plateNumber);
                  updates.plateNumber = ocrDataFallback.plateNumber;
@@ -368,6 +379,17 @@ export default function NewRecordStep1() {
              updates.typeApprovalNumber = recordData.typeApprovalNumber || ocrDataFallback.typeApprovalNumber;
              updates.typeAndVariant = recordData.typeAndVariant || ocrDataFallback.typeAndVariant;
              updates.versiyon = recordData.versiyon || ocrDataFallback.versiyon; // Added versiyon
+
+             // Also add the file to additional photos in fallback scenario if it's not there
+             const currentPhotosFallback = (recordData.additionalPhotos || []).filter(f => f instanceof File) as File[];
+             const fileKeyFallback = `${file.name}-${file.size}`;
+             if (!currentPhotosFallback.some(p => `${p.name}-${p.size}` === fileKeyFallback)) {
+                 updates.additionalPhotos = [...currentPhotosFallback, file];
+                  console.log(`[Fallback] Adding scanned registration document '${file.name}' to additionalPhotos.`);
+             } else {
+                 updates.additionalPhotos = currentPhotosFallback;
+             }
+
        } else {
            // If OCR itself failed or decision failed without OCR fallback,
            // ensure updates reflect current form values or existing global state for consistency
@@ -380,6 +402,9 @@ export default function NewRecordStep1() {
            updates.typeApprovalNumber = recordData.typeApprovalNumber; // Keep existing global
            updates.typeAndVariant = recordData.typeAndVariant;     // Keep existing global
            updates.versiyon = recordData.versiyon; // Keep existing global versiyon
+            // Preserve existing additional photos if OCR failed completely
+           updates.additionalPhotos = (recordData.additionalPhotos || []).filter(f => f instanceof File) as File[];
+
        }
 
     } finally {
@@ -457,7 +482,7 @@ export default function NewRecordStep1() {
       form.resetField('type');
       form.resetField('tradeName');
       form.resetField('owner');
-      form.resetField('plateNumber'); // Re-added plateNumber reset
+      form.resetField('plateNumber');
       console.log("Cleared text fields after new file upload.");
 
     } else {
@@ -519,7 +544,7 @@ export default function NewRecordStep1() {
         type: form.getValues('type'),
         tradeName: form.getValues('tradeName'),
         owner: form.getValues('owner'),
-        plateNumber: form.getValues('plateNumber'), // Re-added plateNumber save
+        plateNumber: form.getValues('plateNumber'),
         // Save the actual File object if available, otherwise the info object
         registrationDocument: documentToSave
     });
@@ -548,7 +573,7 @@ export default function NewRecordStep1() {
       console.log("Step 1 Initialized for branch:", branch, "Loaded data:", recordData);
 
       // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branch, router, recordData]); // Depend on recordData to reload form values
+  }, [branch, router]); // Depend on recordData only for initial load, not every change
 
 
   if (!branch) {
