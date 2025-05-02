@@ -92,15 +92,33 @@ export default function NewRecordStep3() {
 
         // Initialize Type Approval Document
         const taDoc = recordData.typeApprovalDocument;
+        let currentTypeApprovalDocIsFile = typeApprovalDoc instanceof File;
+        let currentTypeApprovalDocInfoIsSet = !!typeApprovalDocInfo;
+
         if (taDoc instanceof File) {
-            setTypeApprovalDoc(taDoc);
-            setTypeApprovalDocInfo(null);
+            // Only update if the file is different or if the current state is not a file
+            if (!currentTypeApprovalDocIsFile || typeApprovalDoc?.name !== taDoc.name || typeApprovalDoc?.size !== taDoc.size) {
+                setTypeApprovalDoc(taDoc);
+            }
+            if (currentTypeApprovalDocInfoIsSet) {
+                setTypeApprovalDocInfo(null); // Clear info if we now have a file
+            }
         } else if (typeof taDoc === 'object' && taDoc?.name) {
-            setTypeApprovalDoc(null);
-            setTypeApprovalDocInfo(taDoc);
+            // Only update if the info is different or if the current state is a file
+            if (currentTypeApprovalDocIsFile || typeApprovalDocInfo?.name !== taDoc.name) {
+                setTypeApprovalDocInfo(taDoc);
+            }
+            if (currentTypeApprovalDocIsFile) {
+                setTypeApprovalDoc(null); // Clear file if we now have info
+            }
         } else {
-            setTypeApprovalDoc(null);
-            setTypeApprovalDocInfo(null);
+            // Clear both if taDoc is null/undefined
+            if (currentTypeApprovalDocIsFile) {
+                setTypeApprovalDoc(null);
+            }
+            if (currentTypeApprovalDocInfoIsSet) {
+                setTypeApprovalDocInfo(null);
+            }
         }
 
        // Initialize Additional Media Files from global state (only if they are File objects)
@@ -122,14 +140,19 @@ export default function NewRecordStep3() {
 
        // Update local state only if it's different from the processed global state
         // This comparison is basic and might need refinement if order matters or objects are complex
-        if (JSON.stringify(mediaFiles.map(mf => mf.file.name)) !== JSON.stringify(initialMediaFiles.map(mf => mf.file.name))) {
+       const currentMediaFileNames = mediaFiles.map(mf => `${mf.file.name}-${mf.file.size}`).sort();
+       const initialMediaFileNames = initialMediaFiles.map(mf => `${mf.file.name}-${mf.file.size}`).sort();
+
+        if (JSON.stringify(currentMediaFileNames) !== JSON.stringify(initialMediaFileNames)) {
              // Revoke old URLs before setting new ones
              mediaFiles.forEach(mf => revokePreviewUrl(mf.previewUrl));
              setMediaFiles(initialMediaFiles);
              console.log("Step 3 Effect - Updated mediaFiles state with initial previews.");
         }
 
-   }, [recordData.typeApprovalDocument, recordData.additionalPhotos, recordData.additionalVideos]); // Dependencies for initialization
+        // REMOVED `mediaFiles` from dependency array to prevent infinite loop
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [recordData.typeApprovalDocument, recordData.additionalPhotos, recordData.additionalVideos]);
 
 
     // Cleanup function for mediaFiles URLs on unmount or when mediaFiles state changes drastically
