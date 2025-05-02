@@ -78,7 +78,7 @@ export default function NewRecordStep3() {
   const [typeApprovalDoc, setTypeApprovalDoc] = React.useState<File | null>(null); // Separate state for type approval doc
   const [typeApprovalDocInfo, setTypeApprovalDocInfo] = React.useState<{ name: string; type?: string; size?: number } | null>(null); // For persisted info
   const [uploadError, setUploadError] = React.useState<string | null>(null);
-  const [previewMedia, setPreviewMedia] = React.useState<{ url: string; type: 'image' | 'video', name: string } | null>(null); // State for media preview modal
+  const [previewMedia, setPreviewMedia] = React.useState<{ url: string; type: 'image' | 'video', name: string, wasTemporaryUrlGenerated?: boolean } | null>(null); // State for media preview modal
   const [registrationDocPreview, setRegistrationDocPreview] = React.useState<string | null>(null);
   const [labelDocPreview, setLabelDocPreview] = React.useState<string | null>(null);
 
@@ -135,45 +135,38 @@ export default function NewRecordStep3() {
         if (recordData.registrationDocument instanceof File) {
              console.log("Step 3 Effect: Found registration doc File:", recordData.registrationDocument.name);
              regUrl = generatePreviewUrl(recordData.registrationDocument);
-             if (regUrl !== registrationDocPreview) { // Only set if URL changes or is new
-                 if (registrationDocPreview) revokePreviewUrl(registrationDocPreview); // Revoke old URL first
-                 setRegistrationDocPreview(regUrl);
-             }
-        } else if (registrationDocPreview) { // If current state has a preview but recordData doesn't have a File
-            console.log("Step 3 Effect: No registration doc File found in recordData, clearing preview.");
-            revokePreviewUrl(registrationDocPreview); // Revoke the existing URL
-            setRegistrationDocPreview(null); // Clear preview
+             setRegistrationDocPreview(regUrl); // Update state directly
+
+        } else {
+             // If not a file, clear the preview
+             setRegistrationDocPreview(null);
         }
 
         // Label Document Preview
         if (recordData.labelDocument instanceof File) {
              console.log("Step 3 Effect: Found label doc File:", recordData.labelDocument.name);
              lblUrl = generatePreviewUrl(recordData.labelDocument);
-             if (lblUrl !== labelDocPreview) { // Only set if URL changes or is new
-                 if (labelDocPreview) revokePreviewUrl(labelDocPreview); // Revoke old URL first
-                 setLabelDocPreview(lblUrl);
-             }
-        } else if (labelDocPreview) { // If current state has a preview but recordData doesn't have a File
-             console.log("Step 3 Effect: No label doc File found in recordData, clearing preview.");
-             revokePreviewUrl(labelDocPreview); // Revoke the existing URL
-             setLabelDocPreview(null); // Clear preview
+              setLabelDocPreview(lblUrl); // Update state directly
+        } else {
+             // If not a file, clear the preview
+             setLabelDocPreview(null);
         }
 
         // Cleanup function for generated preview URLs on component unmount
         return () => {
             console.log("Step 3 Effect Cleanup: Revoking temporary preview URLs on unmount.");
-            if (registrationDocPreview) {
-                revokePreviewUrl(registrationDocPreview);
-            }
-            if (labelDocPreview) {
-                 revokePreviewUrl(labelDocPreview);
-            }
+            if (regUrl) revokePreviewUrl(regUrl); // Revoke URL generated in this effect run
+            if (lblUrl) revokePreviewUrl(lblUrl); // Revoke URL generated in this effect run
+
+             // Also explicitly revoke current state URLs on unmount to be safe
+            if (registrationDocPreview) revokePreviewUrl(registrationDocPreview);
+            if (labelDocPreview) revokePreviewUrl(labelDocPreview);
+
         };
     // Add dependencies to re-run when these specific documents change
-    // Also include the current preview state to handle URL revocation correctly
-    // Re-add registrationDocPreview and labelDocPreview to dependencies
+    // Removed registrationDocPreview and labelDocPreview from dependencies to prevent loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [recordData.registrationDocument, recordData.labelDocument, registrationDocPreview, labelDocPreview]);
+   }, [recordData.registrationDocument, recordData.labelDocument]);
 
 
     // Revoke object URLs when files are removed from mediaFiles state
@@ -377,7 +370,7 @@ export default function NewRecordStep3() {
             wasTemporaryUrlGenerated = true; // Mark that we generated a temporary URL
              nameToUse = item.name;
              typeToUse = item.type.startsWith('video/') ? 'video' : 'image';
-        } else if ('previewUrl' in item) { // It's a MediaFile from local state
+        } else if ('previewUrl' in item && typeof item.previewUrl === 'string') { // It's a MediaFile from local state
             urlToUse = item.previewUrl;
             nameToUse = item.file.name;
             typeToUse = item.type;
@@ -445,9 +438,6 @@ export default function NewRecordStep3() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-8">
-               {/* Display Uploaded Registration and Label Documents */}
-                {/* Removed this section */}
-
                {/* Type Approval Document Upload */}
                <FormItem>
                    <FormLabel className="text-lg font-medium">Tip Onay Belgesi</FormLabel>
