@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox for display
-import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X, Info, Download, Eye, Film, FileSpreadsheet, ClipboardList, FileCheck2 } from 'lucide-react'; // Added more icons
+import { Archive, Search, FolderOpen, Trash2, Pencil, FileText, Camera, Video, Check, X, Info, Download, Eye, Film, FileSpreadsheet, ClipboardList, FileCheck2, FilePlus } from 'lucide-react'; // Added FilePlus icon
 import { format, parseISO, getMonth, getYear } from 'date-fns';
 import { tr } from 'date-fns/locale'; // Import Turkish locale
 import {
@@ -868,6 +868,3 @@ export default function ArchivePage() {
     </div>
   );
 }
-
-
-    
