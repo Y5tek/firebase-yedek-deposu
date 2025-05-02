@@ -78,7 +78,7 @@ export default function NewRecordStep3() {
   const [typeApprovalDoc, setTypeApprovalDoc] = React.useState<File | null>(null); // Separate state for type approval doc
   const [typeApprovalDocInfo, setTypeApprovalDocInfo] = React.useState<{ name: string; type?: string; size?: number } | null>(null); // For persisted info
   const [uploadError, setUploadError] = React.useState<string | null>(null);
-  const [previewMedia, setPreviewMedia] = React.useState<MediaFile | { url: string; type: 'image' | 'video', name: string } | null>(null); // State for media preview modal
+  const [previewMedia, setPreviewMedia] = React.useState<{ url: string; type: 'image' | 'video', name: string } | null>(null); // State for media preview modal
   const [registrationDocPreview, setRegistrationDocPreview] = React.useState<string | null>(null);
   const [labelDocPreview, setLabelDocPreview] = React.useState<string | null>(null);
 
@@ -171,6 +171,7 @@ export default function NewRecordStep3() {
         };
     // Add dependencies to re-run when these specific documents change
     // Also include the current preview state to handle URL revocation correctly
+    // Re-add registrationDocPreview and labelDocPreview to dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
    }, [recordData.registrationDocument, recordData.labelDocument, registrationDocPreview, labelDocPreview]);
 
@@ -444,56 +445,8 @@ export default function NewRecordStep3() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-8">
-
                {/* Display Uploaded Registration and Label Documents */}
-                <div className="space-y-4 border p-4 rounded-md bg-secondary/30">
-                    <h3 className="text-lg font-medium mb-4">Önceki Adımlarda Yüklenenler</h3>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Registration Document */}
-                        <div className="flex flex-col items-center gap-2 border p-3 rounded-md">
-                            <FormLabel className="font-semibold">Ruhsat Belgesi (Adım 1)</FormLabel>
-                             {registrationDocPreview ? (
-                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(registrationDocPreview)}>
-                                    <Image src={registrationDocPreview} alt="Ruhsat Önizleme" fill style={{ objectFit: 'contain' }} className="rounded-md" unoptimized data-ai-hint="vehicle registration document" />
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                        <Eye className="h-8 w-8 text-white" />
-                                    </div>
-                                </div>
-                            ) : (getFileName(recordData.registrationDocument) !== 'Yok') ? (
-                                <div className="w-32 h-32 flex items-center justify-center bg-muted rounded-md text-muted-foreground text-center text-xs p-2">
-                                    <FileText className="h-6 w-6 mr-1"/> Önizleme Yok ({getFileName(recordData.registrationDocument)})
-                                </div>
-                             ) : (
-                                <div className="w-32 h-32 flex items-center justify-center bg-muted rounded-md text-muted-foreground text-center text-xs p-2">Yüklenmedi</div>
-                            )}
-                            <span className="text-xs text-muted-foreground mt-1 truncate max-w-[120px]" title={getFileName(recordData.registrationDocument)}>
-                                {getFileName(recordData.registrationDocument)}
-                            </span>
-                        </div>
-
-                        {/* Label Document */}
-                         <div className="flex flex-col items-center gap-2 border p-3 rounded-md">
-                            <FormLabel className="font-semibold">Etiket Belgesi (Adım 2)</FormLabel>
-                            {labelDocPreview ? (
-                                <div className="relative w-32 h-32 cursor-pointer" onClick={() => openPreview(labelDocPreview)}>
-                                    <Image src={labelDocPreview} alt="Etiket Önizleme" fill style={{ objectFit: 'contain' }} className="rounded-md" unoptimized data-ai-hint="vehicle label document" />
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                        <Eye className="h-8 w-8 text-white" />
-                                    </div>
-                                </div>
-                            ) : (getFileName(recordData.labelDocument) !== 'Yok') ? (
-                                <div className="w-32 h-32 flex items-center justify-center bg-muted rounded-md text-muted-foreground text-center text-xs p-2">
-                                     <FileText className="h-6 w-6 mr-1"/> Önizleme Yok ({getFileName(recordData.labelDocument)})
-                                </div>
-                             ) : (
-                                <div className="w-32 h-32 flex items-center justify-center bg-muted rounded-md text-muted-foreground text-center text-xs p-2">Yüklenmedi</div>
-                            )}
-                             <span className="text-xs text-muted-foreground mt-1 truncate max-w-[120px]" title={getFileName(recordData.labelDocument)}>
-                                {getFileName(recordData.labelDocument)}
-                             </span>
-                        </div>
-                    </div>
-                </div>
+                {/* Removed this section */}
 
                {/* Type Approval Document Upload */}
                <FormItem>
@@ -651,7 +604,8 @@ export default function NewRecordStep3() {
             <Dialog open={!!previewMedia} onOpenChange={(open) => {
                 if (!open) {
                      // Revoke temporary blob URL if it was generated *for this preview instance*
-                     if (previewMedia.wasTemporaryUrlGenerated && previewMedia.url?.startsWith('blob:')) {
+                     // Correctly check for the flag on the previewMedia object
+                     if (typeof previewMedia === 'object' && previewMedia !== null && 'wasTemporaryUrlGenerated' in previewMedia && previewMedia.wasTemporaryUrlGenerated && previewMedia.url?.startsWith('blob:')) {
                         console.log("Closing preview dialog, revoking temporary URL:", previewMedia.url);
                          revokePreviewUrl(previewMedia.url);
                      }
@@ -690,5 +644,3 @@ export default function NewRecordStep3() {
     </div>
   );
 }
-
-    

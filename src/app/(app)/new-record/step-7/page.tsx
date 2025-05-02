@@ -812,7 +812,7 @@ export default function NewRecordStep7() {
             <Dialog open={!!previewMedia} onOpenChange={(open) => {
                 if (!open) {
                      // Revoke temporary blob URL if it was generated *for this preview instance*
-                     if (previewMedia.wasTemporaryUrlGenerated && previewMedia.url?.startsWith('blob:')) {
+                     if (typeof previewMedia === 'object' && previewMedia !== null && 'wasTemporaryUrlGenerated' in previewMedia && previewMedia.wasTemporaryUrlGenerated && previewMedia.url?.startsWith('blob:')) {
                         console.log("Closing preview dialog, revoking temporary URL:", previewMedia.url);
                          revokePreviewUrl(previewMedia.url);
                      }
