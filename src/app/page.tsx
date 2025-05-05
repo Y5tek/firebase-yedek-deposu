@@ -64,7 +64,8 @@ export default function Home() {
 
   // Check if data exists for a given scan
   const hasScanData = (scan: ScanData): boolean => {
-      return Object.values(scan).some(val => val && String(val).trim() !== '');
+      // Check if at least one relevant field for comparison has data
+      return !!scan.saseNo || !!scan.marka || !!scan.tipOnayNo || !!scan.varyant || !!scan.versiyon;
   }
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>, scanIndex: 1 | 2) => {
@@ -154,6 +155,9 @@ export default function Home() {
       const result = await extractDataFromVehicleLicense({
         licenseImageDataUri: scannedImage,
       });
+
+      // Update the state with all extracted data,
+      // the UI will filter which fields to show
       setFormData(prevData => ({
         ...prevData,
         [`scan${scanIndex}`]: {
@@ -164,6 +168,7 @@ export default function Home() {
           versiyon: result.versiyon || '',
         },
       }));
+
       toast({
         title: `Tarama ${scanIndex} Başarılı`,
         description: `Araç verileri ${scanIndex}. görselden başarıyla okundu.`,
@@ -172,7 +177,7 @@ export default function Home() {
       console.error(`Error extracting data for scan ${scanIndex}:`, error);
       toast({
         title: `Tarama ${scanIndex} Hatası`,
-        description: `Araç verileri ${scanIndex}. görselden okunurken bir hata oluştu.`,
+        description: `Araç verileri ${scanIndex}. görselden okunurken bir hata oluştu. Lütfen manuel kontrol edin.`,
         variant: 'destructive',
       });
        setFormData(prevData => ({
@@ -194,20 +199,29 @@ export default function Home() {
     const scan2Data = formData.scan2;
     const isScanning = isScanning1 || isScanning2;
 
-    const scan1Complete = hasScanData(scan1Data);
-    const scan2Complete = hasScanData(scan2Data);
+    // Check if we have the necessary data from *both* sources for comparison
+    // Ruhsat needs Sase + Marka, Etiket needs TipOnay + Varyant + Versiyon
+    // For a valid comparison, we need all these fields populated across the two scans.
+    const scan1ReadyForCompare = !!scan1Data.saseNo && !!scan1Data.marka;
+    const scan2ReadyForCompare = !!scan2Data.tipOnayNo && !!scan2Data.varyant && !!scan2Data.versiyon;
+    const allDataExtracted = hasScanData(scan1Data) && hasScanData(scan2Data);
+
 
     if (isScanning) {
-        setComparisonResult('bekleniyor'); // Or a specific 'scanning' state if needed
+        setComparisonResult('bekleniyor');
         return;
     }
 
-    if (!scan1Complete || !scan2Complete) {
+    // Check if *any* relevant data is missing from either scan after scanning is done
+    if (!allDataExtracted) {
+         // If scanning is finished but still no data, it's likely an extraction issue or user hasn't scanned yet.
         setComparisonResult('eksik veri');
         return;
     }
 
+
     // Compare all fields between scan1 and scan2
+    // Even if not all fields are displayed in each card, we compare the underlying extracted data.
     const isMatch =
       scan1Data.saseNo === scan2Data.saseNo &&
       scan1Data.marka === scan2Data.marka &&
@@ -306,7 +320,7 @@ export default function Home() {
     formDataScan: ScanData;
     fileInputRef: React.RefObject<HTMLInputElement>;
   }) => (
-    <div className="space-y-4 border p-4 rounded-lg shadow-sm">
+    <div className="space-y-4 border p-4 rounded-lg shadow-sm bg-card">
       <h3 className="text-lg font-semibold text-foreground mb-2 border-b pb-2">{title}</h3>
       <div className="relative aspect-video w-full bg-muted rounded-md overflow-hidden border border-dashed flex items-center justify-center">
         {isScanning ? (
@@ -362,76 +376,85 @@ export default function Home() {
       />
       {/* Data Fields for this scan area */}
       <div className="space-y-3 mt-4">
-        <div>
-          <Label htmlFor={`saseNo-${scanIndex}`} className="text-sm font-medium text-foreground">Şase Numarası</Label>
-          <Input
-            id={`saseNo-${scanIndex}`}
-            value={formDataScan.saseNo || ''}
-            onChange={(e) => handleInputChange(e, scanIndex)}
-            placeholder="-"
-            readOnly={isScanning}
-            className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
-          />
-        </div>
-        <div>
-          <Label htmlFor={`marka-${scanIndex}`} className="text-sm font-medium text-foreground">Marka</Label>
-          <Input
-            id={`marka-${scanIndex}`}
-            value={formDataScan.marka || ''}
-            onChange={(e) => handleInputChange(e, scanIndex)}
-            placeholder="-"
-            readOnly={isScanning}
-            className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
-          />
-        </div>
-        <div>
-          <Label htmlFor={`tipOnayNo-${scanIndex}`} className="text-sm font-medium text-foreground">Tip Onay No</Label>
-          <Input
-            id={`tipOnayNo-${scanIndex}`}
-            value={formDataScan.tipOnayNo || ''}
-            onChange={(e) => handleInputChange(e, scanIndex)}
-            placeholder="-"
-            readOnly={isScanning}
-            className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
-          />
-        </div>
-        <div>
-          <Label htmlFor={`varyant-${scanIndex}`} className="text-sm font-medium text-foreground">Varyant</Label>
-          <Input
-            id={`varyant-${scanIndex}`}
-            value={formDataScan.varyant || ''}
-            onChange={(e) => handleInputChange(e, scanIndex)}
-            placeholder="-"
-            readOnly={isScanning}
-            className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
-          />
-        </div>
-        <div>
-          <Label htmlFor={`versiyon-${scanIndex}`} className="text-sm font-medium text-foreground">Versiyon</Label>
-          <Input
-            id={`versiyon-${scanIndex}`}
-            value={formDataScan.versiyon || ''}
-            onChange={(e) => handleInputChange(e, scanIndex)}
-            placeholder="-"
-            readOnly={isScanning}
-            className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
-          />
-        </div>
+        {/* Conditional Fields based on scanIndex */}
+        {scanIndex === 1 && (
+          <>
+            <div>
+              <Label htmlFor={`saseNo-${scanIndex}`} className="text-sm font-medium text-foreground">Şase Numarası</Label>
+              <Input
+                id={`saseNo-${scanIndex}`}
+                value={formDataScan.saseNo || ''}
+                onChange={(e) => handleInputChange(e, scanIndex)}
+                placeholder="-"
+                readOnly={isScanning}
+                className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <Label htmlFor={`marka-${scanIndex}`} className="text-sm font-medium text-foreground">Marka</Label>
+              <Input
+                id={`marka-${scanIndex}`}
+                value={formDataScan.marka || ''}
+                onChange={(e) => handleInputChange(e, scanIndex)}
+                placeholder="-"
+                readOnly={isScanning}
+                className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+              />
+            </div>
+          </>
+        )}
+        {scanIndex === 2 && (
+          <>
+             <div>
+              <Label htmlFor={`tipOnayNo-${scanIndex}`} className="text-sm font-medium text-foreground">Tip Onay No</Label>
+              <Input
+                id={`tipOnayNo-${scanIndex}`}
+                value={formDataScan.tipOnayNo || ''}
+                onChange={(e) => handleInputChange(e, scanIndex)}
+                placeholder="-"
+                readOnly={isScanning}
+                className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <Label htmlFor={`varyant-${scanIndex}`} className="text-sm font-medium text-foreground">Varyant</Label>
+              <Input
+                id={`varyant-${scanIndex}`}
+                value={formDataScan.varyant || ''}
+                onChange={(e) => handleInputChange(e, scanIndex)}
+                placeholder="-"
+                readOnly={isScanning}
+                className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <Label htmlFor={`versiyon-${scanIndex}`} className="text-sm font-medium text-foreground">Versiyon</Label>
+              <Input
+                id={`versiyon-${scanIndex}`}
+                value={formDataScan.versiyon || ''}
+                onChange={(e) => handleInputChange(e, scanIndex)}
+                placeholder="-"
+                readOnly={isScanning}
+                className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+              />
+            </div>
+          </>
+        )}
+
       </div>
     </div>
   );
 
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-gradient-to-br from-background to-secondary p-4 sm:p-8">
-      <Card className="w-full max-w-6xl shadow-xl">
+    <div className="flex min-h-screen items-start justify-center bg-gradient-to-br from-background to-muted/60 p-4 sm:p-8">
+      <Card className="w-full max-w-6xl shadow-xl bg-card/80 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center text-primary">
             Araç Ruhsat/Etiket Karşılaştırıcı
           </CardTitle>
           <CardDescription className="text-center text-muted-foreground">
-            İki farklı araç ruhsatı veya etiketinin fotoğrafını yükleyerek bilgileri
-            otomatik doldurun ve birbiriyle karşılaştırın.
+            Ruhsat ve etiket fotoğraflarını yükleyerek bilgileri otomatik doldurun ve eşleşip eşleşmediğini kontrol edin.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -455,21 +478,21 @@ export default function Home() {
              />
           </div>
 
-           <Separator />
+           <Separator className="my-6" />
 
           {/* Comparison Result Section */}
            <div className="mt-6 pt-4">
               <h3 className="text-xl font-semibold text-foreground mb-3 text-center">Karşılaştırma Sonucu</h3>
-               <div className={`flex items-center justify-center gap-3 p-4 rounded-md border ${getResultBgColor()}`}>
+               <div className={`flex items-center justify-center gap-3 p-4 rounded-md border ${getResultBgColor()} transition-colors duration-300`}>
                   {getResultIcon()}
-                  <span className={`text-lg font-medium ${getResultColor()}`}>{getResultText()}</span>
+                  <span className={`text-lg font-medium ${getResultColor()} transition-colors duration-300`}>{getResultText()}</span>
               </div>
-               <p className="text-xs text-muted-foreground mt-2 text-center">
-                  {comparisonResult === 'eksik veri' && !isScanning1 && !isScanning2 && "Karşılaştırma için her iki alanı da tarayın."}
+               <p className="text-xs text-muted-foreground mt-2 text-center h-4"> {/* Added fixed height */}
+                  {comparisonResult === 'eksik veri' && !isScanning1 && !isScanning2 && "Karşılaştırma için her iki alandan da veri taranmalıdır."}
                    {comparisonResult === 'bekleniyor' && !isScanning1 && !isScanning2 && !hasScanData(formData.scan1) && !hasScanData(formData.scan2) && "Başlamak için görselleri yükleyip tarayın."}
                    {(isScanning1 || isScanning2) && "Taranan veriler karşılaştırılıyor..."}
-                   {comparisonResult === 'uygun' && !isScanning1 && !isScanning2 && "Taranan iki görseldeki bilgiler eşleşiyor."}
-                   {comparisonResult === 'uygun değil' && !isScanning1 && !isScanning2 && "Taranan iki görseldeki bilgiler farklı."}
+                   {comparisonResult === 'uygun' && !isScanning1 && !isScanning2 && "Ruhsat ve Etiket bilgileri eşleşiyor."}
+                   {comparisonResult === 'uygun değil' && !isScanning1 && !isScanning2 && "Ruhsat ve Etiket bilgileri eşleşmiyor!"}
                </p>
           </div>
         </CardContent>
