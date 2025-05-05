@@ -56,14 +56,14 @@ const TableRow = React.forwardRef<
   HTMLTableRowElement,
   React.HTMLAttributes<HTMLTableRowElement>
 >(({ className, children, ...props }, ref) => ( // Explicitly accept children
-  <tr
+  <tr // Start tr tag on its own line
     ref={ref}
     className={cn(
       "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
       className
     )}
     {...props}
-  >{children}</tr> // Render children directly inside without extra whitespace
+  >{/* No space before children */}{children}{/* No space after children */}</tr> // Place children directly between tags on the same line
 ))
 TableRow.displayName = "TableRow"
 
