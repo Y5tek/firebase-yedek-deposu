@@ -22,6 +22,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
+import { initialApprovalData, type ApprovalFormData } from '@/data/approval-data'; // Import shared data
 
 // Interface for data from a single scan
 interface ScanData extends ExtractDataFromVehicleLicenseOutput {
@@ -49,7 +50,13 @@ const initialFormData: FormData = {
   scan2: { ...initialScanData },
 };
 
-type ComparisonResult = 'uygun' | 'uygun değil' | 'bekleniyor' | 'eksik veri';
+type ComparisonResultStatus = 'uygun' | 'uygun değil' | 'bekleniyor' | 'eksik veri';
+
+// Updated comparison result state to include matching tip onay no
+interface ComparisonResult {
+    status: ComparisonResultStatus;
+    matchingTipOnayNo?: string | null;
+}
 
 export default function Home() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -57,17 +64,27 @@ export default function Home() {
   const [isScanning2, setIsScanning2] = useState(false);
   const [scannedImage1, setScannedImage1] = useState<string | null>(null);
   const [scannedImage2, setScannedImage2] = useState<string | null>(null);
+  // Updated comparison result state initialization
   const [comparisonResult, setComparisonResult] =
-    useState<ComparisonResult>('bekleniyor');
+    useState<ComparisonResult>({ status: 'bekleniyor', matchingTipOnayNo: null });
   const { toast } = useToast();
   const fileInputRef1 = useRef<HTMLInputElement>(null);
   const fileInputRef2 = useRef<HTMLInputElement>(null);
 
-  // Check if data exists for a given scan
-  const hasScanData = (scan: ScanData): boolean => {
-      // Check if at least one relevant field for comparison has data
-      return !!scan.saseNo || !!scan.marka || !!scan.tipOnayNo || !!scan.varyant || !!scan.versiyon;
+  // Check if *any* data exists for a given scan
+  const hasAnyScanData = (scan: ScanData): boolean => {
+      return Object.values(scan).some(value => !!value);
   }
+
+  // Check if all required fields for comparison are present across both scans
+  const hasRequiredComparisonData = (data: FormData): boolean => {
+      const marka = data.scan1.marka || data.scan2.marka;
+      const tipOnayNo = data.scan2.tipOnayNo || data.scan1.tipOnayNo;
+      const varyant = data.scan2.varyant || data.scan1.varyant;
+      const versiyon = data.scan2.versiyon || data.scan1.versiyon;
+      return !!marka && !!tipOnayNo && !!varyant && !!versiyon;
+  }
+
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>, scanIndex: 1 | 2) => {
     const { id, value } = e.target;
@@ -96,7 +113,7 @@ export default function Home() {
         ...prevData,
         [`scan${scanIndex}`]: { ...initialScanData }
     }));
-    setComparisonResult('bekleniyor'); // Reset comparison when a new image is uploaded
+    setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null }); // Reset comparison when a new image is uploaded
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -120,7 +137,7 @@ export default function Home() {
         ...prevData,
         [`scan${scanIndex}`]: { ...initialScanData }
       }));
-      setComparisonResult('bekleniyor');
+      setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null });
     };
 
     // Clear the file input value
@@ -150,7 +167,7 @@ export default function Home() {
         ...prevData,
         [`scan${scanIndex}`]: { ...initialScanData } // Reset form data for this scan
     }));
-    setComparisonResult('bekleniyor'); // Reset comparison during scan
+    setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null }); // Reset comparison during scan
 
     try {
       const result = await extractDataFromVehicleLicense({
@@ -158,7 +175,7 @@ export default function Home() {
       });
 
       // Update the state with all extracted data,
-      // the UI will filter which fields to show
+      // the UI will filter which fields to show based on scanIndex
       setFormData(prevData => ({
         ...prevData,
         [`scan${scanIndex}`]: {
@@ -195,43 +212,54 @@ export default function Home() {
     fileInputRef.current?.click();
   };
 
+  // Updated comparison logic
   const compareData = useCallback(() => {
     const scan1Data = formData.scan1;
     const scan2Data = formData.scan2;
     const isScanning = isScanning1 || isScanning2;
 
-    // Check if we have the necessary data from *both* sources for comparison
-    // Ruhsat needs Sase + Marka, Etiket needs TipOnay + Varyant + Versiyon
-    // For a valid comparison, we need all these fields populated across the two scans.
-    const scan1ReadyForCompare = !!scan1Data.saseNo && !!scan1Data.marka;
-    const scan2ReadyForCompare = !!scan2Data.tipOnayNo && !!scan2Data.varyant && !!scan2Data.versiyon;
-    const allDataExtracted = hasScanData(scan1Data) && hasScanData(scan2Data);
+    // Combine data from both scans, preferring non-empty values
+    const combinedData: Partial<ApprovalFormData> = {
+        marka: scan1Data.marka || scan2Data.marka || '',
+        tipOnayNo: scan2Data.tipOnayNo || scan1Data.tipOnayNo || '',
+        varyant: scan2Data.varyant || scan1Data.varyant || '',
+        versiyon: scan2Data.versiyon || scan1Data.versiyon || '',
+    };
 
-
+    // Wait if scanning is in progress
     if (isScanning) {
-        setComparisonResult('bekleniyor');
+        setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null });
         return;
     }
 
-    // Check if *any* relevant data is missing from either scan after scanning is done
-    if (!allDataExtracted) {
-         // If scanning is finished but still no data, it's likely an extraction issue or user hasn't scanned yet.
-        setComparisonResult('eksik veri');
+    // Check if we have the *minimum required* data for comparison (Marka + TipOnayNo + Varyant + Versiyon)
+    if (!hasRequiredComparisonData(formData)) {
+        // If scans are done but still missing required data across *both*, mark as eksik veri
+        if (hasAnyScanData(scan1Data) || hasAnyScanData(scan2Data)) {
+             setComparisonResult({ status: 'eksik veri', matchingTipOnayNo: null });
+        } else {
+            // If no data scanned yet, stay in bekleniyor state
+            setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null });
+        }
         return;
     }
 
+    // Find a match in the approved data list
+    const matchingApproval = initialApprovalData.find(approval =>
+        approval.marka === combinedData.marka &&
+        approval.tipOnayNo === combinedData.tipOnayNo &&
+        approval.varyant === combinedData.varyant &&
+        approval.versiyon === combinedData.versiyon
+    );
 
-    // Compare all fields between scan1 and scan2
-    // Even if not all fields are displayed in each card, we compare the underlying extracted data.
-    const isMatch =
-      scan1Data.saseNo === scan2Data.saseNo &&
-      scan1Data.marka === scan2Data.marka &&
-      scan1Data.tipOnayNo === scan2Data.tipOnayNo &&
-      scan1Data.varyant === scan2Data.varyant &&
-      scan1Data.versiyon === scan2Data.versiyon;
+    if (matchingApproval) {
+        setComparisonResult({ status: 'uygun', matchingTipOnayNo: matchingApproval.tipOnayNo });
+    } else {
+        setComparisonResult({ status: 'uygun değil', matchingTipOnayNo: null });
+    }
 
-    setComparisonResult(isMatch ? 'uygun' : 'uygun değil');
   }, [formData, isScanning1, isScanning2]);
+
 
   useEffect(() => {
     // Compare data whenever formData changes and scanning is not in progress
@@ -245,7 +273,7 @@ export default function Home() {
     const isScanning = isScanning1 || isScanning2;
      if (isScanning) return <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />;
 
-    switch (comparisonResult) {
+    switch (comparisonResult.status) {
       case 'uygun':
         return <CheckCircle className="h-6 w-6 text-green-500" />;
       case 'uygun değil':
@@ -257,15 +285,16 @@ export default function Home() {
     }
   };
 
+  // Updated function to include matching tip onay no
   const getResultText = () => {
      const isScanning = isScanning1 || isScanning2;
      if (isScanning) return 'Karşılaştırılıyor...';
 
-    switch (comparisonResult) {
+    switch (comparisonResult.status) {
       case 'uygun':
-        return 'Veriler Eşleşiyor';
+        return `Uygun (${comparisonResult.matchingTipOnayNo || 'N/A'})`;
       case 'uygun değil':
-        return 'Veriler Eşleşmiyor';
+        return 'Uygun Değil';
       case 'eksik veri':
          return 'Eksik Veri';
       default: // bekleniyor
@@ -273,11 +302,12 @@ export default function Home() {
     }
   };
 
+
   const getResultColor = () => {
      const isScanning = isScanning1 || isScanning2;
      if (isScanning) return 'text-muted-foreground';
 
-    switch (comparisonResult) {
+    switch (comparisonResult.status) {
       case 'uygun':
         return 'text-green-600';
       case 'uygun değil':
@@ -293,7 +323,7 @@ export default function Home() {
     const isScanning = isScanning1 || isScanning2;
      if (isScanning) return 'border-muted bg-muted/50';
 
-    switch (comparisonResult) {
+    switch (comparisonResult.status) {
       case 'uygun':
         return 'border-green-200 bg-green-50';
       case 'uygun değil':
@@ -387,8 +417,8 @@ export default function Home() {
                 value={formDataScan.saseNo || ''}
                 onChange={(e) => handleInputChange(e, scanIndex)}
                 placeholder="-"
-                readOnly={isScanning}
-                className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+                readOnly // Always read-only, only populated by scanning
+                className="mt-1 bg-muted/50 cursor-not-allowed"
               />
             </div>
             <div>
@@ -398,8 +428,8 @@ export default function Home() {
                 value={formDataScan.marka || ''}
                 onChange={(e) => handleInputChange(e, scanIndex)}
                 placeholder="-"
-                readOnly={isScanning}
-                className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+                 readOnly // Always read-only, only populated by scanning
+                className="mt-1 bg-muted/50 cursor-not-allowed"
               />
             </div>
           </>
@@ -413,8 +443,8 @@ export default function Home() {
                 value={formDataScan.tipOnayNo || ''}
                 onChange={(e) => handleInputChange(e, scanIndex)}
                 placeholder="-"
-                readOnly={isScanning}
-                className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+                 readOnly // Always read-only, only populated by scanning
+                 className="mt-1 bg-muted/50 cursor-not-allowed"
               />
             </div>
             <div>
@@ -424,8 +454,8 @@ export default function Home() {
                 value={formDataScan.varyant || ''}
                 onChange={(e) => handleInputChange(e, scanIndex)}
                 placeholder="-"
-                readOnly={isScanning}
-                className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+                readOnly // Always read-only, only populated by scanning
+                className="mt-1 bg-muted/50 cursor-not-allowed"
               />
             </div>
             <div>
@@ -435,8 +465,8 @@ export default function Home() {
                 value={formDataScan.versiyon || ''}
                 onChange={(e) => handleInputChange(e, scanIndex)}
                 placeholder="-"
-                readOnly={isScanning}
-                className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+                readOnly // Always read-only, only populated by scanning
+                className="mt-1 bg-muted/50 cursor-not-allowed"
               />
             </div>
           </>
@@ -455,14 +485,14 @@ export default function Home() {
             Araç Ruhsat/Etiket Karşılaştırıcı
           </CardTitle>
           <CardDescription className="text-center text-muted-foreground">
-            Ruhsat ve etiket fotoğraflarını yükleyerek bilgileri otomatik doldurun ve eşleşip eşleşmediğini kontrol edin.
+            Ruhsat ve etiket fotoğraflarını yükleyerek bilgileri otomatik doldurun ve onaylı tip verileriyle eşleşip eşleşmediğini kontrol edin.
           </CardDescription>
           {/* Add button linking to the Seri Tadilat Onay page */}
           <div className="flex justify-center mt-4">
              <Link href="/seri-tadilat-onay" passHref>
                <Button variant="outline">
                  <FileCheck className="mr-2 h-4 w-4" />
-                 Seri Tadilat Tip Onay Veri Yönetimi {/* Updated button text */}
+                 Seri Tadilat Tip Onay Veri Yönetimi
                </Button>
              </Link>
            </div>
@@ -498,11 +528,11 @@ export default function Home() {
                   <span className={`text-lg font-medium ${getResultColor()} transition-colors duration-300`}>{getResultText()}</span>
               </div>
                <p className="text-xs text-muted-foreground mt-2 text-center h-4"> {/* Added fixed height */}
-                  {comparisonResult === 'eksik veri' && !isScanning1 && !isScanning2 && "Karşılaştırma için her iki alandan da veri taranmalıdır."}
-                   {comparisonResult === 'bekleniyor' && !isScanning1 && !isScanning2 && !hasScanData(formData.scan1) && !hasScanData(formData.scan2) && "Başlamak için görselleri yükleyip tarayın."}
+                   {comparisonResult.status === 'eksik veri' && !isScanning1 && !isScanning2 && "Karşılaştırma için Marka, Tip Onay No, Varyant ve Versiyon bilgileri gereklidir."}
+                   {comparisonResult.status === 'bekleniyor' && !isScanning1 && !isScanning2 && !hasAnyScanData(formData.scan1) && !hasAnyScanData(formData.scan2) && "Başlamak için görselleri yükleyip tarayın."}
                    {(isScanning1 || isScanning2) && "Taranan veriler karşılaştırılıyor..."}
-                   {comparisonResult === 'uygun' && !isScanning1 && !isScanning2 && "Ruhsat ve Etiket bilgileri eşleşiyor."}
-                   {comparisonResult === 'uygun değil' && !isScanning1 && !isScanning2 && "Ruhsat ve Etiket bilgileri eşleşmiyor!"}
+                   {comparisonResult.status === 'uygun' && !isScanning1 && !isScanning2 && `Veriler onaylı tip (${comparisonResult.matchingTipOnayNo || 'N/A'}) ile eşleşiyor.`}
+                   {comparisonResult.status === 'uygun değil' && !isScanning1 && !isScanning2 && "Veriler herhangi bir onaylı tip ile eşleşmiyor!"}
                </p>
           </div>
         </CardContent>

@@ -24,30 +24,15 @@ import { useToast } from '@/hooks/use-toast'; // Import useToast
 import { Separator } from '@/components/ui/separator'; // Import Separator
 import Link from 'next/link'; // Import Link
 import { ArrowLeft, PlusCircle, X } from 'lucide-react'; // Import ArrowLeft, PlusCircle, X icons
-
-// Define the schema for a single approval entry using Zod
-const approvalSchema = z.object({
-  marka: z.string().min(1, { message: "Marka alanı boş olamaz." }),
-  tipOnayNo: z.string().min(1, { message: "Tip Onay No alanı boş olamaz." }),
-  varyant: z.string().min(1, { message: "Varyant alanı boş olamaz." }),
-  versiyon: z.string().min(1, { message: "Versiyon alanı boş olamaz." }),
-});
-
-type ApprovalFormData = z.infer<typeof approvalSchema>;
-
-// Placeholder data - initial state
-const initialApprovalData: ApprovalFormData[] = [
-  { marka: "Marka A", tipOnayNo: "A123", varyant: "Varyant X", versiyon: "1.0" },
-  { marka: "Marka B", tipOnayNo: "B456", varyant: "Varyant Y", versiyon: "2.1" },
-  { marka: "Marka C", tipOnayNo: "C789", varyant: "Varyant Z", versiyon: "3.0" },
-  { marka: "Marka A", tipOnayNo: "A124", varyant: "Varyant X", versiyon: "1.1" },
-];
+import { initialApprovalData, approvalSchema, type ApprovalFormData } from '@/data/approval-data'; // Import shared data
 
 export default function SeriTadilatOnayPage() {
+  // Use initialApprovalData from the shared file
   const [approvalData, setApprovalData] = useState<ApprovalFormData[]>(initialApprovalData);
   const [isFormVisible, setIsFormVisible] = useState(false); // State for form visibility
   const { toast } = useToast(); // Initialize toast
 
+  // Use approvalSchema from the shared file
   const form = useForm<ApprovalFormData>({
     resolver: zodResolver(approvalSchema),
     defaultValues: {
@@ -59,7 +44,30 @@ export default function SeriTadilatOnayPage() {
   });
 
   const onSubmit: SubmitHandler<ApprovalFormData> = (data) => {
+    // Basic check for duplicates before adding
+    const exists = approvalData.some(
+      (item) =>
+        item.marka.toLowerCase() === data.marka.toLowerCase() &&
+        item.tipOnayNo.toLowerCase() === data.tipOnayNo.toLowerCase() &&
+        item.varyant.toLowerCase() === data.varyant.toLowerCase() &&
+        item.versiyon.toLowerCase() === data.versiyon.toLowerCase()
+    );
+
+    if (exists) {
+       toast({
+         title: "Tekrarlanan Veri",
+         description: "Bu veri zaten listede mevcut.",
+         variant: "destructive",
+       });
+       return; // Prevent adding duplicate
+    }
+
+
     setApprovalData((prevData) => [...prevData, data]);
+    // TODO: Persist this data (e.g., to a database or local storage)
+    // initialApprovalData in src/data/approval-data.ts won't be updated by this.
+    // If you need the main page to see newly added data, you'll need a more
+    // robust state management solution (like Context API, Zustand, or fetch from backend).
     form.reset(); // Clear the form fields
     setIsFormVisible(false); // Hide form after successful submission
     toast({
@@ -224,8 +232,17 @@ export default function SeriTadilatOnayPage() {
                        </TableCell>
                      </TableRow>
                    ) : (
-                      approvalData.map((data, index) => (
-                        <TableRow key={index}>
+                      // Sort data alphabetically by Marka, then TipOnayNo for consistency
+                      [...approvalData]
+                        .sort((a, b) => {
+                            if (a.marka < b.marka) return -1;
+                            if (a.marka > b.marka) return 1;
+                            if (a.tipOnayNo < b.tipOnayNo) return -1;
+                            if (a.tipOnayNo > b.tipOnayNo) return 1;
+                            return 0;
+                        })
+                        .map((data, index) => (
+                        <TableRow key={`${data.tipOnayNo}-${index}`}> {/* More robust key */}
                           <TableCell className="font-medium">{data.marka}</TableCell>
                           <TableCell>{data.tipOnayNo}</TableCell>
                           <TableCell>{data.varyant}</TableCell>
