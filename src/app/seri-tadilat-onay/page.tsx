@@ -18,12 +18,12 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label } from "@/components/ui/label"; // Keep Label import if needed elsewhere, otherwise remove
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast'; // Import useToast
 import { Separator } from '@/components/ui/separator'; // Import Separator
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link'; // Import Link
+import { ArrowLeft } from 'lucide-react'; // Import ArrowLeft icon
 
 // Define the schema for a single approval entry using Zod
 const approvalSchema = z.object({
@@ -70,23 +70,26 @@ export default function SeriTadilatOnayPage() {
     <div className="flex min-h-screen items-start justify-center bg-gradient-to-br from-background to-muted/60 p-4 sm:p-8">
        <Card className="w-full max-w-4xl shadow-xl bg-card/80 backdrop-blur-sm">
          <CardHeader>
+           {/* Add flex layout for header items */}
            <div className="flex items-center justify-between mb-4">
-              <Link href="/" passHref>
-                 <Button variant="outline" size="icon">
-                   <ArrowLeft className="h-4 w-4" />
-                   <span className="sr-only">Geri</span>
-                 </Button>
-               </Link>
-              <div className="flex-1 text-center">
-                 <CardTitle className="text-2xl font-bold text-primary">
-                   Seri Tadilat Tip Onay Verileri
-                 </CardTitle>
-                 <CardDescription className="text-muted-foreground">
-                   Onaylanmış seri tadilat tip verilerini görüntüleyin ve yenilerini ekleyin.
-                 </CardDescription>
-              </div>
-              {/* Placeholder div to balance the layout */}
-              <div className="w-10"></div>
+             {/* Back Button */}
+             <Link href="/" passHref>
+               <Button variant="outline" size="icon">
+                 <ArrowLeft className="h-4 w-4" />
+                 <span className="sr-only">Geri</span> {/* Screen reader text */}
+               </Button>
+             </Link>
+             {/* Centered Title and Description */}
+             <div className="flex-1 text-center">
+               <CardTitle className="text-2xl font-bold text-primary">
+                 Seri Tadilat Tip Onay Verileri
+               </CardTitle>
+               <CardDescription className="text-muted-foreground">
+                 Onaylanmış seri tadilat tip verilerini görüntüleyin ve yenilerini ekleyin.
+               </CardDescription>
+             </div>
+             {/* Placeholder div to balance the layout, ensures title is centered */}
+             <div className="w-10"></div>
            </div>
          </CardHeader>
          <CardContent className="space-y-6">
