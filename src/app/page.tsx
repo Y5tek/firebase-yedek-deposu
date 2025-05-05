@@ -3,6 +3,7 @@
 
 import type { ChangeEvent } from 'react';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import Link from 'next/link'; // Import Link
 import {
   Card,
   CardContent,
@@ -13,14 +14,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Camera, CheckCircle, XCircle, Loader2, ScanLine, Search } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, Loader2, ScanLine, Search, FileCheck } from 'lucide-react'; // Import FileCheck icon
 import {
   extractDataFromVehicleLicense,
   type ExtractDataFromVehicleLicenseOutput,
 } from '@/ai/flows/extract-data-from-vehicle-license';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { Separator } from '@/components/ui/separator'; // Import Separator
+import { Separator } from '@/components/ui/separator';
 
 // Interface for data from a single scan
 interface ScanData extends ExtractDataFromVehicleLicenseOutput {
@@ -456,6 +457,15 @@ export default function Home() {
           <CardDescription className="text-center text-muted-foreground">
             Ruhsat ve etiket fotoğraflarını yükleyerek bilgileri otomatik doldurun ve eşleşip eşleşmediğini kontrol edin.
           </CardDescription>
+          {/* Add button linking to the Seri Tadilat Onay page */}
+          <div className="flex justify-center mt-4">
+             <Link href="/seri-tadilat-onay" passHref>
+               <Button variant="outline">
+                 <FileCheck className="mr-2 h-4 w-4" />
+                 Seri Tadilat Tip Onay Verileri
+               </Button>
+             </Link>
+           </div>
         </CardHeader>
         <CardContent className="space-y-6">
            {/* Grid for Scan Areas */}
