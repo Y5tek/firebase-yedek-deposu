@@ -108,11 +108,6 @@ export default function Home() {
 
     // Reset relevant states for the specific scan area
     setIsScanning(false); // Ensure scanning state is reset
-    // Keep existing manually entered data, only overwrite with scanned data later if scan succeeds
-    // setFormData(prevData => ({
-    //     ...prevData,
-    //     [`scan${scanIndex}`]: { ...initialScanData } // Don't clear on upload
-    // }));
     setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null }); // Reset comparison when a new image is selected
 
     const reader = new FileReader();
@@ -133,12 +128,6 @@ export default function Home() {
         variant: 'destructive',
       });
       setScannedImage(null); // Clear preview on error
-      // Don't clear form data on image read error
-      // setFormData(prevData => ({
-      //   ...prevData,
-      //   [`scan${scanIndex}`]: { ...initialScanData }
-      // }));
-      // Comparison state is already reset at the start of the function
     };
 
     // Clear the file input value *after* processing
@@ -165,11 +154,6 @@ export default function Home() {
     }
 
     setIsScanning(true);
-    // Don't reset form data before scanning, merge results instead
-    // setFormData(prevData => ({
-    //     ...prevData,
-    //     [`scan${scanIndex}`]: { ...initialScanData } // Reset form data for this scan
-    // }));
     setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null }); // Reset comparison during scan
 
     try {
@@ -211,11 +195,6 @@ export default function Home() {
         description: `Araç verileri ${scanIndex}. görselden okunurken bir hata oluştu. Lütfen manuel kontrol edin.`,
         variant: 'destructive',
       });
-       // Don't clear form on error
-       // setFormData(prevData => ({
-       //  ...prevData,
-       //  [`scan${scanIndex}`]: { ...initialScanData } // Clear form on error
-       // }));
     } finally {
       setIsScanning(false);
     }
@@ -374,13 +353,19 @@ export default function Home() {
            versiyon: "Versiyon Girin",
        };
 
-       if (scanIndex === 1 && (fieldName === 'tipOnayNo' || fieldName === 'varyant' || fieldName === 'versiyon')) {
-           return `${defaultPlaceholders[fieldName]} (Etiketten beklenir)`;
+       if (scanIndex === 1) {
+           if (fieldName === 'saseNo' || fieldName === 'marka') {
+               return defaultPlaceholders[fieldName];
+           } else {
+               return `${defaultPlaceholders[fieldName]} (Etiketten beklenir)`;
+           }
+       } else { // scanIndex === 2
+           if (fieldName === 'tipOnayNo' || fieldName === 'varyant' || fieldName === 'versiyon') {
+               return defaultPlaceholders[fieldName];
+           } else {
+               return `${defaultPlaceholders[fieldName]} (Ruhsattan beklenir)`;
+           }
        }
-       if (scanIndex === 2 && (fieldName === 'saseNo' || fieldName === 'marka')) {
-           return `${defaultPlaceholders[fieldName]} (Ruhsattan beklenir)`;
-       }
-       return defaultPlaceholders[fieldName];
    }
 
   // Reusable Scan Area Component
@@ -454,69 +439,66 @@ export default function Home() {
         id={`license-scan-${scanIndex}`}
       />
       {/* Data Fields for this scan area */}
-      {/* Always show all fields for manual input, but guide with placeholders */}
+      {/* Conditionally render fields based on scanIndex */}
       <div className="space-y-3 mt-4">
-          <div>
-            <Label htmlFor={`saseNo-${scanIndex}`} className="text-sm font-medium text-foreground">Şase Numarası</Label>
-            <Input
-              id={`saseNo-${scanIndex}`}
-              value={formDataScan.saseNo || ''}
-              onChange={(e) => handleInputChange(e, scanIndex)}
-              placeholder={getPlaceholder('saseNo', scanIndex)}
-              className="mt-1"
-              // Readonly status depends on whether AI is expected to fill it
-              // readOnly={scanIndex === 2} // Sase No expected from scan 1
-              // bg-muted={scanIndex === 2} // Visually indicate it's not primary for scan 2
-            />
-          </div>
-          <div>
-            <Label htmlFor={`marka-${scanIndex}`} className="text-sm font-medium text-foreground">Marka</Label>
-            <Input
-              id={`marka-${scanIndex}`}
-              value={formDataScan.marka || ''}
-              onChange={(e) => handleInputChange(e, scanIndex)}
-              placeholder={getPlaceholder('marka', scanIndex)}
-              className="mt-1"
-              // readOnly={scanIndex === 2} // Marka expected from scan 1
-              // bg-muted={scanIndex === 2}
-            />
-          </div>
-           <div>
-            <Label htmlFor={`tipOnayNo-${scanIndex}`} className="text-sm font-medium text-foreground">Tip Onay No</Label>
-            <Input
-              id={`tipOnayNo-${scanIndex}`}
-              value={formDataScan.tipOnayNo || ''}
-              onChange={(e) => handleInputChange(e, scanIndex)}
-              placeholder={getPlaceholder('tipOnayNo', scanIndex)}
-               className="mt-1"
-              // readOnly={scanIndex === 1} // Tip Onay expected from scan 2
-              // bg-muted={scanIndex === 1}
-            />
-          </div>
-          <div>
-            <Label htmlFor={`varyant-${scanIndex}`} className="text-sm font-medium text-foreground">Varyant</Label>
-            <Input
-              id={`varyant-${scanIndex}`}
-              value={formDataScan.varyant || ''}
-              onChange={(e) => handleInputChange(e, scanIndex)}
-              placeholder={getPlaceholder('varyant', scanIndex)}
-              className="mt-1"
-              // readOnly={scanIndex === 1} // Varyant expected from scan 2
-              // bg-muted={scanIndex === 1}
-            />
-          </div>
-          <div>
-            <Label htmlFor={`versiyon-${scanIndex}`} className="text-sm font-medium text-foreground">Versiyon</Label>
-            <Input
-              id={`versiyon-${scanIndex}`}
-              value={formDataScan.versiyon || ''}
-              onChange={(e) => handleInputChange(e, scanIndex)}
-              placeholder={getPlaceholder('versiyon', scanIndex)}
-              className="mt-1"
-              // readOnly={scanIndex === 1} // Versiyon expected from scan 2
-              // bg-muted={scanIndex === 1}
-            />
-          </div>
+          {scanIndex === 1 && (
+            <>
+              <div>
+                <Label htmlFor={`saseNo-${scanIndex}`} className="text-sm font-medium text-foreground">Şase Numarası</Label>
+                <Input
+                  id={`saseNo-${scanIndex}`}
+                  value={formDataScan.saseNo || ''}
+                  onChange={(e) => handleInputChange(e, scanIndex)}
+                  placeholder={getPlaceholder('saseNo', scanIndex)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor={`marka-${scanIndex}`} className="text-sm font-medium text-foreground">Marka</Label>
+                <Input
+                  id={`marka-${scanIndex}`}
+                  value={formDataScan.marka || ''}
+                  onChange={(e) => handleInputChange(e, scanIndex)}
+                  placeholder={getPlaceholder('marka', scanIndex)}
+                  className="mt-1"
+                />
+              </div>
+            </>
+          )}
+          {scanIndex === 2 && (
+            <>
+              <div>
+                <Label htmlFor={`tipOnayNo-${scanIndex}`} className="text-sm font-medium text-foreground">Tip Onay No</Label>
+                <Input
+                  id={`tipOnayNo-${scanIndex}`}
+                  value={formDataScan.tipOnayNo || ''}
+                  onChange={(e) => handleInputChange(e, scanIndex)}
+                  placeholder={getPlaceholder('tipOnayNo', scanIndex)}
+                   className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor={`varyant-${scanIndex}`} className="text-sm font-medium text-foreground">Varyant</Label>
+                <Input
+                  id={`varyant-${scanIndex}`}
+                  value={formDataScan.varyant || ''}
+                  onChange={(e) => handleInputChange(e, scanIndex)}
+                  placeholder={getPlaceholder('varyant', scanIndex)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor={`versiyon-${scanIndex}`} className="text-sm font-medium text-foreground">Versiyon</Label>
+                <Input
+                  id={`versiyon-${scanIndex}`}
+                  value={formDataScan.versiyon || ''}
+                  onChange={(e) => handleInputChange(e, scanIndex)}
+                  placeholder={getPlaceholder('versiyon', scanIndex)}
+                  className="mt-1"
+                />
+              </div>
+             </>
+          )}
       </div>
     </div>
   );
