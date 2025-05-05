@@ -107,20 +107,19 @@ export default function Home() {
     const fileInputRef = scanIndex === 1 ? fileInputRef1 : fileInputRef2;
 
     // Reset relevant states for the specific scan area
-    setIsScanning(false);
-    setScannedImage(null);
-    // Keep existing manually entered data, only overwrite with scanned data later
+    setIsScanning(false); // Ensure scanning state is reset
+    // Keep existing manually entered data, only overwrite with scanned data later if scan succeeds
     // setFormData(prevData => ({
     //     ...prevData,
-    //     [`scan${scanIndex}`]: { ...initialScanData }
+    //     [`scan${scanIndex}`]: { ...initialScanData } // Don't clear on upload
     // }));
-    setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null }); // Reset comparison when a new image is uploaded
+    setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null }); // Reset comparison when a new image is selected
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => {
       const base64Image = reader.result as string;
-      setScannedImage(base64Image);
+      setScannedImage(base64Image); // Set image preview *after* successful read
       toast({
         title: `Görsel ${scanIndex} Yüklendi`,
         description: `Görsel taramaya hazır. "Görsel ${scanIndex} Tara" butonuna tıklayın.`,
@@ -133,20 +132,21 @@ export default function Home() {
         description: `Görsel ${scanIndex} dosyası okunurken bir hata oluştu.`,
         variant: 'destructive',
       });
-      setScannedImage(null);
+      setScannedImage(null); // Clear preview on error
       // Don't clear form data on image read error
       // setFormData(prevData => ({
       //   ...prevData,
       //   [`scan${scanIndex}`]: { ...initialScanData }
       // }));
-      setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null });
+      // Comparison state is already reset at the start of the function
     };
 
-    // Clear the file input value
+    // Clear the file input value *after* processing
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
 
   const handleManualScan = async (scanIndex: 1 | 2) => {
     const scannedImage = scanIndex === 1 ? scannedImage1 : scannedImage2;
@@ -177,27 +177,20 @@ export default function Home() {
         licenseImageDataUri: scannedImage,
       });
 
-      // Merge scanned data with existing data for the specific scan area
-      // Scanned data overwrites existing data for the fields it extracts
+      // Merge scanned data with existing data based on scanIndex constraints
       setFormData(prevData => {
         const currentScanData = prevData[`scan${scanIndex}`];
         const updatedScanData = { ...currentScanData }; // Start with current data
 
-        if (scanIndex === 1) {
+        if (scanIndex === 1) { // Ruhsat Tarama - Only SaseNo and Marka
           if (result.saseNo) updatedScanData.saseNo = result.saseNo;
           if (result.marka) updatedScanData.marka = result.marka;
-          // If AI extracts other fields for scan 1, allow them to be populated too
+          // Explicitly do not update tipOnayNo, varyant, versiyon from scan 1
+        } else { // scanIndex === 2 (Etiket Tarama) - Only TipOnayNo, Varyant, Versiyon
           if (result.tipOnayNo) updatedScanData.tipOnayNo = result.tipOnayNo;
           if (result.varyant) updatedScanData.varyant = result.varyant;
           if (result.versiyon) updatedScanData.versiyon = result.versiyon;
-
-        } else { // scanIndex === 2
-          if (result.tipOnayNo) updatedScanData.tipOnayNo = result.tipOnayNo;
-          if (result.varyant) updatedScanData.varyant = result.varyant;
-          if (result.versiyon) updatedScanData.versiyon = result.versiyon;
-          // If AI extracts other fields for scan 2, allow them to be populated too
-          if (result.saseNo) updatedScanData.saseNo = result.saseNo;
-           if (result.marka) updatedScanData.marka = result.marka;
+           // Explicitly do not update saseNo, marka from scan 2
         }
 
         return {
@@ -240,6 +233,7 @@ export default function Home() {
     const isScanning = isScanning1 || isScanning2;
 
     // Combine data from both scans, preferring non-empty values
+    // Marka优先从 scan1 获取, 其他优先从 scan2 获取
     const combinedData: Partial<ApprovalFormData> = {
         marka: scan1Data.marka || scan2Data.marka || '',
         tipOnayNo: scan2Data.tipOnayNo || scan1Data.tipOnayNo || '',
@@ -256,10 +250,11 @@ export default function Home() {
     // Check if we have the *minimum required* data for comparison (Marka + TipOnayNo + Varyant + Versiyon)
     if (!hasRequiredComparisonData(formData)) {
         // If scans are done but still missing required data across *both*, mark as eksik veri
-        if (hasAnyScanData(scan1Data) || hasAnyScanData(scan2Data)) {
+        // Only show 'eksik veri' if at least one scan attempt was made (indicated by an image or some data)
+        if (scannedImage1 || scannedImage2 || hasAnyScanData(scan1Data) || hasAnyScanData(scan2Data)) {
              setComparisonResult({ status: 'eksik veri', matchingTipOnayNo: null });
         } else {
-            // If no data scanned yet, stay in bekleniyor state
+            // If no data scanned yet and no images loaded, stay in bekleniyor state
             setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null });
         }
         return;
@@ -279,15 +274,13 @@ export default function Home() {
         setComparisonResult({ status: 'uygun değil', matchingTipOnayNo: null });
     }
 
-  }, [formData, isScanning1, isScanning2]);
+  }, [formData, isScanning1, isScanning2, scannedImage1, scannedImage2]); // Added image states as dependencies
 
 
   useEffect(() => {
-    // Compare data whenever formData changes and scanning is not in progress
-     if (!isScanning1 && !isScanning2) {
-      compareData();
-    }
-  }, [formData, isScanning1, isScanning2, compareData]);
+    // Compare data whenever formData, scanning state, or image presence changes
+    compareData();
+  }, [formData, isScanning1, isScanning2, scannedImage1, scannedImage2, compareData]);
 
 
   const getResultIcon = () => {
@@ -302,7 +295,12 @@ export default function Home() {
        case 'eksik veri':
          return <ScanLine className="h-6 w-6 text-yellow-500" />; // Or another icon for missing data
       default: // bekleniyor
-        return <ScanLine className="h-6 w-6 text-muted-foreground opacity-50" />;
+        // Only show ScanLine if there's potential for comparison (image loaded or data entered)
+        if (scannedImage1 || scannedImage2 || hasAnyScanData(formData.scan1) || hasAnyScanData(formData.scan2)) {
+            return <ScanLine className="h-6 w-6 text-muted-foreground opacity-50" />;
+        }
+        // Otherwise, show nothing or a placeholder if desired
+        return null; // Or return a default icon like Info or HelpCircle if needed when idle
     }
   };
 
@@ -319,7 +317,12 @@ export default function Home() {
       case 'eksik veri':
          return 'Eksik Veri';
       default: // bekleniyor
-        return 'Karşılaştırma Bekleniyor';
+         // Show 'bekleniyor' only if there's potential for comparison
+        if (scannedImage1 || scannedImage2 || hasAnyScanData(formData.scan1) || hasAnyScanData(formData.scan2)) {
+           return 'Karşılaştırma Bekleniyor';
+        }
+        // Otherwise, show a prompt to start
+        return 'Başlamak için Veri Girin/Tarayın';
     }
   };
 
@@ -352,9 +355,33 @@ export default function Home() {
        case 'eksik veri':
          return 'border-yellow-200 bg-yellow-50';
       default: // bekleniyor
-        return 'border-muted bg-muted/50';
+        // Use default muted style if comparison is pending but possible
+        if (scannedImage1 || scannedImage2 || hasAnyScanData(formData.scan1) || hasAnyScanData(formData.scan2)) {
+            return 'border-muted bg-muted/50';
+        }
+        // Use a slightly different style or hide if completely idle
+        return 'border-transparent bg-transparent'; // Example: hide border/bg when idle
     }
   };
+
+   // Helper function to get placeholder text based on scan area
+   const getPlaceholder = (fieldName: keyof ScanData, scanIndex: 1 | 2) => {
+       const defaultPlaceholders: Record<keyof ScanData, string> = {
+           saseNo: "Şase Numarası Girin",
+           marka: "Marka Girin",
+           tipOnayNo: "Tip Onay No Girin",
+           varyant: "Varyant Girin",
+           versiyon: "Versiyon Girin",
+       };
+
+       if (scanIndex === 1 && (fieldName === 'tipOnayNo' || fieldName === 'varyant' || fieldName === 'versiyon')) {
+           return `${defaultPlaceholders[fieldName]} (Etiketten beklenir)`;
+       }
+       if (scanIndex === 2 && (fieldName === 'saseNo' || fieldName === 'marka')) {
+           return `${defaultPlaceholders[fieldName]} (Ruhsattan beklenir)`;
+       }
+       return defaultPlaceholders[fieldName];
+   }
 
   // Reusable Scan Area Component
   const ScanArea = ({
@@ -427,119 +454,69 @@ export default function Home() {
         id={`license-scan-${scanIndex}`}
       />
       {/* Data Fields for this scan area */}
+      {/* Always show all fields for manual input, but guide with placeholders */}
       <div className="space-y-3 mt-4">
-        {/* Conditional Fields based on scanIndex */}
-        {scanIndex === 1 && (
-          <>
-            <div>
-              <Label htmlFor={`saseNo-${scanIndex}`} className="text-sm font-medium text-foreground">Şase Numarası</Label>
-              <Input
-                id={`saseNo-${scanIndex}`}
-                value={formDataScan.saseNo || ''}
-                onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="Şase Numarası Girin"
-                className="mt-1" // Removed readOnly and bg-muted
-              />
-            </div>
-            <div>
-              <Label htmlFor={`marka-${scanIndex}`} className="text-sm font-medium text-foreground">Marka</Label>
-              <Input
-                id={`marka-${scanIndex}`}
-                value={formDataScan.marka || ''}
-                onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="Marka Girin"
-                 className="mt-1" // Removed readOnly and bg-muted
-              />
-            </div>
-            {/* Also allow editing other fields if they were populated by scan 1 */}
-             <div>
-              <Label htmlFor={`tipOnayNo-${scanIndex}`} className="text-sm font-medium text-foreground">Tip Onay No</Label>
-              <Input
-                id={`tipOnayNo-${scanIndex}`}
-                value={formDataScan.tipOnayNo || ''}
-                onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="Tip Onay No Girin"
-                 className="mt-1" // Removed readOnly and bg-muted
-              />
-            </div>
-            <div>
-              <Label htmlFor={`varyant-${scanIndex}`} className="text-sm font-medium text-foreground">Varyant</Label>
-              <Input
-                id={`varyant-${scanIndex}`}
-                value={formDataScan.varyant || ''}
-                onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="Varyant Girin"
-                className="mt-1" // Removed readOnly and bg-muted
-              />
-            </div>
-            <div>
-              <Label htmlFor={`versiyon-${scanIndex}`} className="text-sm font-medium text-foreground">Versiyon</Label>
-              <Input
-                id={`versiyon-${scanIndex}`}
-                value={formDataScan.versiyon || ''}
-                onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="Versiyon Girin"
-                className="mt-1" // Removed readOnly and bg-muted
-              />
-            </div>
-          </>
-        )}
-        {scanIndex === 2 && (
-          <>
-             {/* Also allow editing other fields if they were populated by scan 2 */}
-              <div>
-                <Label htmlFor={`saseNo-${scanIndex}`} className="text-sm font-medium text-foreground">Şase Numarası</Label>
-                <Input
-                  id={`saseNo-${scanIndex}`}
-                  value={formDataScan.saseNo || ''}
-                  onChange={(e) => handleInputChange(e, scanIndex)}
-                  placeholder="Şase Numarası Girin"
-                  className="mt-1" // Removed readOnly and bg-muted
-                />
-              </div>
-              <div>
-                <Label htmlFor={`marka-${scanIndex}`} className="text-sm font-medium text-foreground">Marka</Label>
-                <Input
-                  id={`marka-${scanIndex}`}
-                  value={formDataScan.marka || ''}
-                  onChange={(e) => handleInputChange(e, scanIndex)}
-                  placeholder="Marka Girin"
-                  className="mt-1" // Removed readOnly and bg-muted
-                />
-              </div>
-             <div>
-              <Label htmlFor={`tipOnayNo-${scanIndex}`} className="text-sm font-medium text-foreground">Tip Onay No</Label>
-              <Input
-                id={`tipOnayNo-${scanIndex}`}
-                value={formDataScan.tipOnayNo || ''}
-                onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="Tip Onay No Girin"
-                 className="mt-1" // Removed readOnly and bg-muted
-              />
-            </div>
-            <div>
-              <Label htmlFor={`varyant-${scanIndex}`} className="text-sm font-medium text-foreground">Varyant</Label>
-              <Input
-                id={`varyant-${scanIndex}`}
-                value={formDataScan.varyant || ''}
-                onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="Varyant Girin"
-                className="mt-1" // Removed readOnly and bg-muted
-              />
-            </div>
-            <div>
-              <Label htmlFor={`versiyon-${scanIndex}`} className="text-sm font-medium text-foreground">Versiyon</Label>
-              <Input
-                id={`versiyon-${scanIndex}`}
-                value={formDataScan.versiyon || ''}
-                onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="Versiyon Girin"
-                className="mt-1" // Removed readOnly and bg-muted
-              />
-            </div>
-          </>
-        )}
-
+          <div>
+            <Label htmlFor={`saseNo-${scanIndex}`} className="text-sm font-medium text-foreground">Şase Numarası</Label>
+            <Input
+              id={`saseNo-${scanIndex}`}
+              value={formDataScan.saseNo || ''}
+              onChange={(e) => handleInputChange(e, scanIndex)}
+              placeholder={getPlaceholder('saseNo', scanIndex)}
+              className="mt-1"
+              // Readonly status depends on whether AI is expected to fill it
+              // readOnly={scanIndex === 2} // Sase No expected from scan 1
+              // bg-muted={scanIndex === 2} // Visually indicate it's not primary for scan 2
+            />
+          </div>
+          <div>
+            <Label htmlFor={`marka-${scanIndex}`} className="text-sm font-medium text-foreground">Marka</Label>
+            <Input
+              id={`marka-${scanIndex}`}
+              value={formDataScan.marka || ''}
+              onChange={(e) => handleInputChange(e, scanIndex)}
+              placeholder={getPlaceholder('marka', scanIndex)}
+              className="mt-1"
+              // readOnly={scanIndex === 2} // Marka expected from scan 1
+              // bg-muted={scanIndex === 2}
+            />
+          </div>
+           <div>
+            <Label htmlFor={`tipOnayNo-${scanIndex}`} className="text-sm font-medium text-foreground">Tip Onay No</Label>
+            <Input
+              id={`tipOnayNo-${scanIndex}`}
+              value={formDataScan.tipOnayNo || ''}
+              onChange={(e) => handleInputChange(e, scanIndex)}
+              placeholder={getPlaceholder('tipOnayNo', scanIndex)}
+               className="mt-1"
+              // readOnly={scanIndex === 1} // Tip Onay expected from scan 2
+              // bg-muted={scanIndex === 1}
+            />
+          </div>
+          <div>
+            <Label htmlFor={`varyant-${scanIndex}`} className="text-sm font-medium text-foreground">Varyant</Label>
+            <Input
+              id={`varyant-${scanIndex}`}
+              value={formDataScan.varyant || ''}
+              onChange={(e) => handleInputChange(e, scanIndex)}
+              placeholder={getPlaceholder('varyant', scanIndex)}
+              className="mt-1"
+              // readOnly={scanIndex === 1} // Varyant expected from scan 2
+              // bg-muted={scanIndex === 1}
+            />
+          </div>
+          <div>
+            <Label htmlFor={`versiyon-${scanIndex}`} className="text-sm font-medium text-foreground">Versiyon</Label>
+            <Input
+              id={`versiyon-${scanIndex}`}
+              value={formDataScan.versiyon || ''}
+              onChange={(e) => handleInputChange(e, scanIndex)}
+              placeholder={getPlaceholder('versiyon', scanIndex)}
+              className="mt-1"
+              // readOnly={scanIndex === 1} // Versiyon expected from scan 2
+              // bg-muted={scanIndex === 1}
+            />
+          </div>
       </div>
     </div>
   );
@@ -591,16 +568,16 @@ export default function Home() {
           {/* Comparison Result Section */}
            <div className="mt-6 pt-4">
               <h3 className="text-xl font-semibold text-foreground mb-3 text-center">Karşılaştırma Sonucu</h3>
-               <div className={`flex items-center justify-center gap-3 p-4 rounded-md border ${getResultBgColor()} transition-colors duration-300`}>
+               <div className={`flex items-center justify-center gap-3 p-4 rounded-md border ${getResultBgColor()} transition-colors duration-300 min-h-[68px]`}> {/* Added min-height */}
                   {getResultIcon()}
                   <span className={`text-lg font-medium ${getResultColor()} transition-colors duration-300`}>{getResultText()}</span>
               </div>
-               <p className="text-xs text-muted-foreground mt-2 text-center h-4"> {/* Added fixed height */}
+               <p className="text-xs text-muted-foreground mt-2 text-center h-8"> {/* Increased fixed height for longer messages */}
                    {comparisonResult.status === 'eksik veri' && !isScanning1 && !isScanning2 && "Karşılaştırma için Marka, Tip Onay No, Varyant ve Versiyon bilgileri gereklidir."}
-                   {comparisonResult.status === 'bekleniyor' && !isScanning1 && !isScanning2 && !hasAnyScanData(formData.scan1) && !hasAnyScanData(formData.scan2) && "Başlamak için görselleri yükleyip tarayın veya bilgileri manuel girin."}
+                   {comparisonResult.status === 'bekleniyor' && !isScanning1 && !isScanning2 && !(scannedImage1 || scannedImage2 || hasAnyScanData(formData.scan1) || hasAnyScanData(formData.scan2)) && "Başlamak için görselleri yükleyip tarayın veya bilgileri manuel girin."}
                    {(isScanning1 || isScanning2) && "Taranan veriler karşılaştırılıyor..."}
                    {comparisonResult.status === 'uygun' && !isScanning1 && !isScanning2 && `Veriler onaylı tip (${comparisonResult.matchingTipOnayNo || 'N/A'}) ile eşleşiyor.`}
-                   {comparisonResult.status === 'uygun değil' && !isScanning1 && !isScanning2 && "Veriler herhangi bir onaylı tip ile eşleşmiyor!"}
+                   {comparisonResult.status === 'uygun değil' && !isScanning1 && !isScanning2 && "Girilen/Taranan veriler herhangi bir onaylı tip ile eşleşmiyor!"}
                </p>
           </div>
         </CardContent>
@@ -608,3 +585,4 @@ export default function Home() {
     </div>
   );
 }
+
