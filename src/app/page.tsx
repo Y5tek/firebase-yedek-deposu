@@ -52,10 +52,10 @@ const initialFormData: FormData = {
 
 type ComparisonResultStatus = 'uygun' | 'uygun değil' | 'bekleniyor' | 'eksik veri';
 
-// Updated comparison result state to include matching tip onay no
+// Updated comparison result state to include matching seri tadilat tip onayi
 interface ComparisonResult {
     status: ComparisonResultStatus;
-    matchingTipOnayNo?: string | null;
+    matchingSeriTadilatTipOnayi?: string | null; // Changed from matchingTipOnayNo
 }
 
 // Helper function to get placeholder text based on scan area - Moved outside Home
@@ -173,6 +173,7 @@ const ScanArea = ({
                 <Label htmlFor={`saseNo-${scanIndex}`} className="text-sm font-medium text-foreground">Şase Numarası</Label>
                 <Input
                   id={`saseNo-${scanIndex}`}
+                  name="saseNo" // Ensure name attribute is set
                   value={formDataScan.saseNo || ''}
                   onChange={(e) => handleInputChange(e, scanIndex)}
                   placeholder={getPlaceholder('saseNo', scanIndex)}
@@ -183,6 +184,7 @@ const ScanArea = ({
                 <Label htmlFor={`marka-${scanIndex}`} className="text-sm font-medium text-foreground">Marka</Label>
                 <Input
                   id={`marka-${scanIndex}`}
+                  name="marka" // Ensure name attribute is set
                   value={formDataScan.marka || ''}
                   onChange={(e) => handleInputChange(e, scanIndex)}
                   placeholder={getPlaceholder('marka', scanIndex)}
@@ -197,6 +199,7 @@ const ScanArea = ({
                 <Label htmlFor={`tipOnayNo-${scanIndex}`} className="text-sm font-medium text-foreground">Tip Onay No</Label>
                 <Input
                   id={`tipOnayNo-${scanIndex}`}
+                  name="tipOnayNo" // Ensure name attribute is set
                   value={formDataScan.tipOnayNo || ''}
                   onChange={(e) => handleInputChange(e, scanIndex)}
                   placeholder={getPlaceholder('tipOnayNo', scanIndex)}
@@ -207,6 +210,7 @@ const ScanArea = ({
                 <Label htmlFor={`varyant-${scanIndex}`} className="text-sm font-medium text-foreground">Varyant</Label>
                 <Input
                   id={`varyant-${scanIndex}`}
+                  name="varyant" // Ensure name attribute is set
                   value={formDataScan.varyant || ''}
                   onChange={(e) => handleInputChange(e, scanIndex)}
                   placeholder={getPlaceholder('varyant', scanIndex)}
@@ -217,6 +221,7 @@ const ScanArea = ({
                 <Label htmlFor={`versiyon-${scanIndex}`} className="text-sm font-medium text-foreground">Versiyon</Label>
                 <Input
                   id={`versiyon-${scanIndex}`}
+                  name="versiyon" // Ensure name attribute is set
                   value={formDataScan.versiyon || ''}
                   onChange={(e) => handleInputChange(e, scanIndex)}
                   placeholder={getPlaceholder('versiyon', scanIndex)}
@@ -237,7 +242,7 @@ export default function Home() {
   const [scannedImage2, setScannedImage2] = useState<string | null>(null);
   // Updated comparison result state initialization
   const [comparisonResult, setComparisonResult] =
-    useState<ComparisonResult>({ status: 'bekleniyor', matchingTipOnayNo: null });
+    useState<ComparisonResult>({ status: 'bekleniyor', matchingSeriTadilatTipOnayi: null }); // Updated property name
   const { toast } = useToast();
   const fileInputRef1 = useRef<HTMLInputElement>(null);
   const fileInputRef2 = useRef<HTMLInputElement>(null);
@@ -258,16 +263,16 @@ export default function Home() {
 
 
   const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>, scanIndex: 1 | 2) => {
-    const { id, value } = e.target;
-    const fieldName = id.replace(`-${scanIndex}`, ''); // Remove '-1' or '-2' suffix
+    const { name, value } = e.target; // Use 'name' instead of 'id' for semantic correctness
+    // const fieldName = id.replace(`-${scanIndex}`, ''); // Remove '-1' or '-2' suffix - No longer needed with 'name'
     setFormData(prevData => ({
       ...prevData,
       [`scan${scanIndex}`]: {
         ...prevData[`scan${scanIndex}`],
-        [fieldName]: value,
+        [name]: value, // Use name directly
       },
     }));
-  }, []); // Add empty dependency array
+  }, []); // Added empty dependency array
 
 
   const handleImageUpload = useCallback(async (e: ChangeEvent<HTMLInputElement>, scanIndex: 1 | 2) => {
@@ -280,7 +285,7 @@ export default function Home() {
 
     // Reset relevant states for the specific scan area
     setIsScanning(false); // Ensure scanning state is reset
-    setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null }); // Reset comparison when a new image is selected
+    setComparisonResult({ status: 'bekleniyor', matchingSeriTadilatTipOnayi: null }); // Reset comparison when a new image is selected
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -326,7 +331,7 @@ export default function Home() {
     }
 
     setIsScanning(true);
-    setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null }); // Reset comparison during scan
+    setComparisonResult({ status: 'bekleniyor', matchingSeriTadilatTipOnayi: null }); // Reset comparison during scan
 
     try {
       const result = await extractDataFromVehicleLicense({
@@ -376,7 +381,7 @@ export default function Home() {
   const triggerFileInput = useCallback((scanIndex: 1 | 2) => {
     const fileInputRef = scanIndex === 1 ? fileInputRef1 : fileInputRef2;
     fileInputRef.current?.click();
-  }, []); // Add empty dependency array
+  }, []); // Added empty dependency array
 
   // Updated comparison logic
   const compareData = useCallback(() => {
@@ -395,7 +400,7 @@ export default function Home() {
 
     // Wait if scanning is in progress
     if (isScanning) {
-        setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null });
+        setComparisonResult({ status: 'bekleniyor', matchingSeriTadilatTipOnayi: null });
         return;
     }
 
@@ -404,10 +409,10 @@ export default function Home() {
         // If scans are done but still missing required data across *both*, mark as eksik veri
         // Only show 'eksik veri' if at least one scan attempt was made (indicated by an image or some data)
         if (scannedImage1 || scannedImage2 || hasAnyScanData(scan1Data) || hasAnyScanData(scan2Data)) {
-             setComparisonResult({ status: 'eksik veri', matchingTipOnayNo: null });
+             setComparisonResult({ status: 'eksik veri', matchingSeriTadilatTipOnayi: null });
         } else {
             // If no data scanned yet and no images loaded, stay in bekleniyor state
-            setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null });
+            setComparisonResult({ status: 'bekleniyor', matchingSeriTadilatTipOnayi: null });
         }
         return;
     }
@@ -422,9 +427,10 @@ export default function Home() {
 
 
     if (matchingApproval) {
-        setComparisonResult({ status: 'uygun', matchingTipOnayNo: matchingApproval.tipOnayNo });
+        // Update to store and display seriTadilatTipOnayi
+        setComparisonResult({ status: 'uygun', matchingSeriTadilatTipOnayi: matchingApproval.seriTadilatTipOnayi });
     } else {
-        setComparisonResult({ status: 'uygun değil', matchingTipOnayNo: null });
+        setComparisonResult({ status: 'uygun değil', matchingSeriTadilatTipOnayi: null });
     }
 
   }, [formData, isScanning1, isScanning2, scannedImage1, scannedImage2]); // Dependencies remain the same
@@ -457,14 +463,15 @@ export default function Home() {
     }
   };
 
-  // Updated function to include matching tip onay no
+  // Updated function to include matching seri tadilat tip onayi
   const getResultText = () => {
      const isScanning = isScanning1 || isScanning2;
      if (isScanning) return 'Karşılaştırılıyor...';
 
     switch (comparisonResult.status) {
       case 'uygun':
-        return `Uygun (${comparisonResult.matchingTipOnayNo || 'N/A'})`;
+        // Display matching seriTadilatTipOnayi
+        return `Uygun (${comparisonResult.matchingSeriTadilatTipOnayi || 'N/A'})`;
       case 'uygun değil':
         return 'Uygun Değil';
       case 'eksik veri':
@@ -580,7 +587,8 @@ export default function Home() {
                    {comparisonResult.status === 'eksik veri' && !isScanning1 && !isScanning2 && "Karşılaştırma için Marka, Tip Onay No, Varyant ve Versiyon bilgileri gereklidir."}
                    {comparisonResult.status === 'bekleniyor' && !isScanning1 && !isScanning2 && !(scannedImage1 || scannedImage2 || hasAnyScanData(formData.scan1) || hasAnyScanData(formData.scan2)) && "Başlamak için görselleri yükleyip tarayın veya bilgileri manuel girin."}
                    {(isScanning1 || isScanning2) && "Taranan veriler karşılaştırılıyor..."}
-                   {comparisonResult.status === 'uygun' && !isScanning1 && !isScanning2 && `Veriler onaylı tip (${comparisonResult.matchingTipOnayNo || 'N/A'}) ile eşleşiyor.`}
+                   {/* Updated explanation text for 'uygun' status */}
+                   {comparisonResult.status === 'uygun' && !isScanning1 && !isScanning2 && `Veriler onaylı seri tadilat tip onayı (${comparisonResult.matchingSeriTadilatTipOnayi || 'N/A'}) ile eşleşiyor.`}
                    {comparisonResult.status === 'uygun değil' && !isScanning1 && !isScanning2 && "Girilen/Taranan veriler herhangi bir onaylı tip ile eşleşmiyor!"}
                </p>
           </div>
