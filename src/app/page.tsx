@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Camera, CheckCircle, XCircle, Loader2, ScanLine, Search, FileCheck } from 'lucide-react'; // Import FileCheck icon
+import { Camera, CheckCircle, XCircle, Loader2, ScanLine, Search, FileCheck, ArrowLeft } from 'lucide-react'; // Import FileCheck and ArrowLeft icons
 import {
   extractDataFromVehicleLicense,
   type ExtractDataFromVehicleLicenseOutput,
@@ -462,7 +462,7 @@ export default function Home() {
              <Link href="/seri-tadilat-onay" passHref>
                <Button variant="outline">
                  <FileCheck className="mr-2 h-4 w-4" />
-                 Seri Tadilat Tip Onay Verileri
+                 Seri Tadilat Tip Onay Veri Yönetimi {/* Updated button text */}
                </Button>
              </Link>
            </div>
