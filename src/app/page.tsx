@@ -439,7 +439,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <ScanArea
                 scanIndex={1}
-                title="Tarama Alanı 1"
+                title="Ruhsat Tarama" // Updated title
                 scannedImage={scannedImage1}
                 isScanning={isScanning1}
                 formDataScan={formData.scan1}
@@ -447,7 +447,7 @@ export default function Home() {
              />
               <ScanArea
                 scanIndex={2}
-                title="Tarama Alanı 2"
+                title="Etiket Tarama" // Updated title
                 scannedImage={scannedImage2}
                 isScanning={isScanning2}
                 formDataScan={formData.scan2}
