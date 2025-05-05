@@ -109,10 +109,11 @@ export default function Home() {
     // Reset relevant states for the specific scan area
     setIsScanning(false);
     setScannedImage(null);
-    setFormData(prevData => ({
-        ...prevData,
-        [`scan${scanIndex}`]: { ...initialScanData }
-    }));
+    // Keep existing manually entered data, only overwrite with scanned data later
+    // setFormData(prevData => ({
+    //     ...prevData,
+    //     [`scan${scanIndex}`]: { ...initialScanData }
+    // }));
     setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null }); // Reset comparison when a new image is uploaded
 
     const reader = new FileReader();
@@ -133,10 +134,11 @@ export default function Home() {
         variant: 'destructive',
       });
       setScannedImage(null);
-      setFormData(prevData => ({
-        ...prevData,
-        [`scan${scanIndex}`]: { ...initialScanData }
-      }));
+      // Don't clear form data on image read error
+      // setFormData(prevData => ({
+      //   ...prevData,
+      //   [`scan${scanIndex}`]: { ...initialScanData }
+      // }));
       setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null });
     };
 
@@ -163,10 +165,11 @@ export default function Home() {
     }
 
     setIsScanning(true);
-    setFormData(prevData => ({
-        ...prevData,
-        [`scan${scanIndex}`]: { ...initialScanData } // Reset form data for this scan
-    }));
+    // Don't reset form data before scanning, merge results instead
+    // setFormData(prevData => ({
+    //     ...prevData,
+    //     [`scan${scanIndex}`]: { ...initialScanData } // Reset form data for this scan
+    // }));
     setComparisonResult({ status: 'bekleniyor', matchingTipOnayNo: null }); // Reset comparison during scan
 
     try {
@@ -174,22 +177,39 @@ export default function Home() {
         licenseImageDataUri: scannedImage,
       });
 
-      // Update the state with all extracted data,
-      // the UI will filter which fields to show based on scanIndex
-      setFormData(prevData => ({
-        ...prevData,
-        [`scan${scanIndex}`]: {
-          saseNo: result.saseNo || '',
-          marka: result.marka || '',
-          tipOnayNo: result.tipOnayNo || '',
-          varyant: result.varyant || '',
-          versiyon: result.versiyon || '',
-        },
-      }));
+      // Merge scanned data with existing data for the specific scan area
+      // Scanned data overwrites existing data for the fields it extracts
+      setFormData(prevData => {
+        const currentScanData = prevData[`scan${scanIndex}`];
+        const updatedScanData = { ...currentScanData }; // Start with current data
+
+        if (scanIndex === 1) {
+          if (result.saseNo) updatedScanData.saseNo = result.saseNo;
+          if (result.marka) updatedScanData.marka = result.marka;
+          // If AI extracts other fields for scan 1, allow them to be populated too
+          if (result.tipOnayNo) updatedScanData.tipOnayNo = result.tipOnayNo;
+          if (result.varyant) updatedScanData.varyant = result.varyant;
+          if (result.versiyon) updatedScanData.versiyon = result.versiyon;
+
+        } else { // scanIndex === 2
+          if (result.tipOnayNo) updatedScanData.tipOnayNo = result.tipOnayNo;
+          if (result.varyant) updatedScanData.varyant = result.varyant;
+          if (result.versiyon) updatedScanData.versiyon = result.versiyon;
+          // If AI extracts other fields for scan 2, allow them to be populated too
+          if (result.saseNo) updatedScanData.saseNo = result.saseNo;
+           if (result.marka) updatedScanData.marka = result.marka;
+        }
+
+        return {
+          ...prevData,
+          [`scan${scanIndex}`]: updatedScanData,
+        };
+      });
+
 
       toast({
         title: `Tarama ${scanIndex} Başarılı`,
-        description: `Araç verileri ${scanIndex}. görselden başarıyla okundu.`,
+        description: `Araç verileri ${scanIndex}. görselden başarıyla okundu ve ilgili alanlar güncellendi.`,
       });
     } catch (error) {
       console.error(`Error extracting data for scan ${scanIndex}:`, error);
@@ -198,10 +218,11 @@ export default function Home() {
         description: `Araç verileri ${scanIndex}. görselden okunurken bir hata oluştu. Lütfen manuel kontrol edin.`,
         variant: 'destructive',
       });
-       setFormData(prevData => ({
-        ...prevData,
-        [`scan${scanIndex}`]: { ...initialScanData } // Clear form on error
-      }));
+       // Don't clear form on error
+       // setFormData(prevData => ({
+       //  ...prevData,
+       //  [`scan${scanIndex}`]: { ...initialScanData } // Clear form on error
+       // }));
     } finally {
       setIsScanning(false);
     }
@@ -416,9 +437,8 @@ export default function Home() {
                 id={`saseNo-${scanIndex}`}
                 value={formDataScan.saseNo || ''}
                 onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="-"
-                readOnly // Always read-only, only populated by scanning
-                className="mt-1 bg-muted/50 cursor-not-allowed"
+                placeholder="Şase Numarası Girin"
+                className="mt-1" // Removed readOnly and bg-muted
               />
             </div>
             <div>
@@ -427,24 +447,19 @@ export default function Home() {
                 id={`marka-${scanIndex}`}
                 value={formDataScan.marka || ''}
                 onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="-"
-                 readOnly // Always read-only, only populated by scanning
-                className="mt-1 bg-muted/50 cursor-not-allowed"
+                placeholder="Marka Girin"
+                 className="mt-1" // Removed readOnly and bg-muted
               />
             </div>
-          </>
-        )}
-        {scanIndex === 2 && (
-          <>
+            {/* Also allow editing other fields if they were populated by scan 1 */}
              <div>
               <Label htmlFor={`tipOnayNo-${scanIndex}`} className="text-sm font-medium text-foreground">Tip Onay No</Label>
               <Input
                 id={`tipOnayNo-${scanIndex}`}
                 value={formDataScan.tipOnayNo || ''}
                 onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="-"
-                 readOnly // Always read-only, only populated by scanning
-                 className="mt-1 bg-muted/50 cursor-not-allowed"
+                placeholder="Tip Onay No Girin"
+                 className="mt-1" // Removed readOnly and bg-muted
               />
             </div>
             <div>
@@ -453,9 +468,8 @@ export default function Home() {
                 id={`varyant-${scanIndex}`}
                 value={formDataScan.varyant || ''}
                 onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="-"
-                readOnly // Always read-only, only populated by scanning
-                className="mt-1 bg-muted/50 cursor-not-allowed"
+                placeholder="Varyant Girin"
+                className="mt-1" // Removed readOnly and bg-muted
               />
             </div>
             <div>
@@ -464,9 +478,63 @@ export default function Home() {
                 id={`versiyon-${scanIndex}`}
                 value={formDataScan.versiyon || ''}
                 onChange={(e) => handleInputChange(e, scanIndex)}
-                placeholder="-"
-                readOnly // Always read-only, only populated by scanning
-                className="mt-1 bg-muted/50 cursor-not-allowed"
+                placeholder="Versiyon Girin"
+                className="mt-1" // Removed readOnly and bg-muted
+              />
+            </div>
+          </>
+        )}
+        {scanIndex === 2 && (
+          <>
+             {/* Also allow editing other fields if they were populated by scan 2 */}
+              <div>
+                <Label htmlFor={`saseNo-${scanIndex}`} className="text-sm font-medium text-foreground">Şase Numarası</Label>
+                <Input
+                  id={`saseNo-${scanIndex}`}
+                  value={formDataScan.saseNo || ''}
+                  onChange={(e) => handleInputChange(e, scanIndex)}
+                  placeholder="Şase Numarası Girin"
+                  className="mt-1" // Removed readOnly and bg-muted
+                />
+              </div>
+              <div>
+                <Label htmlFor={`marka-${scanIndex}`} className="text-sm font-medium text-foreground">Marka</Label>
+                <Input
+                  id={`marka-${scanIndex}`}
+                  value={formDataScan.marka || ''}
+                  onChange={(e) => handleInputChange(e, scanIndex)}
+                  placeholder="Marka Girin"
+                  className="mt-1" // Removed readOnly and bg-muted
+                />
+              </div>
+             <div>
+              <Label htmlFor={`tipOnayNo-${scanIndex}`} className="text-sm font-medium text-foreground">Tip Onay No</Label>
+              <Input
+                id={`tipOnayNo-${scanIndex}`}
+                value={formDataScan.tipOnayNo || ''}
+                onChange={(e) => handleInputChange(e, scanIndex)}
+                placeholder="Tip Onay No Girin"
+                 className="mt-1" // Removed readOnly and bg-muted
+              />
+            </div>
+            <div>
+              <Label htmlFor={`varyant-${scanIndex}`} className="text-sm font-medium text-foreground">Varyant</Label>
+              <Input
+                id={`varyant-${scanIndex}`}
+                value={formDataScan.varyant || ''}
+                onChange={(e) => handleInputChange(e, scanIndex)}
+                placeholder="Varyant Girin"
+                className="mt-1" // Removed readOnly and bg-muted
+              />
+            </div>
+            <div>
+              <Label htmlFor={`versiyon-${scanIndex}`} className="text-sm font-medium text-foreground">Versiyon</Label>
+              <Input
+                id={`versiyon-${scanIndex}`}
+                value={formDataScan.versiyon || ''}
+                onChange={(e) => handleInputChange(e, scanIndex)}
+                placeholder="Versiyon Girin"
+                className="mt-1" // Removed readOnly and bg-muted
               />
             </div>
           </>
@@ -485,7 +553,7 @@ export default function Home() {
             Araç Ruhsat/Etiket Karşılaştırıcı
           </CardTitle>
           <CardDescription className="text-center text-muted-foreground">
-            Ruhsat ve etiket fotoğraflarını yükleyerek bilgileri otomatik doldurun ve onaylı tip verileriyle eşleşip eşleşmediğini kontrol edin.
+            Ruhsat ve etiket fotoğraflarını yükleyerek bilgileri otomatik doldurun veya manuel girin ve onaylı tip verileriyle eşleşip eşleşmediğini kontrol edin.
           </CardDescription>
           {/* Add button linking to the Seri Tadilat Onay page */}
           <div className="flex justify-center mt-4">
@@ -529,7 +597,7 @@ export default function Home() {
               </div>
                <p className="text-xs text-muted-foreground mt-2 text-center h-4"> {/* Added fixed height */}
                    {comparisonResult.status === 'eksik veri' && !isScanning1 && !isScanning2 && "Karşılaştırma için Marka, Tip Onay No, Varyant ve Versiyon bilgileri gereklidir."}
-                   {comparisonResult.status === 'bekleniyor' && !isScanning1 && !isScanning2 && !hasAnyScanData(formData.scan1) && !hasAnyScanData(formData.scan2) && "Başlamak için görselleri yükleyip tarayın."}
+                   {comparisonResult.status === 'bekleniyor' && !isScanning1 && !isScanning2 && !hasAnyScanData(formData.scan1) && !hasAnyScanData(formData.scan2) && "Başlamak için görselleri yükleyip tarayın veya bilgileri manuel girin."}
                    {(isScanning1 || isScanning2) && "Taranan veriler karşılaştırılıyor..."}
                    {comparisonResult.status === 'uygun' && !isScanning1 && !isScanning2 && `Veriler onaylı tip (${comparisonResult.matchingTipOnayNo || 'N/A'}) ile eşleşiyor.`}
                    {comparisonResult.status === 'uygun değil' && !isScanning1 && !isScanning2 && "Veriler herhangi bir onaylı tip ile eşleşmiyor!"}
