@@ -5,29 +5,28 @@
  *
  * - extractDataFromVehicleLicense - A function that accepts an image of a vehicle license and returns the extracted data.
  * - ExtractDataFromVehicleLicenseInput - The input type for the extractDataFromVehicleLicense function, which is a data URI of the image.
- * - ExtractDataFromVehicleLicenseOutput - The output type for the extractDataFromVehicleLicense function, which includes ruhsatNo, etiketNo, marka, and model.
+ * - ExtractDataFromVehicleLicenseOutput - The output type for the extractDataFromVehicleLicense function, which includes saseNo, marka, tipOnayNo, varyant, and versiyon.
  */
 
 import {ai} from '@/ai/ai-instance';
 import {z} from 'genkit';
-// Import removed as the flow now directly uses the prompt
-// import {extractRuhsatEtiketData, RuhsatEtiketData} from '@/services/ruhsat-etiket';
 
 const ExtractDataFromVehicleLicenseInputSchema = z.object({
   licenseImageDataUri: z
     .string()
     .describe(
-      'A photo of a vehicle license, as a data URI that must include a MIME type and use Base64 encoding. Expected format: \'data:<mimetype>;base64,<encoded_data>\'.'
+      'A photo of a vehicle license or tag, as a data URI that must include a MIME type and use Base64 encoding. Expected format: \'data:<mimetype>;base64,<encoded_data>\'.'
     ),
 });
 
 export type ExtractDataFromVehicleLicenseInput = z.infer<typeof ExtractDataFromVehicleLicenseInputSchema>;
 
 const ExtractDataFromVehicleLicenseOutputSchema = z.object({
-  ruhsatNo: z.string().optional().describe('Ruhsat numarası'), // Made optional as OCR might fail
-  etiketNo: z.string().optional().describe('Etiket numarası'), // Made optional
-  marka: z.string().optional().describe('Marka'),             // Made optional
-  model: z.string().optional().describe('Model'),             // Made optional
+  saseNo: z.string().optional().describe('Şase Numarası (VIN)'), // New field
+  marka: z.string().optional().describe('Marka'), // Kept field
+  tipOnayNo: z.string().optional().describe('Tip Onay Numarası'), // New field
+  varyant: z.string().optional().describe('Varyant'), // New field
+  versiyon: z.string().optional().describe('Versiyon'), // New field
 });
 
 export type ExtractDataFromVehicleLicenseOutput = z.infer<typeof ExtractDataFromVehicleLicenseOutputSchema>;
@@ -46,11 +45,11 @@ const prompt = ai.definePrompt({
     schema: ExtractDataFromVehicleLicenseInputSchema, // Use the same input schema
   },
   output: {
-    schema: ExtractDataFromVehicleLicenseOutputSchema, // Use the same output schema
+    schema: ExtractDataFromVehicleLicenseOutputSchema, // Use the updated output schema
   },
-  prompt: `Aşağıdaki araç ruhsatı görselinden şu bilgileri çıkar: ruhsat numarası, etiket numarası, marka, model. Eğer bir bilgi bulunamazsa boş bırak.
+  prompt: `Aşağıdaki araç ruhsatı veya etiketi görselinden şu bilgileri çıkar: Şase Numarası, Marka, Tip Onay Numarası, Varyant, Versiyon. Eğer bir bilgi bulunamazsa boş bırak veya null olarak döndür.
 
-   Araç Ruhsat Görseli: {{media url=licenseImageDataUri}}
+   Araç Görseli: {{media url=licenseImageDataUri}}
   `,
 });
 
@@ -73,9 +72,10 @@ async input => {
 
   // Return the structured output from the AI model
   return response.output() || { // Provide default empty object if output is null/undefined
-      ruhsatNo: '',
-      etiketNo: '',
+      saseNo: '',
       marka: '',
-      model: '',
+      tipOnayNo: '',
+      varyant: '',
+      versiyon: '',
     };
 });

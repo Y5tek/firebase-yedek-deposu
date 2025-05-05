@@ -20,22 +20,27 @@ import {
 import {useToast} from '@/hooks/use-toast';
 import Image from 'next/image';
 
+// Updated FormData interface to match new fields
 interface FormData extends ExtractDataFromVehicleLicenseOutput {
-  [key: string]: string; // Add index signature
+  [key: string]: string | undefined; // Allow undefined for optional fields
 }
 
+// Updated initial form data
 const initialFormData: FormData = {
-  ruhsatNo: '',
-  etiketNo: '',
+  saseNo: '',
   marka: '',
-  model: '',
+  tipOnayNo: '',
+  varyant: '',
+  versiyon: '',
 };
 
+// Updated sample data for comparison
 const secondPageData: FormData = {
-  ruhsatNo: '12345', // Sample data for comparison
-  etiketNo: '67890',
-  marka: 'Toyota',
-  model: 'Corolla',
+  saseNo: 'VIN1234567890ABCDE', // Sample VIN
+  marka: 'Volkswagen',
+  tipOnayNo: 'e1*2007/46*0515*10', // Sample Type Approval No
+  varyant: 'AUV', // Sample Variant
+  versiyon: 'AUSAX/FM6FM6', // Sample Version
 };
 
 type ComparisonResult = 'uygun' | 'uygun değil' | 'bekleniyor';
@@ -75,22 +80,24 @@ export default function Home() {
         const result = await extractDataFromVehicleLicense({
           licenseImageDataUri: base64Image,
         });
+        // Update formData with extracted data, ensuring empty strings for undefined fields
         setFormData(prevData => ({
           ...prevData,
-          ruhsatNo: result.ruhsatNo || '',
-          etiketNo: result.etiketNo || '',
+          saseNo: result.saseNo || '',
           marka: result.marka || '',
-          model: result.model || '',
+          tipOnayNo: result.tipOnayNo || '',
+          varyant: result.varyant || '',
+          versiyon: result.versiyon || '',
         }));
         toast({
           title: 'Tarama Başarılı',
-          description: 'Ruhsat verileri başarıyla okundu.',
+          description: 'Araç verileri başarıyla okundu.',
         });
       } catch (error) {
         console.error('Error extracting data:', error);
         toast({
           title: 'Tarama Hatası',
-          description: 'Ruhsat verileri okunurken bir hata oluştu.',
+          description: 'Araç verileri okunurken bir hata oluştu.',
           variant: 'destructive',
         });
         setFormData(initialFormData); // Clear form on error
@@ -115,26 +122,31 @@ export default function Home() {
   };
 
   const compareData = useCallback(() => {
+    // Use updated fields for scanned data
     const scanned = {
-      ruhsatNo: formData.ruhsatNo,
-      etiketNo: formData.etiketNo,
+      saseNo: formData.saseNo,
       marka: formData.marka,
-      model: formData.model,
+      tipOnayNo: formData.tipOnayNo,
+      varyant: formData.varyant,
+      versiyon: formData.versiyon,
     };
 
-    // Check if all scanned fields have data
-    const hasScannedData = Object.values(scanned).every(val => val && val.trim() !== '');
+    // Check if all scanned fields have data (handle potential undefined from state)
+    const hasScannedData = Object.values(scanned).every(val => val && String(val).trim() !== '');
+
 
     if (!hasScannedData) {
         setComparisonResult('bekleniyor');
         return;
     }
 
+    // Compare against updated secondPageData fields
     const isMatch =
-      scanned.ruhsatNo === secondPageData.ruhsatNo &&
-      scanned.etiketNo === secondPageData.etiketNo &&
+      scanned.saseNo === secondPageData.saseNo &&
       scanned.marka === secondPageData.marka &&
-      scanned.model === secondPageData.model;
+      scanned.tipOnayNo === secondPageData.tipOnayNo &&
+      scanned.varyant === secondPageData.varyant &&
+      scanned.versiyon === secondPageData.versiyon;
 
     setComparisonResult(isMatch ? 'uygun' : 'uygun değil');
   }, [formData]);
@@ -182,11 +194,11 @@ export default function Home() {
       <Card className="w-full max-w-3xl shadow-xl">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center text-primary">
-            Araç Ruhsat Tarayıcı
+            Araç Ruhsat/Etiket Tarayıcı
           </CardTitle>
           <CardDescription className="text-center text-muted-foreground">
             Araç ruhsatı veya etiketinin fotoğrafını yükleyerek bilgileri
-            otomatik doldurun ve karşılaştırın.
+            otomatik doldurun ve sistem verileriyle karşılaştırın.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -202,10 +214,10 @@ export default function Home() {
               ) : scannedImage ? (
                  <Image
                   src={scannedImage}
-                  alt="Taranan Ruhsat"
+                  alt="Taranan Ruhsat/Etiket"
                   layout="fill"
                   objectFit="contain"
-                  data-ai-hint="vehicle license plate"
+                  data-ai-hint="vehicle identification plate license"
                 />
               ) : (
                 <div className="flex flex-col items-center text-muted-foreground p-4 text-center">
@@ -220,7 +232,7 @@ export default function Home() {
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Camera className="mr-2 h-4 w-4" />
-              {isScanning ? 'Taranıyor...' : 'Ruhsat Tara/Yükle'}
+              {isScanning ? 'Taranıyor...' : 'Tara/Yükle'}
             </Button>
             <Input
               ref={fileInputRef}
@@ -232,26 +244,15 @@ export default function Home() {
             />
           </div>
 
-          {/* Data Fields Section */}
+          {/* Data Fields Section - Updated Fields */}
           <div className="space-y-4">
              <h3 className="text-lg font-semibold text-foreground mb-2 border-b pb-2">Araç Bilgileri</h3>
             <div className="space-y-3">
-              <div>
-                <Label htmlFor="ruhsatNo" className="text-sm font-medium text-foreground">Ruhsat Numarası</Label>
+               <div>
+                <Label htmlFor="saseNo" className="text-sm font-medium text-foreground">Şase Numarası</Label>
                 <Input
-                  id="ruhsatNo"
-                  value={formData.ruhsatNo}
-                  onChange={handleInputChange}
-                  placeholder="-"
-                  readOnly={isScanning}
-                   className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <Label htmlFor="etiketNo" className="text-sm font-medium text-foreground">Etiket Numarası</Label>
-                <Input
-                  id="etiketNo"
-                  value={formData.etiketNo}
+                  id="saseNo"
+                  value={formData.saseNo || ''} // Handle potential undefined
                   onChange={handleInputChange}
                   placeholder="-"
                   readOnly={isScanning}
@@ -262,7 +263,18 @@ export default function Home() {
                 <Label htmlFor="marka" className="text-sm font-medium text-foreground">Marka</Label>
                 <Input
                   id="marka"
-                  value={formData.marka}
+                  value={formData.marka || ''} // Handle potential undefined
+                  onChange={handleInputChange}
+                  placeholder="-"
+                  readOnly={isScanning}
+                   className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+                />
+              </div>
+               <div>
+                <Label htmlFor="tipOnayNo" className="text-sm font-medium text-foreground">Tip Onay No</Label>
+                <Input
+                  id="tipOnayNo"
+                  value={formData.tipOnayNo || ''} // Handle potential undefined
                   onChange={handleInputChange}
                   placeholder="-"
                   readOnly={isScanning}
@@ -270,10 +282,21 @@ export default function Home() {
                 />
               </div>
               <div>
-                <Label htmlFor="model" className="text-sm font-medium text-foreground">Model</Label>
+                <Label htmlFor="varyant" className="text-sm font-medium text-foreground">Varyant</Label>
                 <Input
-                  id="model"
-                  value={formData.model}
+                  id="varyant"
+                  value={formData.varyant || ''} // Handle potential undefined
+                  onChange={handleInputChange}
+                  placeholder="-"
+                  readOnly={isScanning}
+                  className="mt-1 bg-white read-only:bg-muted/50 read-only:cursor-not-allowed"
+                />
+              </div>
+               <div>
+                <Label htmlFor="versiyon" className="text-sm font-medium text-foreground">Versiyon</Label>
+                <Input
+                  id="versiyon"
+                  value={formData.versiyon || ''} // Handle potential undefined
                   onChange={handleInputChange}
                   placeholder="-"
                   readOnly={isScanning}
@@ -289,9 +312,24 @@ export default function Home() {
                 </div>
                 {comparisonResult !== 'bekleniyor' && (
                     <p className="text-xs text-muted-foreground mt-2">
-                        Taranan ruhsat bilgileri sistemdeki verilerle karşılaştırıldı.
+                        Taranan araç bilgileri sistemdeki verilerle karşılaştırıldı.
                     </p>
                 )}
+                 {comparisonResult === 'bekleniyor' && formData.saseNo && ( // Show explanation if waiting but has scanned data
+                    <p className="text-xs text-muted-foreground mt-2">
+                        Taranan veriler sistemdekiyle karşılaştırılıyor...
+                    </p>
+                 )}
+                 {comparisonResult === 'bekleniyor' && !formData.saseNo && !scannedImage && ( // Initial state hint
+                    <p className="text-xs text-muted-foreground mt-2">
+                        Karşılaştırma için önce bir görsel tarayın veya yükleyin.
+                    </p>
+                 )}
+                  {comparisonResult === 'bekleniyor' && !formData.saseNo && scannedImage && !isScanning && ( // Hint if scan failed/returned no data
+                    <p className="text-xs text-muted-foreground mt-2">
+                       Görsel tarandı ancak veri çıkarılamadı veya eksik. Lütfen tekrar deneyin veya manuel girin.
+                    </p>
+                 )}
             </div>
           </div>
         </CardContent>
