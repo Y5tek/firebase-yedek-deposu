@@ -40,6 +40,7 @@ export default function SeriTadilatOnayPage() {
       tipOnayNo: "",
       varyant: "",
       versiyon: "",
+      seriTadilatTipOnayi: "", // Added default value for new field
     },
   });
 
@@ -50,7 +51,8 @@ export default function SeriTadilatOnayPage() {
         item.marka.toLowerCase() === data.marka.toLowerCase() &&
         item.tipOnayNo.toLowerCase() === data.tipOnayNo.toLowerCase() &&
         item.varyant.toLowerCase() === data.varyant.toLowerCase() &&
-        item.versiyon.toLowerCase() === data.versiyon.toLowerCase()
+        item.versiyon.toLowerCase() === data.versiyon.toLowerCase() &&
+        item.seriTadilatTipOnayi.toLowerCase() === data.seriTadilatTipOnayi.toLowerCase() // Added check for new field
     );
 
     if (exists) {
@@ -83,7 +85,7 @@ export default function SeriTadilatOnayPage() {
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-gradient-to-br from-background to-muted/60 p-4 sm:p-8">
-       <Card className="w-full max-w-4xl shadow-xl bg-card/80 backdrop-blur-sm">
+       <Card className="w-full max-w-6xl shadow-xl bg-card/80 backdrop-blur-sm"> {/* Increased max-width */}
          <CardHeader>
            {/* Add flex layout for header items */}
            <div className="flex items-center justify-between mb-4">
@@ -135,7 +137,7 @@ export default function SeriTadilatOnayPage() {
                      <X className="h-5 w-5" />
                    </Button>
                  </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Adjusted grid columns */}
                    <FormField
                      control={form.control}
                      name="marka"
@@ -188,6 +190,19 @@ export default function SeriTadilatOnayPage() {
                        </FormItem>
                      )}
                    />
+                   <FormField /* Added form field for the new column */
+                     control={form.control}
+                     name="seriTadilatTipOnayi"
+                     render={({ field }) => (
+                       <FormItem>
+                         <FormLabel>Seri Tadilat Tip Onayı</FormLabel>
+                         <FormControl>
+                           <Input placeholder="Örn: STTO-123" {...field} />
+                         </FormControl>
+                         <FormMessage />
+                       </FormItem>
+                     )}
+                   />
                  </div>
                  <div className="flex justify-end space-x-2 pt-4">
                     <Button type="button" variant="outline" onClick={handleCancel}>
@@ -218,16 +233,17 @@ export default function SeriTadilatOnayPage() {
                 <TableCaption>Onaylanmış tip verileri listesi.</TableCaption>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[25%]">Marka</TableHead>
-                    <TableHead className="w-[25%]">Tip Onay No</TableHead>
-                    <TableHead className="w-[25%]">Varyant</TableHead>
-                    <TableHead className="w-[25%]">Versiyon</TableHead>
+                    <TableHead className="w-[20%]">Marka</TableHead> {/* Adjusted width */}
+                    <TableHead className="w-[20%]">Tip Onay No</TableHead> {/* Adjusted width */}
+                    <TableHead className="w-[20%]">Varyant</TableHead> {/* Adjusted width */}
+                    <TableHead className="w-[20%]">Versiyon</TableHead> {/* Adjusted width */}
+                    <TableHead className="w-[20%]">Seri Tadilat Tip Onayı</TableHead> {/* Added new column header */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {approvalData.length === 0 ? (
                      <TableRow>
-                       <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                       <TableCell colSpan={5} className="h-24 text-center text-muted-foreground"> {/* Updated colSpan */}
                          Henüz veri eklenmemiş.
                        </TableCell>
                      </TableRow>
@@ -239,14 +255,16 @@ export default function SeriTadilatOnayPage() {
                             if (a.marka > b.marka) return 1;
                             if (a.tipOnayNo < b.tipOnayNo) return -1;
                             if (a.tipOnayNo > b.tipOnayNo) return 1;
+                            // Optional: Add sorting by other fields if needed
                             return 0;
                         })
                         .map((data, index) => (
-                        <TableRow key={`${data.tipOnayNo}-${index}`}> {/* More robust key */}
+                        <TableRow key={`${data.tipOnayNo}-${data.seriTadilatTipOnayi}-${index}`}> {/* More robust key */}
                           <TableCell className="font-medium">{data.marka}</TableCell>
                           <TableCell>{data.tipOnayNo}</TableCell>
                           <TableCell>{data.varyant}</TableCell>
                           <TableCell>{data.versiyon}</TableCell>
+                          <TableCell>{data.seriTadilatTipOnayi}</TableCell> {/* Added cell for new column */}
                         </TableRow>
                       ))
                    )}
