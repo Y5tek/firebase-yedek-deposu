@@ -1,7 +1,7 @@
 'use client';
 
 import type {ChangeEvent} from 'react';
-import React, {useState, useCallback, useEffect} from 'react';
+import React, {useState, useCallback, useEffect, useRef} from 'react';
 import {
   Card,
   CardContent,
@@ -12,7 +12,7 @@ import {
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
-import {Camera, CheckCircle, XCircle, Loader2, ScanLine} from 'lucide-react';
+import {Camera, CheckCircle, XCircle, Loader2, ScanLine, Search} from 'lucide-react'; // Added Search icon
 import {
   extractDataFromVehicleLicense,
   type ExtractDataFromVehicleLicenseOutput,
@@ -52,7 +52,7 @@ export default function Home() {
   const [comparisonResult, setComparisonResult] =
     useState<ComparisonResult>('bekleniyor');
   const {toast} = useToast();
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const {id, value} = e.target;
@@ -62,48 +62,26 @@ export default function Home() {
     }));
   };
 
+  // Updated handleImageUpload to only set the image, not scan automatically
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsScanning(true);
-    setScannedImage(null); // Clear previous image
-    setFormData(initialFormData); // Reset form data
-    setComparisonResult('bekleniyor'); // Reset comparison
+    // Reset relevant states when a new image is selected
+    setIsScanning(false); // Ensure scanning is false initially
+    setScannedImage(null);
+    setFormData(initialFormData);
+    setComparisonResult('bekleniyor');
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = async () => {
+    reader.onload = () => {
       const base64Image = reader.result as string;
       setScannedImage(base64Image); // Display the uploaded image
-      try {
-        const result = await extractDataFromVehicleLicense({
-          licenseImageDataUri: base64Image,
+       toast({
+          title: 'Görsel Yüklendi',
+          description: 'Görsel taramaya hazır. "Görseli Tara" butonuna tıklayın.',
         });
-        // Update formData with extracted data, ensuring empty strings for undefined fields
-        setFormData(prevData => ({
-          ...prevData,
-          saseNo: result.saseNo || '',
-          marka: result.marka || '',
-          tipOnayNo: result.tipOnayNo || '',
-          varyant: result.varyant || '',
-          versiyon: result.versiyon || '',
-        }));
-        toast({
-          title: 'Tarama Başarılı',
-          description: 'Araç verileri başarıyla okundu.',
-        });
-      } catch (error) {
-        console.error('Error extracting data:', error);
-        toast({
-          title: 'Tarama Hatası',
-          description: 'Araç verileri okunurken bir hata oluştu.',
-          variant: 'destructive',
-        });
-        setFormData(initialFormData); // Clear form on error
-      } finally {
-        setIsScanning(false);
-      }
     };
     reader.onerror = error => {
       console.error('Error reading file:', error);
@@ -112,17 +90,67 @@ export default function Home() {
         description: 'Görsel dosyası okunurken bir hata oluştu.',
         variant: 'destructive',
       });
-      setIsScanning(false);
-      setFormData(initialFormData); // Clear form on error
+      setScannedImage(null); // Clear image on error
+      setFormData(initialFormData);
+      setComparisonResult('bekleniyor');
     };
+     // Clear the file input value so the same file can be selected again
+    if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
   };
+
+  // New function to handle manual scanning
+  const handleManualScan = async () => {
+    if (!scannedImage) {
+       toast({
+        title: 'Görsel Yok',
+        description: 'Lütfen önce taramak için bir görsel yükleyin.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsScanning(true);
+    setFormData(initialFormData); // Reset form data before scanning
+    setComparisonResult('bekleniyor'); // Reset comparison
+
+    try {
+      const result = await extractDataFromVehicleLicense({
+        licenseImageDataUri: scannedImage,
+      });
+      // Update formData with extracted data, ensuring empty strings for undefined fields
+      setFormData(prevData => ({
+        ...prevData,
+        saseNo: result.saseNo || '',
+        marka: result.marka || '',
+        tipOnayNo: result.tipOnayNo || '',
+        varyant: result.varyant || '',
+        versiyon: result.versiyon || '',
+      }));
+      toast({
+        title: 'Tarama Başarılı',
+        description: 'Araç verileri başarıyla okundu.',
+      });
+    } catch (error) {
+      console.error('Error extracting data:', error);
+      toast({
+        title: 'Tarama Hatası',
+        description: 'Araç verileri okunurken bir hata oluştu.',
+        variant: 'destructive',
+      });
+      setFormData(initialFormData); // Clear form on error
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
   };
 
   const compareData = useCallback(() => {
-    // Use updated fields for scanned data
     const scanned = {
       saseNo: formData.saseNo,
       marka: formData.marka,
@@ -131,11 +159,10 @@ export default function Home() {
       versiyon: formData.versiyon,
     };
 
-    // Check if all scanned fields have data (handle potential undefined from state)
-    const hasScannedData = Object.values(scanned).every(val => val && String(val).trim() !== '');
+    const hasScannedData = Object.values(scanned).some(val => val && String(val).trim() !== '');
 
 
-    if (!hasScannedData) {
+    if (!hasScannedData || isScanning) { // Also check isScanning to avoid intermediate comparison state
         setComparisonResult('bekleniyor');
         return;
     }
@@ -149,11 +176,11 @@ export default function Home() {
       scanned.versiyon === secondPageData.versiyon;
 
     setComparisonResult(isMatch ? 'uygun' : 'uygun değil');
-  }, [formData]);
+  }, [formData, isScanning]); // Add isScanning dependency
 
   useEffect(() => {
     compareData();
-  }, [formData, compareData]);
+  }, [formData, compareData]); // Removed isScanning from here as it's handled in compareData
 
   const getResultIcon = () => {
     switch (comparisonResult) {
@@ -162,11 +189,13 @@ export default function Home() {
       case 'uygun değil':
         return <XCircle className="h-6 w-6 text-red-500" />;
       default:
-        return <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />;
+        // Show loader only if actively scanning, otherwise show nothing or a placeholder
+        return isScanning ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : <ScanLine className="h-6 w-6 text-muted-foreground opacity-50"/>;
     }
   };
 
   const getResultText = () => {
+     if (isScanning) return 'Karşılaştırılıyor...'; // Show loading text during scan
     switch (comparisonResult) {
       case 'uygun':
         return 'Uygun';
@@ -178,6 +207,7 @@ export default function Home() {
   };
 
    const getResultColor = () => {
+    if (isScanning) return 'text-muted-foreground'; // Muted color during scan
     switch (comparisonResult) {
       case 'uygun':
         return 'text-green-600';
@@ -203,7 +233,7 @@ export default function Home() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Scan Section */}
-          <div className="space-y-4">
+          <div className="space-y-2"> {/* Reduced space */}
             <h3 className="text-lg font-semibold text-foreground mb-2 border-b pb-2">Tarama Alanı</h3>
              <div className="relative aspect-video w-full bg-muted rounded-md overflow-hidden border border-dashed flex items-center justify-center">
               {isScanning ? (
@@ -226,14 +256,30 @@ export default function Home() {
                 </div>
               )}
             </div>
-            <Button
-              onClick={triggerFileInput}
-              disabled={isScanning}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              <Camera className="mr-2 h-4 w-4" />
-              {isScanning ? 'Taranıyor...' : 'Tara/Yükle'}
-            </Button>
+             {/* Combined Button Row */}
+             <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                onClick={triggerFileInput}
+                disabled={isScanning}
+                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Görsel Seç/Değiştir
+              </Button>
+              <Button
+                onClick={handleManualScan}
+                disabled={isScanning || !scannedImage}
+                variant="secondary" // Use secondary variant for distinction
+                className="flex-1"
+              >
+                {isScanning ? (
+                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="mr-2 h-4 w-4" /> // Using Search icon
+                )}
+                {isScanning ? 'Taranıyor...' : 'Görseli Tara'}
+              </Button>
+            </div>
             <Input
               ref={fileInputRef}
               type="file"
@@ -306,30 +352,22 @@ export default function Home() {
             </div>
              <div className="mt-6 pt-4 border-t">
                 <h3 className="text-lg font-semibold text-foreground mb-3">Karşılaştırma Sonucu</h3>
-                 <div className={`flex items-center gap-3 p-3 rounded-md border ${comparisonResult === 'uygun' ? 'border-green-200 bg-green-50' : comparisonResult === 'uygun değil' ? 'border-red-200 bg-red-50' : 'border-muted bg-muted/50'}`}>
+                 <div className={`flex items-center gap-3 p-3 rounded-md border ${
+                    isScanning ? 'border-muted bg-muted/50' : // Style for loading state
+                    comparisonResult === 'uygun' ? 'border-green-200 bg-green-50' :
+                    comparisonResult === 'uygun değil' ? 'border-red-200 bg-red-50' :
+                    'border-muted bg-muted/50' // Default/Bekleniyor state
+                 }`}>
                     {getResultIcon()}
                     <span className={`text-lg font-medium ${getResultColor()}`}>{getResultText()}</span>
                 </div>
-                {comparisonResult !== 'bekleniyor' && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                        Taranan araç bilgileri sistemdeki verilerle karşılaştırıldı.
-                    </p>
-                )}
-                 {comparisonResult === 'bekleniyor' && formData.saseNo && ( // Show explanation if waiting but has scanned data
-                    <p className="text-xs text-muted-foreground mt-2">
-                        Taranan veriler sistemdekiyle karşılaştırılıyor...
-                    </p>
-                 )}
-                 {comparisonResult === 'bekleniyor' && !formData.saseNo && !scannedImage && ( // Initial state hint
-                    <p className="text-xs text-muted-foreground mt-2">
-                        Karşılaştırma için önce bir görsel tarayın veya yükleyin.
-                    </p>
-                 )}
-                  {comparisonResult === 'bekleniyor' && !formData.saseNo && scannedImage && !isScanning && ( // Hint if scan failed/returned no data
-                    <p className="text-xs text-muted-foreground mt-2">
-                       Görsel tarandı ancak veri çıkarılamadı veya eksik. Lütfen tekrar deneyin veya manuel girin.
-                    </p>
-                 )}
+                 {/* Conditional Hints */}
+                 <p className="text-xs text-muted-foreground mt-2">
+                    {!scannedImage && !isScanning && "Karşılaştırma için önce bir görsel seçin ve tarayın."}
+                    {scannedImage && !formData.saseNo && !isScanning && "Görsel seçildi. Taramak için 'Görseli Tara' butonuna basın."}
+                    {isScanning && "Taranan veriler sistemdekiyle karşılaştırılıyor..."}
+                    {comparisonResult !== 'bekleniyor' && !isScanning && "Taranan araç bilgileri sistemdeki verilerle karşılaştırıldı."}
+                 </p>
             </div>
           </div>
         </CardContent>
