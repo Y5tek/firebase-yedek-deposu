@@ -64,14 +64,12 @@ const extractDataFromVehicleLicenseFlow = ai.defineFlow<
 },
 async input => {
   // Directly generate the response using the defined prompt and the input image
-  const response = await prompt.generate({
-    input: {
-      licenseImageDataUri: input.licenseImageDataUri,
-    },
-  });
+  // Genkit 1.x: Call the prompt function directly with the input
+  const response = await prompt(input);
 
-  // Return the structured output from the AI model
-  return response.output() || { // Provide default empty object if output is null/undefined
+
+  // Genkit 1.x: Access the output property directly
+  return response.output || { // Provide default empty object if output is null/undefined
       saseNo: '',
       marka: '',
       tipOnayNo: '',
