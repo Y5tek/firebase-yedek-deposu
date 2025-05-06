@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 
+=======
+>>>>>>> a9db2ca8afb83ba1351aa9e9178e522abe459450
 "use client"
 
 import * as React from "react"
@@ -30,4 +33,7 @@ const Separator = React.forwardRef<
 Separator.displayName = SeparatorPrimitive.Root.displayName
 
 export { Separator }
+<<<<<<< HEAD
 
+=======
+>>>>>>> a9db2ca8afb83ba1351aa9e9178e522abe459450

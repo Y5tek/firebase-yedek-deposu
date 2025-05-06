@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+
+>>>>>>> a9db2ca8afb83ba1351aa9e9178e522abe459450
 "use client"
 
 import * as React from "react"
@@ -168,11 +172,19 @@ FormMessage.displayName = "FormMessage"
 
 export {
   useFormField,
+<<<<<<< HEAD
   Form,
+=======
+  Form, // Export Form (FormProvider)
+>>>>>>> a9db2ca8afb83ba1351aa9e9178e522abe459450
   FormItem,
   FormLabel,
   FormControl,
   FormDescription,
   FormMessage,
+<<<<<<< HEAD
   FormField,
+=======
+  FormField, // Export FormField (Controller)
+>>>>>>> a9db2ca8afb83ba1351aa9e9178e522abe459450
 }

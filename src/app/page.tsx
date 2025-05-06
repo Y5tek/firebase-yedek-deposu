@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 'use client';
 
@@ -612,3 +613,12 @@ export default function Home() {
 }
 
     
+=======
+import { redirect } from 'next/navigation';
+
+export default function Home() {
+  redirect('/select-branch');
+  // Return null or an empty fragment because redirect throws an error and stops rendering
+  return null;
+}
+>>>>>>> a9db2ca8afb83ba1351aa9e9178e522abe459450

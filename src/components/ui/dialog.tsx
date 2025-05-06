@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+
+>>>>>>> a9db2ca8afb83ba1351aa9e9178e522abe459450
 "use client"
 
 import * as React from "react"
@@ -12,7 +16,11 @@ const DialogTrigger = DialogPrimitive.Trigger
 
 const DialogPortal = DialogPrimitive.Portal
 
+<<<<<<< HEAD
 const DialogClose = DialogPrimitive.Close
+=======
+const DialogClose = DialogPrimitive.Close // Keep this export
+>>>>>>> a9db2ca8afb83ba1351aa9e9178e522abe459450
 
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
@@ -112,7 +120,11 @@ export {
   Dialog,
   DialogPortal,
   DialogOverlay,
+<<<<<<< HEAD
   DialogClose,
+=======
+  DialogClose, // Ensure DialogClose is exported
+>>>>>>> a9db2ca8afb83ba1351aa9e9178e522abe459450
   DialogTrigger,
   DialogContent,
   DialogHeader,
